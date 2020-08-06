@@ -9,6 +9,7 @@ We need smoothing to reduce the noise in the data. Our existing smoothers had a 
 - they weren't unified in a utility
 - they were computationally costly
 - they produced jarring phenomena in sparse data (e.g. sawtooth patterns and jumping)
+- in some cases, they were not filters that were only based on past data
 
 ## Solution Outline
 
