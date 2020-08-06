@@ -13,7 +13,7 @@ We need smoothing to reduce the noise in the data. Our existing smoothers had a 
 
 ## Solution Outline
 
-I implemented a smoother called the Savitzky-Golay filter, which generalizes the existing methods in a utility. It works by fitting a polynomial to a local window in the data weighing more recent data more heavily. The implementation is also fast because the regression takes place on a fixed-length, regularly-spaced grid.
+I implemented a smoother called the Savitzky-Golay filter, which generalizes the existing methods in a utility. It works by fitting a polynomial to a local window in the data weighing more recent data more heavily. This generalization is fast because the regression takes place on a fixed-length, regularly-spaced grid and gives more flexibility to the smoothing.
 
 ## Results
 
