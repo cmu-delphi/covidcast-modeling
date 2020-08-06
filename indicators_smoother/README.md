@@ -17,7 +17,7 @@ I implemented a smoother called the Savitzky-Golay filter, which generalizes the
 
 ## Results
 
-We currently have a faster implementation of our main existing smoother. We are still exploring the optimal parameter settings for the smoother in different contexts.
+We currently have a faster implementation of our main existing smoother. We are still exploring the optimal parameter settings for the smoother in different contexts. Initial results suggests that using the Savitzky-Golay filter with polynomial degree 0 yields a noise-resistant smoother in the sparse regime.
 
 - For a demonstration of the new smoother's behavior on sparse data, see [this notebook](COVIDcast%20Smoothing.ipynb).
 - For mathematical descriptions of the existing smoothers, see [this notebook](smoothing_methods_math.ipynb).
