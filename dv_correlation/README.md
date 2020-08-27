@@ -19,10 +19,10 @@ Maria  2 days ago
 
 > For what it's worth, here are the denominators at the state level for the latest drop. Like Aaron said, mainly steady -- new england actually looks to be increasing. We do see a peak in visits around May, but since June it looks somewhat flat. The decline at the end can be attributed to backfill. AK is somewhat anomalous. The only other concern would be data issues over at HSP, which is not out of question, but not possible to "fix" at our end.
 
-![Denominator](denom.pdf)
+![Denominator](images/denom.pdf)
 
 Addison  2 days ago
 
 > @Maria comparing to the correlations sliced by time in Ryan's notebook (attached), one could argue that the point where the DV correlation "diverges" from the other signals is in mid-June (i.e., DV correlation is steady-ish, whereas the other signals see a big jump in correlation).  This time period (mid-June) which is also when the denominator drops a lot in many states.  So this may give so credence to "Thought 1"?
 
-![correlations](corr_multi.png)
+![correlations](images/corr_multi.png)
