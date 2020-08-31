@@ -1,0 +1,88 @@
+```{r}
+library(covidcast)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r}
+# Fetch the following sources and signals from the API 
+sources = c("doctor-visits", "fb-survey", "fb-survey", "hospital-admissions", 
+            "indicator-combination")
+signals = c("smoothed_adj_cli", "smoothed_cli", "smoothed_hh_cmnty_cli", 
+            "smoothed_adj_covid19", "nmf_day_doc_fbc_fbs_ght")
+names = c("Doctor visits", "Facebook CLI", "Facebook CLI-in-community", 
+          "Hospitalizations", "Combo indicator")
+
+start_day = "2020-04-15"
+end_day = NULL
+
+df_signals = vector("list", length(signals))
+for (i in 1:length(signals)) {
+  df_signals[[i]] = covidcast_signal(sources[i], signals[i], start_day, end_day)
+}
+
+# Fetch USAFacts confirmed case incidence proportion (smoothed with 7-day 
+# trailing average)
+df_cases = covidcast_signal("usa-facts", "confirmed_7dav_incidence_prop",
+                            start_day, end_day)
+
+case_num = 500
+geo_values = covidcast_signal("usa-facts", "confirmed_cumulative_num",
+                              max(df_cases$time_value), 
+                              max(df_cases$time_value)) %>%
+  filter(value >= case_num) %>% pull(geo_value)
+```
+
+```{r}
+df_cor = vector("list", length(signals))
+for (i in 1:length(signals)) {
+  df_cor[[i]] = covidcast_cor(df_signals[[i]] %>% 
+                                filter(geo_value %in% geo_values), 
+                              df_cases %>% 
+                                filter(geo_value %in% geo_values), 
+                              by = "time_value", method = "spearman")
+  df_cor[[i]]$signal = names[i]
+}
+df = do.call(rbind, df_cor)
+
+df_other = df_cor[2:5] %>% purrr::reduce(inner_join,by="time_value")
+df_other = df_other %>%
+  rowwise() %>%
+  mutate(value = mean(c(value.x,value.y,value.x.x,value.y.y),na.rm=TRUE))
+df_other = df_other[,c("time_value","value")]
+df_other$signal = "Non-DV average"
+df = rbind(df,df_other)
+```
+
+```{r}
+df_plot = df[df$signal %in% c("Doctor visits","Non-DV average"),]
+df_plot = df_plot %>%
+  filter(time_value <= lubridate::ymd("2020-08-28")) %>%
+  group_by(signal) %>%
+  arrange(time_value) %>%
+  mutate(dif=c(rep(0,7),diff(value,lag=7))) %>%
+  ungroup()
+ggplot(df_plot %>% filter(time_value >= min(time_value)+6)) +
+  geom_line(aes(x=time_value,y=dif,color=signal)) +
+  guides(color=guide_legend(nrow=2)) +
+  labs(title="Weekly Change in correlation between signals and case rates",
+       subtitle=sprintf("Over all counties with at least 500 cumulative cases"),
+       x="Date", y="7-day Change in Correlation") +
+  theme(legend.position="bottom",legend.title=element_blank())
+```
+
+```{r}
+df_plot2 = df_plot %>%
+  tidyr::pivot_wider(!dif,names_from=signal,values_from=value) %>%
+  arrange(time_value) %>%
+  mutate(dif=c(rep(0,7),diff(`Doctor visits`-`Non-DV average`,lag=7))) %>%
+  ungroup()
+
+ggplot(df_plot2 %>% filter(time_value > min(time_value)+6)) +
+  geom_line(aes(x=time_value,y=dif)) +
+  guides(color=guide_legend(nrow=2)) +
+  labs(title="Weekly Change in [cor(DV, cases) - avg(cor(non-DV,cases))]",
+       subtitle=sprintf("Over all counties with at least 500 cumulative cases"),
+       x="Date", y="Weekly Change in Correlation Difference") +
+  theme(legend.position="bottom",legend.title=element_blank())
+```
