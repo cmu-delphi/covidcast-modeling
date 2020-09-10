@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style type="text/css">
+@font-face {
+font-family: octicons-link;
+src: url(data:font/woff;charset=utf-8;base64,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) format('woff');
+}
+body {
+-webkit-text-size-adjust: 100%;
+text-size-adjust: 100%;
+color: #333;
+font-family: "Helvetica Neue", Helvetica, "Segoe UI", Arial, freesans, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+font-size: 16px;
+line-height: 1.6;
+word-wrap: break-word;
+}
+a {
+background-color: transparent;
+}
+a:active,
+a:hover {
+outline: 0;
+}
+strong {
+font-weight: bold;
+}
+h1 {
+font-size: 2em;
+margin: 0.67em 0;
+}
+img {
+border: 0;
+}
+hr {
+box-sizing: content-box;
+height: 0;
+}
+pre {
+overflow: auto;
+}
+code,
+kbd,
+pre {
+font-family: monospace, monospace;
+font-size: 1em;
+}
+input {
+color: inherit;
+font: inherit;
+margin: 0;
+}
+html input[disabled] {
+cursor: default;
+}
+input {
+line-height: normal;
+}
+input[type="checkbox"] {
+box-sizing: border-box;
+padding: 0;
+}
+table {
+border-collapse: collapse;
+border-spacing: 0;
+}
+td,
+th {
+padding: 0;
+}
+* {
+box-sizing: border-box;
+}
+input {
+font: 13px / 1.4 Helvetica, arial, nimbussansl, liberationsans, freesans, clean, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+}
+a {
+color: #4078c0;
+text-decoration: none;
+}
+a:hover,
+a:active {
+text-decoration: underline;
+}
+hr {
+height: 0;
+margin: 15px 0;
+overflow: hidden;
+background: transparent;
+border: 0;
+border-bottom: 1px solid #ddd;
+}
+hr:before {
+display: table;
+content: "";
+}
+hr:after {
+display: table;
+clear: both;
+content: "";
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+margin-top: 15px;
+margin-bottom: 15px;
+line-height: 1.1;
+}
+h1 {
+font-size: 30px;
+}
+h2 {
+font-size: 21px;
+}
+h3 {
+font-size: 16px;
+}
+h4 {
+font-size: 14px;
+}
+h5 {
+font-size: 12px;
+}
+h6 {
+font-size: 11px;
+}
+blockquote {
+margin: 0;
+}
+ul,
+ol {
+padding: 0;
+margin-top: 0;
+margin-bottom: 0;
+}
+ol ol,
+ul ol {
+list-style-type: lower-roman;
+}
+ul ul ol,
+ul ol ol,
+ol ul ol,
+ol ol ol {
+list-style-type: lower-alpha;
+}
+dd {
+margin-left: 0;
+}
+code {
+font-family: Consolas, "Liberation Mono", Menlo, Courier, monospace;
+font-size: 12px;
+}
+pre {
+margin-top: 0;
+margin-bottom: 0;
+font: 12px Consolas, "Liberation Mono", Menlo, Courier, monospace;
+}
+.select::-ms-expand {
+opacity: 0;
+}
+.octicon {
+font: normal normal normal 16px/1 octicons-link;
+display: inline-block;
+text-decoration: none;
+text-rendering: auto;
+-webkit-font-smoothing: antialiased;
+-moz-osx-font-smoothing: grayscale;
+-webkit-user-select: none;
+-moz-user-select: none;
+-ms-user-select: none;
+user-select: none;
+}
+.octicon-link:before {
+content: '\f05c';
+}
+.markdown-body:before {
+display: table;
+content: "";
+}
+.markdown-body:after {
+display: table;
+clear: both;
+content: "";
+}
+.markdown-body>*:first-child {
+margin-top: 0 !important;
+}
+.markdown-body>*:last-child {
+margin-bottom: 0 !important;
+}
+a:not([href]) {
+color: inherit;
+text-decoration: none;
+}
+.anchor {
+display: inline-block;
+padding-right: 2px;
+margin-left: -18px;
+}
+.anchor:focus {
+outline: none;
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+margin-top: 1em;
+margin-bottom: 16px;
+font-weight: bold;
+line-height: 1.4;
+}
+h1 .octicon-link,
+h2 .octicon-link,
+h3 .octicon-link,
+h4 .octicon-link,
+h5 .octicon-link,
+h6 .octicon-link {
+color: #000;
+vertical-align: middle;
+visibility: hidden;
+}
+h1:hover .anchor,
+h2:hover .anchor,
+h3:hover .anchor,
+h4:hover .anchor,
+h5:hover .anchor,
+h6:hover .anchor {
+text-decoration: none;
+}
+h1:hover .anchor .octicon-link,
+h2:hover .anchor .octicon-link,
+h3:hover .anchor .octicon-link,
+h4:hover .anchor .octicon-link,
+h5:hover .anchor .octicon-link,
+h6:hover .anchor .octicon-link {
+visibility: visible;
+}
+h1 {
+padding-bottom: 0.3em;
+font-size: 2.25em;
+line-height: 1.2;
+border-bottom: 1px solid #eee;
+}
+h1 .anchor {
+line-height: 1;
+}
+h2 {
+padding-bottom: 0.3em;
+font-size: 1.75em;
+line-height: 1.225;
+border-bottom: 1px solid #eee;
+}
+h2 .anchor {
+line-height: 1;
+}
+h3 {
+font-size: 1.5em;
+line-height: 1.43;
+}
+h3 .anchor {
+line-height: 1.2;
+}
+h4 {
+font-size: 1.25em;
+}
+h4 .anchor {
+line-height: 1.2;
+}
+h5 {
+font-size: 1em;
+}
+h5 .anchor {
+line-height: 1.1;
+}
+h6 {
+font-size: 1em;
+color: #777;
+}
+h6 .anchor {
+line-height: 1.1;
+}
+p,
+blockquote,
+ul,
+ol,
+dl,
+table,
+pre {
+margin-top: 0;
+margin-bottom: 16px;
+}
+hr {
+height: 4px;
+padding: 0;
+margin: 16px 0;
+background-color: #e7e7e7;
+border: 0 none;
+}
+ul,
+ol {
+padding-left: 2em;
+}
+ul ul,
+ul ol,
+ol ol,
+ol ul {
+margin-top: 0;
+margin-bottom: 0;
+}
+li>p {
+margin-top: 16px;
+}
+dl {
+padding: 0;
+}
+dl dt {
+padding: 0;
+margin-top: 16px;
+font-size: 1em;
+font-style: italic;
+font-weight: bold;
+}
+dl dd {
+padding: 0 16px;
+margin-bottom: 16px;
+}
+blockquote {
+padding: 0 15px;
+color: #777;
+border-left: 4px solid #ddd;
+}
+blockquote>:first-child {
+margin-top: 0;
+}
+blockquote>:last-child {
+margin-bottom: 0;
+}
+table {
+display: block;
+width: 100%;
+overflow: auto;
+word-break: normal;
+word-break: keep-all;
+}
+table th {
+font-weight: bold;
+}
+table th,
+table td {
+padding: 6px 13px;
+border: 1px solid #ddd;
+}
+table tr {
+background-color: #fff;
+border-top: 1px solid #ccc;
+}
+table tr:nth-child(2n) {
+background-color: #f8f8f8;
+}
+img {
+max-width: 100%;
+box-sizing: content-box;
+background-color: #fff;
+}
+code {
+padding: 0;
+padding-top: 0.2em;
+padding-bottom: 0.2em;
+margin: 0;
+font-size: 85%;
+background-color: rgba(0,0,0,0.04);
+border-radius: 3px;
+}
+code:before,
+code:after {
+letter-spacing: -0.2em;
+content: "\00a0";
+}
+pre>code {
+padding: 0;
+margin: 0;
+font-size: 100%;
+word-break: normal;
+white-space: pre;
+background: transparent;
+border: 0;
+}
+.highlight {
+margin-bottom: 16px;
+}
+.highlight pre,
+pre {
+padding: 16px;
+overflow: auto;
+font-size: 85%;
+line-height: 1.45;
+background-color: #f7f7f7;
+border-radius: 3px;
+}
+.highlight pre {
+margin-bottom: 0;
+word-break: normal;
+}
+pre {
+word-wrap: normal;
+}
+pre code {
+display: inline;
+max-width: initial;
+padding: 0;
+margin: 0;
+overflow: initial;
+line-height: inherit;
+word-wrap: normal;
+background-color: transparent;
+border: 0;
+}
+pre code:before,
+pre code:after {
+content: normal;
+}
+kbd {
+display: inline-block;
+padding: 3px 5px;
+font-size: 11px;
+line-height: 10px;
+color: #555;
+vertical-align: middle;
+background-color: #fcfcfc;
+border: solid 1px #ccc;
+border-bottom-color: #bbb;
+border-radius: 3px;
+box-shadow: inset 0 -1px 0 #bbb;
+}
+.pl-c {
+color: #969896;
+}
+.pl-c1,
+.pl-s .pl-v {
+color: #0086b3;
+}
+.pl-e,
+.pl-en {
+color: #795da3;
+}
+.pl-s .pl-s1,
+.pl-smi {
+color: #333;
+}
+.pl-ent {
+color: #63a35c;
+}
+.pl-k {
+color: #a71d5d;
+}
+.pl-pds,
+.pl-s,
+.pl-s .pl-pse .pl-s1,
+.pl-sr,
+.pl-sr .pl-cce,
+.pl-sr .pl-sra,
+.pl-sr .pl-sre {
+color: #183691;
+}
+.pl-v {
+color: #ed6a43;
+}
+.pl-id {
+color: #b52a1d;
+}
+.pl-ii {
+background-color: #b52a1d;
+color: #f8f8f8;
+}
+.pl-sr .pl-cce {
+color: #63a35c;
+font-weight: bold;
+}
+.pl-ml {
+color: #693a17;
+}
+.pl-mh,
+.pl-mh .pl-en,
+.pl-ms {
+color: #1d3e81;
+font-weight: bold;
+}
+.pl-mq {
+color: #008080;
+}
+.pl-mi {
+color: #333;
+font-style: italic;
+}
+.pl-mb {
+color: #333;
+font-weight: bold;
+}
+.pl-md {
+background-color: #ffecec;
+color: #bd2c00;
+}
+.pl-mi1 {
+background-color: #eaffea;
+color: #55a532;
+}
+.pl-mdr {
+color: #795da3;
+font-weight: bold;
+}
+.pl-mo {
+color: #1d3e81;
+}
+kbd {
+display: inline-block;
+padding: 3px 5px;
+font: 11px Consolas, "Liberation Mono", Menlo, Courier, monospace;
+line-height: 10px;
+color: #555;
+vertical-align: middle;
+background-color: #fcfcfc;
+border: solid 1px #ccc;
+border-bottom-color: #bbb;
+border-radius: 3px;
+box-shadow: inset 0 -1px 0 #bbb;
+}
+.task-list-item {
+list-style-type: none;
+}
+.task-list-item+.task-list-item {
+margin-top: 3px;
+}
+.task-list-item input {
+margin: 0 0.35em 0.25em -1.6em;
+vertical-align: middle;
+}
+:checked+.radio-label {
+z-index: 1;
+position: relative;
+border-color: #4078c0;
+}
+.sourceLine {
+display: inline-block;
+}
+code .kw { color: #000000; }
+code .dt { color: #ed6a43; }
+code .dv { color: #009999; }
+code .bn { color: #009999; }
+code .fl { color: #009999; }
+code .ch { color: #009999; }
+code .st { color: #183691; }
+code .co { color: #969896; }
+code .ot { color: #0086b3; }
+code .al { color: #a61717; }
+code .fu { color: #63a35c; }
+code .er { color: #a61717; background-color: #e3d2d2; }
+code .wa { color: #000000; }
+code .cn { color: #008080; }
+code .sc { color: #008080; }
+code .vs { color: #183691; }
+code .ss { color: #183691; }
+code .im { color: #000000; }
+code .va {color: #008080; }
+code .cf { color: #000000; }
+code .op { color: #000000; }
+code .bu { color: #000000; }
+code .ex { color: #000000; }
+code .pp { color: #999999; }
+code .at { color: #008080; }
+code .do { color: #969896; }
+code .an { color: #008080; }
+code .cv { color: #008080; }
+code .in { color: #008080; }
+</style>
+<style>
+body {
+  box-sizing: border-box;
+  min-width: 200px;
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 45px;
+  padding-top: 0px;
+}
+</style>
+
+</head>
+
+<body>
+
+<h1 id="google-symptoms-dataset">Google Symptoms Dataset</h1>
+<p>Addison</p>
+<ul>
+<li><a href="#temporal-availability">Temporal availability</a></li>
+<li><a href="#spatial-availability">Spatial availability</a></li>
+<li><a href="#symptom-availability">Symptom availability</a></li>
+<li><a href="#symptoms-by-degree-of-availability">Symptoms by degree of availability</a></li>
+<li><a href="#all-symptoms">All symptoms</a></li>
+</ul>
+<p>In this notebook, we look at California data in order to obtain a general impression of the dataset.</p>
+<h3 id="temporal-availability">Temporal availability</h3>
+<p>Data is available at a daily resolution, starting on January 1, 2020. Google also provides weekly rollups every Monday, starting on January 6, 2020. The weekly rollups are useful because the increase in sample size diminishes the effect of the noise added for differential privacy; or in circumstances may allow us obtain information in regions where data is too sparse to be reported at a consistent daily resolution.</p>
+<p>Daily availability:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1"></a><span class="kw">print</span>(<span class="kw">head</span>(<span class="kw">unique</span>(ca_daily_df<span class="op">$</span>date)))</span></code></pre></div>
+<pre><code>## [1] &quot;2020-01-01&quot; &quot;2020-01-02&quot; &quot;2020-01-03&quot; &quot;2020-01-04&quot; &quot;2020-01-05&quot;
+## [6] &quot;2020-01-06&quot;
+</code></pre>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1"></a><span class="kw">print</span>(<span class="kw">tail</span>(<span class="kw">unique</span>(ca_daily_df<span class="op">$</span>date)))</span></code></pre></div>
+<pre><code>## [1] &quot;2020-08-25&quot; &quot;2020-08-26&quot; &quot;2020-08-27&quot; &quot;2020-08-28&quot; &quot;2020-08-29&quot;
+## [6] &quot;2020-08-30&quot;
+</code></pre>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1"></a><span class="kw">print</span>(<span class="kw">length</span>(<span class="kw">unique</span>(ca_daily_df<span class="op">$</span>date)))</span></code></pre></div>
+<pre><code>## [1] 243
+</code></pre>
+<p>Weekly availability:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1"></a><span class="kw">print</span>(<span class="kw">unique</span>(ca_weekly_df<span class="op">$</span>date))</span></code></pre></div>
+<pre><code>##  [1] &quot;2020-08-10&quot; &quot;2020-08-17&quot; &quot;2020-08-24&quot; &quot;2020-01-06&quot; &quot;2020-01-13&quot;
+##  [6] &quot;2020-01-20&quot; &quot;2020-01-27&quot; &quot;2020-02-03&quot; &quot;2020-02-10&quot; &quot;2020-02-17&quot;
+## [11] &quot;2020-02-24&quot; &quot;2020-03-02&quot; &quot;2020-03-09&quot; &quot;2020-03-16&quot; &quot;2020-03-23&quot;
+## [16] &quot;2020-03-30&quot; &quot;2020-04-06&quot; &quot;2020-04-13&quot; &quot;2020-04-20&quot; &quot;2020-04-27&quot;
+## [21] &quot;2020-05-04&quot; &quot;2020-05-11&quot; &quot;2020-05-18&quot; &quot;2020-05-25&quot; &quot;2020-06-01&quot;
+## [26] &quot;2020-06-08&quot; &quot;2020-06-15&quot; &quot;2020-06-22&quot; &quot;2020-06-29&quot; &quot;2020-07-06&quot;
+## [31] &quot;2020-07-13&quot; &quot;2020-07-20&quot; &quot;2020-07-27&quot; &quot;2020-08-03&quot;
+</code></pre>
+<h3 id="spatial-availability">Spatial availability</h3>
+<p>Data is available at the county level, which is an improvement upon our original Google Health Trends signal. However, there are varying degrees of missingness in the data, in line with Google’s standards for not reporting data when the counts are too small, in order to protect users’ privacy.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1"></a><span class="kw">print</span>(<span class="kw">unique</span>(ca_daily_df<span class="op">$</span>open_covid_region_code))</span></code></pre></div>
+<pre><code>##  [1] &quot;US-CA&quot;       &quot;US-CA-06001&quot; &quot;US-CA-06003&quot; &quot;US-CA-06005&quot; &quot;US-CA-06007&quot;
+##  [6] &quot;US-CA-06009&quot; &quot;US-CA-06011&quot; &quot;US-CA-06013&quot; &quot;US-CA-06015&quot; &quot;US-CA-06017&quot;
+## [11] &quot;US-CA-06019&quot; &quot;US-CA-06021&quot; &quot;US-CA-06023&quot; &quot;US-CA-06025&quot; &quot;US-CA-06027&quot;
+## [16] &quot;US-CA-06029&quot; &quot;US-CA-06031&quot; &quot;US-CA-06033&quot; &quot;US-CA-06035&quot; &quot;US-CA-06037&quot;
+## [21] &quot;US-CA-06039&quot; &quot;US-CA-06041&quot; &quot;US-CA-06043&quot; &quot;US-CA-06045&quot; &quot;US-CA-06047&quot;
+## [26] &quot;US-CA-06049&quot; &quot;US-CA-06051&quot; &quot;US-CA-06053&quot; &quot;US-CA-06055&quot; &quot;US-CA-06057&quot;
+## [31] &quot;US-CA-06059&quot; &quot;US-CA-06061&quot; &quot;US-CA-06063&quot; &quot;US-CA-06065&quot; &quot;US-CA-06067&quot;
+## [36] &quot;US-CA-06069&quot; &quot;US-CA-06071&quot; &quot;US-CA-06073&quot; &quot;US-CA-06075&quot; &quot;US-CA-06077&quot;
+## [41] &quot;US-CA-06079&quot; &quot;US-CA-06081&quot; &quot;US-CA-06083&quot; &quot;US-CA-06085&quot; &quot;US-CA-06087&quot;
+## [46] &quot;US-CA-06089&quot; &quot;US-CA-06091&quot; &quot;US-CA-06093&quot; &quot;US-CA-06095&quot; &quot;US-CA-06097&quot;
+## [51] &quot;US-CA-06099&quot; &quot;US-CA-06101&quot; &quot;US-CA-06103&quot; &quot;US-CA-06105&quot; &quot;US-CA-06107&quot;
+## [56] &quot;US-CA-06109&quot; &quot;US-CA-06111&quot; &quot;US-CA-06113&quot; &quot;US-CA-06115&quot;
+</code></pre>
+<h3 id="symptom-availability">Symptom availability</h3>
+<p>The dataset provides normalized search volumes for 422 distinct “symptoms”. Note, however, that one search may count towards multiple symptoms [citation needed, but I read this in their documentation]. The normalization is a linear scaling such that (TODO – but the info about this is in their PDF).</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1"></a>symptom_cols =<span class="st"> </span><span class="kw">colnames</span>(ca_daily_df)[</span>
+<span id="cb11-2"><a href="#cb11-2"></a>                  <span class="kw">str_detect</span>(<span class="kw">colnames</span>(ca_daily_df), <span class="st">&#39;symptom:&#39;</span>)]</span>
+<span id="cb11-3"><a href="#cb11-3"></a>symptom_names =<span class="st"> </span><span class="kw">str_replace</span>(symptom_cols, <span class="kw">fixed</span>(<span class="st">&#39;symptom:&#39;</span>), <span class="st">&#39;&#39;</span>)</span></code></pre></div>
+<p>Although there are hundreds of topics included, note that neither <code>covid</code> nor <code>corona</code> is a substring in any term.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1"></a><span class="kw">sum</span>(<span class="kw">str_detect</span>(symptom_names, <span class="kw">fixed</span>(<span class="st">&#39;covid&#39;</span>, <span class="dt">ignore_case=</span><span class="ot">TRUE</span>)))</span></code></pre></div>
+<pre><code>## [1] 0
+</code></pre>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1"></a><span class="kw">sum</span>(<span class="kw">str_detect</span>(symptom_names, <span class="kw">fixed</span>(<span class="st">&#39;corona&#39;</span>, <span class="dt">ignore_case=</span><span class="ot">TRUE</span>)))</span></code></pre></div>
+<pre><code>## [1] 0
+</code></pre>
+<p>The large number of symptoms for which data is provided spans those that are availability almost every day to those availabile on amount 10% of days. If my understanding is correct, we can think of data availability as roughly corresponding to whether search incidence exceeds a certain minimum threshold.</p>
+<p><img src="data:image/png;base64,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" /><!-- --></p>
+<h3 id="symptoms-by-degree-of-availability">Symptoms by degree of availability</h3>
+<p>Because 422 topics are too many to parse simultaneously, I organize them based on their availability (1 - missingness) level, starting on March 1, 2020 (a soft start point for the coronavirus pandemic in the United States).</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1"></a><span class="cf">for</span> (idx <span class="cf">in</span> <span class="dv">9</span><span class="op">:</span><span class="dv">0</span>) {</span>
+<span id="cb16-2"><a href="#cb16-2"></a>  <span class="kw">cat</span>(<span class="kw">sprintf</span>(<span class="st">&#39;Symptoms that reported data on %d%% to %d%% of days:&#39;</span>,</span>
+<span id="cb16-3"><a href="#cb16-3"></a>              idx<span class="op">*</span><span class="dv">10</span>, (idx<span class="op">+</span><span class="dv">1</span>)<span class="op">*</span><span class="dv">10</span>), <span class="st">&#39;</span><span class="ch">\n</span><span class="st">&#39;</span>)</span>
+<span id="cb16-4"><a href="#cb16-4"></a>  <span class="kw">print</span>(<span class="kw">names</span>(availability_vector[</span>
+<span id="cb16-5"><a href="#cb16-5"></a>          (availability_vector <span class="op">&gt;=</span><span class="st"> </span>idx<span class="op">/</span><span class="dv">10</span>)</span>
+<span id="cb16-6"><a href="#cb16-6"></a>          <span class="op">&amp;</span>(availability_vector <span class="op">&lt;=</span><span class="st"> </span>(idx<span class="op">+</span><span class="dv">1</span>)<span class="op">/</span><span class="dv">10</span>)]))</span>
+<span id="cb16-7"><a href="#cb16-7"></a>  <span class="kw">cat</span>(<span class="st">&#39;</span><span class="ch">\n</span><span class="st">&#39;</span>)</span>
+<span id="cb16-8"><a href="#cb16-8"></a>}</span></code></pre></div>
+<pre><code>## Symptoms that reported data on 90% to 100% of days: 
+## [1] &quot;Acne&quot;        &quot;Allergy&quot;     &quot;Anxiety&quot;     &quot;Common cold&quot; &quot;Diabetes&quot;   
+## [6] &quot;Infection&quot;   &quot;Itch&quot;        &quot;Pain&quot;        &quot;Skin rash&quot;  
+## 
+## Symptoms that reported data on 80% to 90% of days: 
+##  [1] &quot;Abdominal pain&quot;                  &quot;Alcoholism&quot;                     
+##  [3] &quot;Arthritis&quot;                       &quot;Back pain&quot;                      
+##  [5] &quot;Bleeding&quot;                        &quot;Cough&quot;                          
+##  [7] &quot;Depression&quot;                      &quot;Diarrhea&quot;                       
+##  [9] &quot;Fatigue&quot;                         &quot;Fever&quot;                          
+## [11] &quot;Gastroesophageal reflux disease&quot; &quot;Hair loss&quot;                      
+## [13] &quot;Headache&quot;                        &quot;Hypertension&quot;                   
+## [15] &quot;Inflammation&quot;                    &quot;Major depressive disorder&quot;      
+## [17] &quot;Migraine&quot;                        &quot;Obesity&quot;                        
+## [19] &quot;Skin condition&quot;                  &quot;Swelling&quot;                       
+## [21] &quot;Type 2 diabetes&quot;                 &quot;Urinary tract infection&quot;        
+## 
+## Symptoms that reported data on 70% to 80% of days: 
+##  [1] &quot;Abdominal obesity&quot;                       
+##  [2] &quot;Anemia&quot;                                  
+##  [3] &quot;Asthma&quot;                                  
+##  [4] &quot;Attention deficit hyperactivity disorder&quot;
+##  [5] &quot;Bloating&quot;                                
+##  [6] &quot;Bone fracture&quot;                           
+##  [7] &quot;Burn&quot;                                    
+##  [8] &quot;Candidiasis&quot;                             
+##  [9] &quot;Constipation&quot;                            
+## [10] &quot;Cramp&quot;                                   
+## [11] &quot;Dementia&quot;                                
+## [12] &quot;Dermatitis&quot;                              
+## [13] &quot;Epilepsy&quot;                                
+## [14] &quot;Erectile dysfunction&quot;                    
+## [15] &quot;Flatulence&quot;                              
+## [16] &quot;Hay fever&quot;                               
+## [17] &quot;Heartburn&quot;                               
+## [18] &quot;Insomnia&quot;                                
+## [19] &quot;Low back pain&quot;                           
+## [20] &quot;Myocardial infarction&quot;                   
+## [21] &quot;Nausea&quot;                                  
+## [22] &quot;Paresthesia&quot;                             
+## [23] &quot;Perspiration&quot;                            
+## [24] &quot;Scar&quot;                                    
+## [25] &quot;Sleep disorder&quot;                          
+## [26] &quot;Stroke&quot;                                  
+## [27] &quot;Vaginal discharge&quot;                       
+## [28] &quot;Vomiting&quot;                                
+## [29] &quot;Weight gain&quot;                             
+## [30] &quot;Xeroderma&quot;                               
+## 
+## Symptoms that reported data on 60% to 70% of days: 
+##  [1] &quot;Asperger syndrome&quot;            &quot;Autoimmune disease&quot;          
+##  [3] &quot;Bacterial vaginosis&quot;          &quot;Boil&quot;                        
+##  [5] &quot;Bruise&quot;                       &quot;Canker sore&quot;                 
+##  [7] &quot;Carpal tunnel syndrome&quot;       &quot;Chest pain&quot;                  
+##  [9] &quot;Chronic pain&quot;                 &quot;Dandruff&quot;                    
+## [11] &quot;Dizziness&quot;                    &quot;Dysmenorrhea&quot;                
+## [13] &quot;Edema&quot;                        &quot;Generalized anxiety disorder&quot;
+## [15] &quot;Genital wart&quot;                 &quot;Gout&quot;                        
+## [17] &quot;Heart arrhythmia&quot;             &quot;Hemorrhoids&quot;                 
+## [19] &quot;Hives&quot;                        &quot;Hypercholesterolemia&quot;        
+## [21] &quot;Hyperglycemia&quot;                &quot;Hyperthyroidism&quot;             
+## [23] &quot;Hypotension&quot;                  &quot;Hypothyroidism&quot;              
+## [25] &quot;Implantation bleeding&quot;        &quot;Indigestion&quot;                 
+## [27] &quot;Inflammatory bowel disease&quot;   &quot;Iron deficiency&quot;             
+## [29] &quot;Kidney failure&quot;               &quot;Kidney stone&quot;                
+## [31] &quot;Knee Pain&quot;                    &quot;Lesion&quot;                      
+## [33] &quot;Mood disorder&quot;                &quot;Morning sickness&quot;            
+## [35] &quot;Nasal congestion&quot;             &quot;Neck pain&quot;                   
+## [37] &quot;Otitis&quot;                       &quot;Panic attack&quot;                
+## [39] &quot;Pneumonia&quot;                    &quot;Podalgia&quot;                    
+## [41] &quot;Psychosis&quot;                    &quot;Sciatica&quot;                    
+## [43] &quot;Shortness of breath&quot;          &quot;Sinusitis&quot;                   
+## [45] &quot;Skin ulcer&quot;                   &quot;Sleep apnea&quot;                 
+## [47] &quot;Snoring&quot;                      &quot;Sore throat&quot;                 
+## [49] &quot;Swollen lymph nodes&quot;          &quot;Toothache&quot;                   
+## [51] &quot;Tumor&quot;                        &quot;Urinary incontinence&quot;        
+## [53] &quot;Uterine contraction&quot;          &quot;Vertigo&quot;                     
+## [55] &quot;Wart&quot;                        
+## 
+## Symptoms that reported data on 50% to 60% of days: 
+##  [1] &quot;Angina pectoris&quot;             &quot;Bradycardia&quot;                
+##  [3] &quot;Breakthrough bleeding&quot;       &quot;Cirrhosis&quot;                  
+##  [5] &quot;Compulsive behavior&quot;         &quot;Conjunctivitis&quot;             
+##  [7] &quot;Dry eye syndrome&quot;            &quot;Ear pain&quot;                   
+##  [9] &quot;Erythema&quot;                    &quot;Fasciculation&quot;              
+## [11] &quot;Fibromyalgia&quot;                &quot;Food intolerance&quot;           
+## [13] &quot;Halitosis&quot;                   &quot;Hepatitis&quot;                  
+## [15] &quot;Hiccup&quot;                      &quot;Hip pain&quot;                   
+## [17] &quot;Hot flash&quot;                   &quot;Hyperkalemia&quot;               
+## [19] &quot;Hyperpigmentation&quot;           &quot;Hypoglycemia&quot;               
+## [21] &quot;Hypogonadism&quot;                &quot;Hypokalemia&quot;                
+## [23] &quot;Ingrown hair&quot;                &quot;Lactose intolerance&quot;        
+## [25] &quot;Lightheadedness&quot;             &quot;Manic Disorder&quot;             
+## [27] &quot;Menorrhagia&quot;                 &quot;Mouth ulcer&quot;                
+## [29] &quot;Myalgia&quot;                     &quot;Oral candidiasis&quot;           
+## [31] &quot;Osteoporosis&quot;                &quot;Otitis media&quot;               
+## [33] &quot;Pelvic inflammatory disease&quot; &quot;Periodontal disease&quot;        
+## [35] &quot;Periorbital puffiness&quot;       &quot;Peripheral neuropathy&quot;      
+## [37] &quot;Phlegm&quot;                      &quot;Poor posture&quot;               
+## [39] &quot;Prediabetes&quot;                 &quot;Pus&quot;                        
+## [41] &quot;Restless legs syndrome&quot;      &quot;Sexual dysfunction&quot;         
+## [43] &quot;Sharp pain&quot;                  &quot;Skin tag&quot;                   
+## [45] &quot;Stretch marks&quot;               &quot;Swollen feet&quot;               
+## [47] &quot;Syncope&quot;                     &quot;Tachycardia&quot;                
+## [49] &quot;Tinnitus&quot;                    &quot;Tonsillitis&quot;                
+## [51] &quot;Tremor&quot;                      &quot;Underweight&quot;                
+## [53] &quot;Vaginitis&quot;                  
+## 
+## Symptoms that reported data on 40% to 50% of days: 
+##  [1] &quot;Actinic keratosis&quot;             &quot;Amnesia&quot;                      
+##  [3] &quot;Anaphylaxis&quot;                   &quot;Apnea&quot;                        
+##  [5] &quot;Arthralgia&quot;                    &quot;Binge eating&quot;                 
+##  [7] &quot;Blepharospasm&quot;                 &quot;Blood in stool&quot;               
+##  [9] &quot;Blurred vision&quot;                &quot;Braxton Hicks contractions&quot;   
+## [11] &quot;Breast pain&quot;                   &quot;Bronchitis&quot;                   
+## [13] &quot;Bruxism&quot;                       &quot;Bunion&quot;                       
+## [15] &quot;Cardiac arrest&quot;                &quot;Cataract&quot;                     
+## [17] &quot;Chills&quot;                        &quot;Colitis&quot;                      
+## [19] &quot;Coma&quot;                          &quot;Convulsion&quot;                   
+## [21] &quot;Delayed onset muscle soreness&quot; &quot;Dentin hypersensitivity&quot;      
+## [23] &quot;Desquamation&quot;                  &quot;Dysphagia&quot;                    
+## [25] &quot;Eye strain&quot;                    &quot;Fatty liver disease&quot;          
+## [27] &quot;Fibrillation&quot;                  &quot;Food craving&quot;                 
+## [29] &quot;Frequent urination&quot;            &quot;Gingivitis&quot;                   
+## [31] &quot;Guilt&quot;                         &quot;Hematoma&quot;                     
+## [33] &quot;Hematuria&quot;                     &quot;Hyperthermia&quot;                 
+## [35] &quot;Hypoxemia&quot;                     &quot;Impulsivity&quot;                  
+## [37] &quot;Insulin resistance&quot;            &quot;Irregular menstruation&quot;       
+## [39] &quot;Jaundice&quot;                      &quot;Leg cramps&quot;                   
+## [41] &quot;Meningitis&quot;                    &quot;Middle back pain&quot;             
+## [43] &quot;Night sweats&quot;                  &quot;Nodule&quot;                       
+## [45] &quot;Nosebleed&quot;                     &quot;Otitis externa&quot;               
+## [47] &quot;Palpitations&quot;                  &quot;Pulmonary hypertension&quot;       
+## [49] &quot;Pyelonephritis&quot;                &quot;Radiculopathy&quot;                
+## [51] &quot;Red eye&quot;                       &quot;Rhinitis&quot;                     
+## [53] &quot;Rhinorrhea&quot;                    &quot;Rosacea&quot;                      
+## [55] &quot;Scoliosis&quot;                     &quot;Seborrheic dermatitis&quot;        
+## [57] &quot;Self-harm&quot;                     &quot;Shyness&quot;                      
+## [59] &quot;Sleep deprivation&quot;             &quot;Strabismus&quot;                   
+## [61] &quot;Suicidal ideation&quot;             &quot;Thrombocytopenia&quot;             
+## [63] &quot;Tic&quot;                           &quot;Vaginal bleeding&quot;             
+## [65] &quot;Varicose veins&quot;                &quot;Water retention&quot;              
+## [67] &quot;Weakness&quot;                      &quot;Xerostomia&quot;                   
+## [69] &quot;hyperhidrosis&quot;                 &quot;pancreatitis&quot;                 
+## 
+## Symptoms that reported data on 30% to 40% of days: 
+##  [1] &quot;Acute bronchitis&quot;              &quot;Amblyopia&quot;                    
+##  [3] &quot;Anal fissure&quot;                  &quot;Angioedema&quot;                   
+##  [5] &quot;Aphasia&quot;                       &quot;Astigmatism&quot;                  
+##  [7] &quot;Avoidant personality disorder&quot; &quot;Bell&#39;s palsy&quot;                 
+##  [9] &quot;Biliary colic&quot;                 &quot;Blushing&quot;                     
+## [11] &quot;Bowel obstruction&quot;             &quot;Chancre&quot;                      
+## [13] &quot;Cheilitis&quot;                     &quot;Cluster headache&quot;             
+## [15] &quot;Confusion&quot;                     &quot;Congenital heart defect&quot;      
+## [17] &quot;Diabetic ketoacidosis&quot;         &quot;Dysphoria&quot;                    
+## [19] &quot;Eczema&quot;                        &quot;Encephalitis&quot;                 
+## [21] &quot;Epidermoid cyst&quot;               &quot;Erythema chronicum migrans&quot;   
+## [23] &quot;Excessive daytime sleepiness&quot;  &quot;Floater&quot;                      
+## [25] &quot;Folate deficiency&quot;             &quot;Hematochezia&quot;                 
+## [27] &quot;Hypertriglyceridemia&quot;          &quot;Hypertrophy&quot;                  
+## [29] &quot;Hyponatremia&quot;                  &quot;Hypoxia&quot;                      
+## [31] &quot;Intermenstrual bleeding&quot;       &quot;Intracranial pressure&quot;        
+## [33] &quot;Low-grade fever&quot;               &quot;Lymphedema&quot;                   
+## [35] &quot;Melasma&quot;                       &quot;Melena&quot;                       
+## [37] &quot;Milium&quot;                        &quot;Mood swing&quot;                   
+## [39] &quot;Motion sickness&quot;               &quot;Muscle weakness&quot;              
+## [41] &quot;Mydriasis&quot;                     &quot;Neonatal jaundice&quot;            
+## [43] &quot;Nerve injury&quot;                  &quot;Neuralgia&quot;                    
+## [45] &quot;Orthostatic hypotension&quot;       &quot;Pleural effusion&quot;             
+## [47] &quot;Proteinuria&quot;                   &quot;Pruritus ani&quot;                 
+## [49] &quot;Purpura&quot;                       &quot;Shivering&quot;                    
+## [51] &quot;Stuttering&quot;                    &quot;Telangiectasia&quot;               
+## [53] &quot;Testicular pain&quot;               &quot;Throat irritation&quot;            
+## [55] &quot;Unconsciousness&quot;               &quot;Ventricular tachycardia&quot;      
+## [57] &quot;Visual acuity&quot;                 &quot;Wheeze&quot;                       
+## [59] &quot;Yawn&quot;                         
+## 
+## Symptoms that reported data on 20% to 30% of days: 
+##   [1] &quot;Adrenal crisis&quot;                           
+##   [2] &quot;Ageusia&quot;                                  
+##   [3] &quot;Amenorrhea&quot;                               
+##   [4] &quot;Anosmia&quot;                                  
+##   [5] &quot;Ascites&quot;                                  
+##   [6] &quot;Asphyxia&quot;                                 
+##   [7] &quot;Ataxia&quot;                                   
+##   [8] &quot;Atheroma&quot;                                 
+##   [9] &quot;Auditory hallucination&quot;                   
+##  [10] &quot;Balance disorder&quot;                         
+##  [11] &quot;Beau&#39;s lines&quot;                             
+##  [12] &quot;Bleeding on probing&quot;                      
+##  [13] &quot;Bone tumor&quot;                               
+##  [14] &quot;Burning mouth syndrome&quot;                   
+##  [15] &quot;Cataplexy&quot;                                
+##  [16] &quot;Chorea&quot;                                   
+##  [17] &quot;Cleft lip and cleft palate&quot;               
+##  [18] &quot;Clouding of consciousness&quot;                
+##  [19] &quot;Compulsive hoarding&quot;                      
+##  [20] &quot;Crepitus&quot;                                 
+##  [21] &quot;Croup&quot;                                    
+##  [22] &quot;Cyanosis&quot;                                 
+##  [23] &quot;Depersonalization&quot;                        
+##  [24] &quot;Developmental disability&quot;                 
+##  [25] &quot;Dysgeusia&quot;                                
+##  [26] &quot;Dyspareunia&quot;                              
+##  [27] &quot;Dystonia&quot;                                 
+##  [28] &quot;Dysuria&quot;                                  
+##  [29] &quot;Encephalopathy&quot;                           
+##  [30] &quot;Epiphora&quot;                                 
+##  [31] &quot;Esophagitis&quot;                              
+##  [32] &quot;Eye pain&quot;                                 
+##  [33] &quot;Facial nerve paralysis&quot;                   
+##  [34] &quot;Facial swelling&quot;                          
+##  [35] &quot;Fecal incontinence&quot;                       
+##  [36] &quot;Fibrocystic breast changes&quot;               
+##  [37] &quot;Focal seizure&quot;                            
+##  [38] &quot;Gastroparesis&quot;                            
+##  [39] &quot;Generalized tonic–clonic seizure&quot;         
+##  [40] &quot;Gingival recession&quot;                       
+##  [41] &quot;Globus pharyngis&quot;                         
+##  [42] &quot;Goitre&quot;                                   
+##  [43] &quot;Grandiosity&quot;                              
+##  [44] &quot;Granuloma&quot;                                
+##  [45] &quot;Heart murmur&quot;                             
+##  [46] &quot;Hemoptysis&quot;                               
+##  [47] &quot;Hepatotoxicity&quot;                           
+##  [48] &quot;Hydrocephalus&quot;                            
+##  [49] &quot;Hypercalcaemia&quot;                           
+##  [50] &quot;Hyperemesis gravidarum&quot;                   
+##  [51] &quot;Hyperlipidemia&quot;                           
+##  [52] &quot;Hypermobility&quot;                            
+##  [53] &quot;Hypersomnia&quot;                              
+##  [54] &quot;Hyperventilation&quot;                         
+##  [55] &quot;Hypocalcaemia&quot;                            
+##  [56] &quot;Hypochondriasis&quot;                          
+##  [57] &quot;Hypomania&quot;                                
+##  [58] &quot;Impetigo&quot;                                 
+##  [59] &quot;Kyphosis&quot;                                 
+##  [60] &quot;Leukorrhea&quot;                               
+##  [61] &quot;Malabsorption&quot;                            
+##  [62] &quot;Male infertility&quot;                         
+##  [63] &quot;Mitral insufficiency&quot;                     
+##  [64] &quot;Muscle atrophy&quot;                           
+##  [65] &quot;Nasal polyp&quot;                              
+##  [66] &quot;Neck mass&quot;                                
+##  [67] &quot;Neutropenia&quot;                              
+##  [68] &quot;Night terror&quot;                             
+##  [69] &quot;Nocturnal enuresis&quot;                       
+##  [70] &quot;Nystagmus&quot;                                
+##  [71] &quot;Onychorrhexis&quot;                            
+##  [72] &quot;Osteopenia&quot;                               
+##  [73] &quot;Osteophyte&quot;                               
+##  [74] &quot;Papule&quot;                                   
+##  [75] &quot;Paranoia&quot;                                 
+##  [76] &quot;Pericarditis&quot;                             
+##  [77] &quot;Petechia&quot;                                 
+##  [78] &quot;Photophobia&quot;                              
+##  [79] &quot;Photopsia&quot;                                
+##  [80] &quot;Pleurisy&quot;                                 
+##  [81] &quot;Polycythemia&quot;                             
+##  [82] &quot;Polyneuropathy&quot;                           
+##  [83] &quot;Polyuria&quot;                                 
+##  [84] &quot;Post-nasal drip&quot;                          
+##  [85] &quot;Postural orthostatic tachycardia syndrome&quot;
+##  [86] &quot;Ptosis&quot;                                   
+##  [87] &quot;Rectal prolapse&quot;                          
+##  [88] &quot;Renal colic&quot;                              
+##  [89] &quot;Rheum&quot;                                    
+##  [90] &quot;Round ligament pain&quot;                      
+##  [91] &quot;Rumination&quot;                               
+##  [92] &quot;Sensitivity to sound&quot;                     
+##  [93] &quot;Spasticity&quot;                               
+##  [94] &quot;Splenomegaly&quot;                             
+##  [95] &quot;Sputum&quot;                                   
+##  [96] &quot;Stomach rumble&quot;                           
+##  [97] &quot;Subdural hematoma&quot;                        
+##  [98] &quot;Tachypnea&quot;                                
+##  [99] &quot;Tenderness&quot;                               
+## [100] &quot;Thyroid nodule&quot;                           
+## [101] &quot;Trichoptilosis&quot;                           
+## [102] &quot;Upper respiratory tract infection&quot;        
+## [103] &quot;Urethritis&quot;                               
+## [104] &quot;Vasculitis&quot;                               
+## 
+## Symptoms that reported data on 10% to 20% of days: 
+##  [1] &quot;Allergic conjunctivitis&quot;  &quot;Angular cheilitis&quot;       
+##  [3] &quot;Aphonia&quot;                  &quot;Burning Chest Pain&quot;      
+##  [5] &quot;Crackles&quot;                 &quot;Dysautonomia&quot;            
+##  [7] &quot;Hemolysis&quot;                &quot;Hepatic encephalopathy&quot;  
+##  [9] &quot;Hypercapnia&quot;              &quot;Laryngitis&quot;              
+## [11] &quot;Myoclonus&quot;                &quot;Photodermatitis&quot;         
+## [13] &quot;Polydipsia&quot;               &quot;Pulmonary edema&quot;         
+## [15] &quot;Rectal pain&quot;              &quot;Shallow breathing&quot;       
+## [17] &quot;Stridor&quot;                  &quot;Urinary urgency&quot;         
+## [19] &quot;Ventricular fibrillation&quot; &quot;Viral pneumonia&quot;         
+## 
+## Symptoms that reported data on 0% to 10% of days: 
+## character(0)
+</code></pre>
+<h3 id="all-symptoms">All symptoms</h3>
+<p>Here we print the entire symptom list, ordered by the columns in Google’s dataset:</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1"></a><span class="kw">print</span>(symptom_names)</span></code></pre></div>
+<pre><code>##   [1] &quot;Abdominal obesity&quot;                        
+##   [2] &quot;Abdominal pain&quot;                           
+##   [3] &quot;Acne&quot;                                     
+##   [4] &quot;Actinic keratosis&quot;                        
+##   [5] &quot;Acute bronchitis&quot;                         
+##   [6] &quot;Adrenal crisis&quot;                           
+##   [7] &quot;Ageusia&quot;                                  
+##   [8] &quot;Alcoholism&quot;                               
+##   [9] &quot;Allergic conjunctivitis&quot;                  
+##  [10] &quot;Allergy&quot;                                  
+##  [11] &quot;Amblyopia&quot;                                
+##  [12] &quot;Amenorrhea&quot;                               
+##  [13] &quot;Amnesia&quot;                                  
+##  [14] &quot;Anal fissure&quot;                             
+##  [15] &quot;Anaphylaxis&quot;                              
+##  [16] &quot;Anemia&quot;                                   
+##  [17] &quot;Angina pectoris&quot;                          
+##  [18] &quot;Angioedema&quot;                               
+##  [19] &quot;Angular cheilitis&quot;                        
+##  [20] &quot;Anosmia&quot;                                  
+##  [21] &quot;Anxiety&quot;                                  
+##  [22] &quot;Aphasia&quot;                                  
+##  [23] &quot;Aphonia&quot;                                  
+##  [24] &quot;Apnea&quot;                                    
+##  [25] &quot;Arthralgia&quot;                               
+##  [26] &quot;Arthritis&quot;                                
+##  [27] &quot;Ascites&quot;                                  
+##  [28] &quot;Asperger syndrome&quot;                        
+##  [29] &quot;Asphyxia&quot;                                 
+##  [30] &quot;Asthma&quot;                                   
+##  [31] &quot;Astigmatism&quot;                              
+##  [32] &quot;Ataxia&quot;                                   
+##  [33] &quot;Atheroma&quot;                                 
+##  [34] &quot;Attention deficit hyperactivity disorder&quot; 
+##  [35] &quot;Auditory hallucination&quot;                   
+##  [36] &quot;Autoimmune disease&quot;                       
+##  [37] &quot;Avoidant personality disorder&quot;            
+##  [38] &quot;Back pain&quot;                                
+##  [39] &quot;Bacterial vaginosis&quot;                      
+##  [40] &quot;Balance disorder&quot;                         
+##  [41] &quot;Beau&#39;s lines&quot;                             
+##  [42] &quot;Bell&#39;s palsy&quot;                             
+##  [43] &quot;Biliary colic&quot;                            
+##  [44] &quot;Binge eating&quot;                             
+##  [45] &quot;Bleeding&quot;                                 
+##  [46] &quot;Bleeding on probing&quot;                      
+##  [47] &quot;Blepharospasm&quot;                            
+##  [48] &quot;Bloating&quot;                                 
+##  [49] &quot;Blood in stool&quot;                           
+##  [50] &quot;Blurred vision&quot;                           
+##  [51] &quot;Blushing&quot;                                 
+##  [52] &quot;Boil&quot;                                     
+##  [53] &quot;Bone fracture&quot;                            
+##  [54] &quot;Bone tumor&quot;                               
+##  [55] &quot;Bowel obstruction&quot;                        
+##  [56] &quot;Bradycardia&quot;                              
+##  [57] &quot;Braxton Hicks contractions&quot;               
+##  [58] &quot;Breakthrough bleeding&quot;                    
+##  [59] &quot;Breast pain&quot;                              
+##  [60] &quot;Bronchitis&quot;                               
+##  [61] &quot;Bruise&quot;                                   
+##  [62] &quot;Bruxism&quot;                                  
+##  [63] &quot;Bunion&quot;                                   
+##  [64] &quot;Burn&quot;                                     
+##  [65] &quot;Burning Chest Pain&quot;                       
+##  [66] &quot;Burning mouth syndrome&quot;                   
+##  [67] &quot;Candidiasis&quot;                              
+##  [68] &quot;Canker sore&quot;                              
+##  [69] &quot;Cardiac arrest&quot;                           
+##  [70] &quot;Carpal tunnel syndrome&quot;                   
+##  [71] &quot;Cataplexy&quot;                                
+##  [72] &quot;Cataract&quot;                                 
+##  [73] &quot;Chancre&quot;                                  
+##  [74] &quot;Cheilitis&quot;                                
+##  [75] &quot;Chest pain&quot;                               
+##  [76] &quot;Chills&quot;                                   
+##  [77] &quot;Chorea&quot;                                   
+##  [78] &quot;Chronic pain&quot;                             
+##  [79] &quot;Cirrhosis&quot;                                
+##  [80] &quot;Cleft lip and cleft palate&quot;               
+##  [81] &quot;Clouding of consciousness&quot;                
+##  [82] &quot;Cluster headache&quot;                         
+##  [83] &quot;Colitis&quot;                                  
+##  [84] &quot;Coma&quot;                                     
+##  [85] &quot;Common cold&quot;                              
+##  [86] &quot;Compulsive behavior&quot;                      
+##  [87] &quot;Compulsive hoarding&quot;                      
+##  [88] &quot;Confusion&quot;                                
+##  [89] &quot;Congenital heart defect&quot;                  
+##  [90] &quot;Conjunctivitis&quot;                           
+##  [91] &quot;Constipation&quot;                             
+##  [92] &quot;Convulsion&quot;                               
+##  [93] &quot;Cough&quot;                                    
+##  [94] &quot;Crackles&quot;                                 
+##  [95] &quot;Cramp&quot;                                    
+##  [96] &quot;Crepitus&quot;                                 
+##  [97] &quot;Croup&quot;                                    
+##  [98] &quot;Cyanosis&quot;                                 
+##  [99] &quot;Dandruff&quot;                                 
+## [100] &quot;Delayed onset muscle soreness&quot;            
+## [101] &quot;Dementia&quot;                                 
+## [102] &quot;Dentin hypersensitivity&quot;                  
+## [103] &quot;Depersonalization&quot;                        
+## [104] &quot;Depression&quot;                               
+## [105] &quot;Dermatitis&quot;                               
+## [106] &quot;Desquamation&quot;                             
+## [107] &quot;Developmental disability&quot;                 
+## [108] &quot;Diabetes&quot;                                 
+## [109] &quot;Diabetic ketoacidosis&quot;                    
+## [110] &quot;Diarrhea&quot;                                 
+## [111] &quot;Dizziness&quot;                                
+## [112] &quot;Dry eye syndrome&quot;                         
+## [113] &quot;Dysautonomia&quot;                             
+## [114] &quot;Dysgeusia&quot;                                
+## [115] &quot;Dysmenorrhea&quot;                             
+## [116] &quot;Dyspareunia&quot;                              
+## [117] &quot;Dysphagia&quot;                                
+## [118] &quot;Dysphoria&quot;                                
+## [119] &quot;Dystonia&quot;                                 
+## [120] &quot;Dysuria&quot;                                  
+## [121] &quot;Ear pain&quot;                                 
+## [122] &quot;Eczema&quot;                                   
+## [123] &quot;Edema&quot;                                    
+## [124] &quot;Encephalitis&quot;                             
+## [125] &quot;Encephalopathy&quot;                           
+## [126] &quot;Epidermoid cyst&quot;                          
+## [127] &quot;Epilepsy&quot;                                 
+## [128] &quot;Epiphora&quot;                                 
+## [129] &quot;Erectile dysfunction&quot;                     
+## [130] &quot;Erythema&quot;                                 
+## [131] &quot;Erythema chronicum migrans&quot;               
+## [132] &quot;Esophagitis&quot;                              
+## [133] &quot;Excessive daytime sleepiness&quot;             
+## [134] &quot;Eye pain&quot;                                 
+## [135] &quot;Eye strain&quot;                               
+## [136] &quot;Facial nerve paralysis&quot;                   
+## [137] &quot;Facial swelling&quot;                          
+## [138] &quot;Fasciculation&quot;                            
+## [139] &quot;Fatigue&quot;                                  
+## [140] &quot;Fatty liver disease&quot;                      
+## [141] &quot;Fecal incontinence&quot;                       
+## [142] &quot;Fever&quot;                                    
+## [143] &quot;Fibrillation&quot;                             
+## [144] &quot;Fibrocystic breast changes&quot;               
+## [145] &quot;Fibromyalgia&quot;                             
+## [146] &quot;Flatulence&quot;                               
+## [147] &quot;Floater&quot;                                  
+## [148] &quot;Focal seizure&quot;                            
+## [149] &quot;Folate deficiency&quot;                        
+## [150] &quot;Food craving&quot;                             
+## [151] &quot;Food intolerance&quot;                         
+## [152] &quot;Frequent urination&quot;                       
+## [153] &quot;Gastroesophageal reflux disease&quot;          
+## [154] &quot;Gastroparesis&quot;                            
+## [155] &quot;Generalized anxiety disorder&quot;             
+## [156] &quot;Generalized tonic–clonic seizure&quot;         
+## [157] &quot;Genital wart&quot;                             
+## [158] &quot;Gingival recession&quot;                       
+## [159] &quot;Gingivitis&quot;                               
+## [160] &quot;Globus pharyngis&quot;                         
+## [161] &quot;Goitre&quot;                                   
+## [162] &quot;Gout&quot;                                     
+## [163] &quot;Grandiosity&quot;                              
+## [164] &quot;Granuloma&quot;                                
+## [165] &quot;Guilt&quot;                                    
+## [166] &quot;Hair loss&quot;                                
+## [167] &quot;Halitosis&quot;                                
+## [168] &quot;Hay fever&quot;                                
+## [169] &quot;Headache&quot;                                 
+## [170] &quot;Heart arrhythmia&quot;                         
+## [171] &quot;Heart murmur&quot;                             
+## [172] &quot;Heartburn&quot;                                
+## [173] &quot;Hematochezia&quot;                             
+## [174] &quot;Hematoma&quot;                                 
+## [175] &quot;Hematuria&quot;                                
+## [176] &quot;Hemolysis&quot;                                
+## [177] &quot;Hemoptysis&quot;                               
+## [178] &quot;Hemorrhoids&quot;                              
+## [179] &quot;Hepatic encephalopathy&quot;                   
+## [180] &quot;Hepatitis&quot;                                
+## [181] &quot;Hepatotoxicity&quot;                           
+## [182] &quot;Hiccup&quot;                                   
+## [183] &quot;Hip pain&quot;                                 
+## [184] &quot;Hives&quot;                                    
+## [185] &quot;Hot flash&quot;                                
+## [186] &quot;Hydrocephalus&quot;                            
+## [187] &quot;Hypercalcaemia&quot;                           
+## [188] &quot;Hypercapnia&quot;                              
+## [189] &quot;Hypercholesterolemia&quot;                     
+## [190] &quot;Hyperemesis gravidarum&quot;                   
+## [191] &quot;Hyperglycemia&quot;                            
+## [192] &quot;Hyperkalemia&quot;                             
+## [193] &quot;Hyperlipidemia&quot;                           
+## [194] &quot;Hypermobility&quot;                            
+## [195] &quot;Hyperpigmentation&quot;                        
+## [196] &quot;Hypersomnia&quot;                              
+## [197] &quot;Hypertension&quot;                             
+## [198] &quot;Hyperthermia&quot;                             
+## [199] &quot;Hyperthyroidism&quot;                          
+## [200] &quot;Hypertriglyceridemia&quot;                     
+## [201] &quot;Hypertrophy&quot;                              
+## [202] &quot;Hyperventilation&quot;                         
+## [203] &quot;Hypocalcaemia&quot;                            
+## [204] &quot;Hypochondriasis&quot;                          
+## [205] &quot;Hypoglycemia&quot;                             
+## [206] &quot;Hypogonadism&quot;                             
+## [207] &quot;Hypokalemia&quot;                              
+## [208] &quot;Hypomania&quot;                                
+## [209] &quot;Hyponatremia&quot;                             
+## [210] &quot;Hypotension&quot;                              
+## [211] &quot;Hypothyroidism&quot;                           
+## [212] &quot;Hypoxemia&quot;                                
+## [213] &quot;Hypoxia&quot;                                  
+## [214] &quot;Impetigo&quot;                                 
+## [215] &quot;Implantation bleeding&quot;                    
+## [216] &quot;Impulsivity&quot;                              
+## [217] &quot;Indigestion&quot;                              
+## [218] &quot;Infection&quot;                                
+## [219] &quot;Inflammation&quot;                             
+## [220] &quot;Inflammatory bowel disease&quot;               
+## [221] &quot;Ingrown hair&quot;                             
+## [222] &quot;Insomnia&quot;                                 
+## [223] &quot;Insulin resistance&quot;                       
+## [224] &quot;Intermenstrual bleeding&quot;                  
+## [225] &quot;Intracranial pressure&quot;                    
+## [226] &quot;Iron deficiency&quot;                          
+## [227] &quot;Irregular menstruation&quot;                   
+## [228] &quot;Itch&quot;                                     
+## [229] &quot;Jaundice&quot;                                 
+## [230] &quot;Kidney failure&quot;                           
+## [231] &quot;Kidney stone&quot;                             
+## [232] &quot;Knee Pain&quot;                                
+## [233] &quot;Kyphosis&quot;                                 
+## [234] &quot;Lactose intolerance&quot;                      
+## [235] &quot;Laryngitis&quot;                               
+## [236] &quot;Leg cramps&quot;                               
+## [237] &quot;Lesion&quot;                                   
+## [238] &quot;Leukorrhea&quot;                               
+## [239] &quot;Lightheadedness&quot;                          
+## [240] &quot;Low back pain&quot;                            
+## [241] &quot;Low-grade fever&quot;                          
+## [242] &quot;Lymphedema&quot;                               
+## [243] &quot;Major depressive disorder&quot;                
+## [244] &quot;Malabsorption&quot;                            
+## [245] &quot;Male infertility&quot;                         
+## [246] &quot;Manic Disorder&quot;                           
+## [247] &quot;Melasma&quot;                                  
+## [248] &quot;Melena&quot;                                   
+## [249] &quot;Meningitis&quot;                               
+## [250] &quot;Menorrhagia&quot;                              
+## [251] &quot;Middle back pain&quot;                         
+## [252] &quot;Migraine&quot;                                 
+## [253] &quot;Milium&quot;                                   
+## [254] &quot;Mitral insufficiency&quot;                     
+## [255] &quot;Mood disorder&quot;                            
+## [256] &quot;Mood swing&quot;                               
+## [257] &quot;Morning sickness&quot;                         
+## [258] &quot;Motion sickness&quot;                          
+## [259] &quot;Mouth ulcer&quot;                              
+## [260] &quot;Muscle atrophy&quot;                           
+## [261] &quot;Muscle weakness&quot;                          
+## [262] &quot;Myalgia&quot;                                  
+## [263] &quot;Mydriasis&quot;                                
+## [264] &quot;Myocardial infarction&quot;                    
+## [265] &quot;Myoclonus&quot;                                
+## [266] &quot;Nasal congestion&quot;                         
+## [267] &quot;Nasal polyp&quot;                              
+## [268] &quot;Nausea&quot;                                   
+## [269] &quot;Neck mass&quot;                                
+## [270] &quot;Neck pain&quot;                                
+## [271] &quot;Neonatal jaundice&quot;                        
+## [272] &quot;Nerve injury&quot;                             
+## [273] &quot;Neuralgia&quot;                                
+## [274] &quot;Neutropenia&quot;                              
+## [275] &quot;Night sweats&quot;                             
+## [276] &quot;Night terror&quot;                             
+## [277] &quot;Nocturnal enuresis&quot;                       
+## [278] &quot;Nodule&quot;                                   
+## [279] &quot;Nosebleed&quot;                                
+## [280] &quot;Nystagmus&quot;                                
+## [281] &quot;Obesity&quot;                                  
+## [282] &quot;Onychorrhexis&quot;                            
+## [283] &quot;Oral candidiasis&quot;                         
+## [284] &quot;Orthostatic hypotension&quot;                  
+## [285] &quot;Osteopenia&quot;                               
+## [286] &quot;Osteophyte&quot;                               
+## [287] &quot;Osteoporosis&quot;                             
+## [288] &quot;Otitis&quot;                                   
+## [289] &quot;Otitis externa&quot;                           
+## [290] &quot;Otitis media&quot;                             
+## [291] &quot;Pain&quot;                                     
+## [292] &quot;Palpitations&quot;                             
+## [293] &quot;Panic attack&quot;                             
+## [294] &quot;Papule&quot;                                   
+## [295] &quot;Paranoia&quot;                                 
+## [296] &quot;Paresthesia&quot;                              
+## [297] &quot;Pelvic inflammatory disease&quot;              
+## [298] &quot;Pericarditis&quot;                             
+## [299] &quot;Periodontal disease&quot;                      
+## [300] &quot;Periorbital puffiness&quot;                    
+## [301] &quot;Peripheral neuropathy&quot;                    
+## [302] &quot;Perspiration&quot;                             
+## [303] &quot;Petechia&quot;                                 
+## [304] &quot;Phlegm&quot;                                   
+## [305] &quot;Photodermatitis&quot;                          
+## [306] &quot;Photophobia&quot;                              
+## [307] &quot;Photopsia&quot;                                
+## [308] &quot;Pleural effusion&quot;                         
+## [309] &quot;Pleurisy&quot;                                 
+## [310] &quot;Pneumonia&quot;                                
+## [311] &quot;Podalgia&quot;                                 
+## [312] &quot;Polycythemia&quot;                             
+## [313] &quot;Polydipsia&quot;                               
+## [314] &quot;Polyneuropathy&quot;                           
+## [315] &quot;Polyuria&quot;                                 
+## [316] &quot;Poor posture&quot;                             
+## [317] &quot;Post-nasal drip&quot;                          
+## [318] &quot;Postural orthostatic tachycardia syndrome&quot;
+## [319] &quot;Prediabetes&quot;                              
+## [320] &quot;Proteinuria&quot;                              
+## [321] &quot;Pruritus ani&quot;                             
+## [322] &quot;Psychosis&quot;                                
+## [323] &quot;Ptosis&quot;                                   
+## [324] &quot;Pulmonary edema&quot;                          
+## [325] &quot;Pulmonary hypertension&quot;                   
+## [326] &quot;Purpura&quot;                                  
+## [327] &quot;Pus&quot;                                      
+## [328] &quot;Pyelonephritis&quot;                           
+## [329] &quot;Radiculopathy&quot;                            
+## [330] &quot;Rectal pain&quot;                              
+## [331] &quot;Rectal prolapse&quot;                          
+## [332] &quot;Red eye&quot;                                  
+## [333] &quot;Renal colic&quot;                              
+## [334] &quot;Restless legs syndrome&quot;                   
+## [335] &quot;Rheum&quot;                                    
+## [336] &quot;Rhinitis&quot;                                 
+## [337] &quot;Rhinorrhea&quot;                               
+## [338] &quot;Rosacea&quot;                                  
+## [339] &quot;Round ligament pain&quot;                      
+## [340] &quot;Rumination&quot;                               
+## [341] &quot;Scar&quot;                                     
+## [342] &quot;Sciatica&quot;                                 
+## [343] &quot;Scoliosis&quot;                                
+## [344] &quot;Seborrheic dermatitis&quot;                    
+## [345] &quot;Self-harm&quot;                                
+## [346] &quot;Sensitivity to sound&quot;                     
+## [347] &quot;Sexual dysfunction&quot;                       
+## [348] &quot;Shallow breathing&quot;                        
+## [349] &quot;Sharp pain&quot;                               
+## [350] &quot;Shivering&quot;                                
+## [351] &quot;Shortness of breath&quot;                      
+## [352] &quot;Shyness&quot;                                  
+## [353] &quot;Sinusitis&quot;                                
+## [354] &quot;Skin condition&quot;                           
+## [355] &quot;Skin rash&quot;                                
+## [356] &quot;Skin tag&quot;                                 
+## [357] &quot;Skin ulcer&quot;                               
+## [358] &quot;Sleep apnea&quot;                              
+## [359] &quot;Sleep deprivation&quot;                        
+## [360] &quot;Sleep disorder&quot;                           
+## [361] &quot;Snoring&quot;                                  
+## [362] &quot;Sore throat&quot;                              
+## [363] &quot;Spasticity&quot;                               
+## [364] &quot;Splenomegaly&quot;                             
+## [365] &quot;Sputum&quot;                                   
+## [366] &quot;Stomach rumble&quot;                           
+## [367] &quot;Strabismus&quot;                               
+## [368] &quot;Stretch marks&quot;                            
+## [369] &quot;Stridor&quot;                                  
+## [370] &quot;Stroke&quot;                                   
+## [371] &quot;Stuttering&quot;                               
+## [372] &quot;Subdural hematoma&quot;                        
+## [373] &quot;Suicidal ideation&quot;                        
+## [374] &quot;Swelling&quot;                                 
+## [375] &quot;Swollen feet&quot;                             
+## [376] &quot;Swollen lymph nodes&quot;                      
+## [377] &quot;Syncope&quot;                                  
+## [378] &quot;Tachycardia&quot;                              
+## [379] &quot;Tachypnea&quot;                                
+## [380] &quot;Telangiectasia&quot;                           
+## [381] &quot;Tenderness&quot;                               
+## [382] &quot;Testicular pain&quot;                          
+## [383] &quot;Throat irritation&quot;                        
+## [384] &quot;Thrombocytopenia&quot;                         
+## [385] &quot;Thyroid nodule&quot;                           
+## [386] &quot;Tic&quot;                                      
+## [387] &quot;Tinnitus&quot;                                 
+## [388] &quot;Tonsillitis&quot;                              
+## [389] &quot;Toothache&quot;                                
+## [390] &quot;Tremor&quot;                                   
+## [391] &quot;Trichoptilosis&quot;                           
+## [392] &quot;Tumor&quot;                                    
+## [393] &quot;Type 2 diabetes&quot;                          
+## [394] &quot;Unconsciousness&quot;                          
+## [395] &quot;Underweight&quot;                              
+## [396] &quot;Upper respiratory tract infection&quot;        
+## [397] &quot;Urethritis&quot;                               
+## [398] &quot;Urinary incontinence&quot;                     
+## [399] &quot;Urinary tract infection&quot;                  
+## [400] &quot;Urinary urgency&quot;                          
+## [401] &quot;Uterine contraction&quot;                      
+## [402] &quot;Vaginal bleeding&quot;                         
+## [403] &quot;Vaginal discharge&quot;                        
+## [404] &quot;Vaginitis&quot;                                
+## [405] &quot;Varicose veins&quot;                           
+## [406] &quot;Vasculitis&quot;                               
+## [407] &quot;Ventricular fibrillation&quot;                 
+## [408] &quot;Ventricular tachycardia&quot;                  
+## [409] &quot;Vertigo&quot;                                  
+## [410] &quot;Viral pneumonia&quot;                          
+## [411] &quot;Visual acuity&quot;                            
+## [412] &quot;Vomiting&quot;                                 
+## [413] &quot;Wart&quot;                                     
+## [414] &quot;Water retention&quot;                          
+## [415] &quot;Weakness&quot;                                 
+## [416] &quot;Weight gain&quot;                              
+## [417] &quot;Wheeze&quot;                                   
+## [418] &quot;Xeroderma&quot;                                
+## [419] &quot;Xerostomia&quot;                               
+## [420] &quot;Yawn&quot;                                     
+## [421] &quot;hyperhidrosis&quot;                            
+## [422] &quot;pancreatitis&quot;
+</code></pre>
+
+</body>
+</html>

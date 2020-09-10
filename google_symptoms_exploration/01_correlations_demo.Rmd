@@ -1,0 +1,172 @@
+---
+title: "Google Symptoms Dataset"
+author: "Addison"
+output:
+  html_document:
+    toc: true
+    code_folding: hide
+---
+
+```{r import_statements, echo = FALSE, message = FALSE}
+library(tidyverse)
+library(covidcast)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r declare_global_constants}
+POSTAL_TO_STATE = list('AL'='Alabama', 'AK'='Alaska', 'AS'='American Samoa',
+                       'AZ'='Arizona', 'AR'='Arkansas', 'CA'='California',
+                       'CO'='Colorado', 'CT'='Connecticut', 'DE'='Delaware',
+                       'DC'='District of Columbia', 'FL'='Florida',
+                       'GA'='Georgia', 'GU'='Guam', 'HI'='Hawaii',
+                       'ID'='Idaho', 'IL'='Illinois', 'IN'='Indiana',
+                       'IA'='Iowa', 'KS'='Kansas', 'KY'='Kentucky',
+                       'LA'='Louisiana', 'ME'='Maine', 'MD'='Maryland',
+                       'MA'='Massachusetts', 'MI'='Michigan', 'MN'='Minnesota',
+                       'MS'='Mississippi', 'MO'='Missouri', 'MT'='Montana',
+                       'NE'='Nebraska', 'NV'='Nevada', 'NH'='New Hampshire',
+                       'NJ'='New Jersey', 'NM'='New Mexico', 'NY'='New York',
+                       'NC'='North Carolina', 'ND'='North Dakota',
+                       'MP'='Northern Mariana Islands', 'OH'='Ohio',
+                       'OK'='Oklahoma', 'OR'='Oregon', 'PA'='Pennsylvania',
+                       'PR'='Puerto Rico', 'RI'='Rhode Island', 'SC'='South Carolina',
+                       'SD'='South Dakota', 'TN'='Tennessee',
+                       'TX'='Texas', 'UT'='Utah', 'VT'='Vermont', 'VI'='Virgin Islands',
+                       'VA'='Virginia', 'WA'='Washington', 'WV'='West Virginia',
+                       'WI'='Wisconsin', 'WY'='Wyoming')
+
+states = c("al", "ak", "az", "ar", "ca", "co", "ct", "de", "fl", "ga", "hi",
+           "id", "il", "in", "ia", "ks", "ky", "la", "me", "md", "ma", "mi",
+           "mn", "ms", "mo", "mt", "ne", "nv", "nh", "nj", "nm", "ny", "nc",
+           "nd", "oh", "ok", "or", "pa", "ri", "sc", "sd", "tn", "tx", "ut",
+           "vt", "va", "wa", "wv", "wi", "wy")
+
+BASE_DAILY_URL = paste0(
+      'https://raw.githubusercontent.com/google-research/open-covid-19-data/',
+      'master/data/exports/search_trends_symptoms_dataset/',
+      'United%20States%20of%20America/subregions/{state}/',
+      '2020_US_{state_underscore}_daily_symptoms_dataset.csv')
+```
+
+```{r declare_helper_functions}
+expand_state_name = function(state) {
+  state_name = POSTAL_TO_STATE[[str_to_upper(state)]]
+  return(state_name)
+}
+
+load_state_data = function(state) {
+  # Check whether there is a cached version
+  state_fname = sprintf('cache/%s.csv', state)
+  # if there isn't, then download
+  if (!file.exists(state_fname)) {
+    state_name = expand_state_name(state)
+    message(sprintf('Downloading data for %s...', state_name))
+    state_name_underscore = str_replace_all(state_name, ' ', '_')
+    STATE_DAILY_URL = str_replace_all(BASE_DAILY_URL,
+                                   fixed('{state}'), state_name)
+    STATE_DAILY_URL = str_replace_all(STATE_DAILY_URL,
+                                   fixed('{state_underscore}'),
+                                   state_name_underscore)
+    STATE_DAILY_URL = str_replace_all(STATE_DAILY_URL,
+                                   fixed(' '),
+                                   '%20')
+    download.file(STATE_DAILY_URL, state_fname)
+  }
+  single_state = readr::read_csv(state_fname)
+  return (single_state)
+}
+
+
+pull_data_state = function(state, symptom) {
+  single_state = load_state_data(state)
+  unique(single_state$sub_region_2_code)
+  single_state_counties = single_state[!is.na(single_state$sub_region_2_code),]
+  selected_symptom = paste0('symptom:', symptom)
+  single_state_symptom = single_state_counties[,c('sub_region_2_code',
+                                                  'date',
+                                                  selected_symptom)]
+  # Shape into what we want
+  colnames(single_state_symptom) = c('geo_value', 'time_value', 'value')
+  single_state_symptom = single_state_symptom %>% filter (
+      !is.na(value),
+    )
+  single_state_symptom = single_state_symptom %>% transmute (
+      geo_value = sprintf('%05d', as.numeric(geo_value)),
+      signal = symptom,
+      time_value = time_value,
+      direction = NA,
+      issue = lubridate::today(),
+      lag = issue - time_value,
+      value = value,
+      stderr = NA,
+      sample_size = NA,
+      data_source = 'google_symptoms',
+    )
+}
+```
+
+```{r read_google_symptoms_data, class.source = 'fold-show', message=FALSE, warnings=FALSE}
+symptom = 'Anosmia'
+
+dir.create('.cache/')
+states_list = vector('list', length(states))
+for (idx in 1:length(states)) {
+  state = states[idx]
+  states_list[[idx]] = pull_data_state(state, symptom)
+}
+
+anosmia_df = bind_rows(states_list)
+```
+
+```{r case_correlation, echo = TRUE, message=FALSE, warnings=FALSE, cache=TRUE}
+start_day = "2020-03-01"
+end_day = "2020-08-15"
+
+df_inum = covidcast_signal(data_source = "jhu-csse",
+                   signal = "confirmed_7dav_incidence_num",
+                   start_day = start_day, end_day = end_day)
+
+case_num = 500
+geo_values = df_inum %>% group_by(geo_value) %>%
+  summarize(total = sum(value)) %>%
+  filter(total >= case_num) %>% pull(geo_value)
+df_inum_act = df_inum %>% filter(geo_value %in% geo_values)
+df_anosmia_act =  anosmia_df %>% filter(geo_value %in% geo_values)
+
+df_cor1 = covidcast_cor(df_anosmia_act, df_inum_act, by = "time_value")
+
+# Same, but now shift incident cases numbers by 10 days forward in time
+dt_x = 7
+df_cor2 = covidcast_cor(df_anosmia_act, df_inum_act, by = "time_value", dt_x = dt_x)
+
+# Stack rowwise into one data frame, then plot time series
+df_cor = rbind(df_cor1, df_cor2)
+df_cor$Shift = as.factor(c(rep(0, nrow(df_cor1)), rep(dt_x, nrow(df_cor2))))
+plt = ggplot(df_cor, aes(x = time_value, y = value)) +
+  geom_line(aes(color = Shift)) +
+  labs(title = sprintf("Correlation between %s and cases", symptom),
+       subtitle = sprintf("Per day, over counties with at least %i cases", case_num),
+       x = "Date", y = "Correlation") +
+  theme(legend.position = "bottom")
+plt
+```
+
+```{r case_spearman_correlation, echo = TRUE, message=FALSE, warnings=FALSE, cache=TRUE}
+# Repeat this comparison, but now using Spearman (rank) correlation
+df_cor1 = covidcast_cor(df_inum_act, df_anosmia_act, by = "time_value",
+                        method = "spearman")
+df_cor2 = covidcast_cor(df_inum_act, df_anosmia_act, by = "time_value", dt_x = dt_x,
+                        method = "spearman")
+
+# Stack rowwise into one data frame, then plot time series
+df_cor = rbind(df_cor1, df_cor2)
+df_cor$Shift = as.factor(c(rep(0, nrow(df_cor1)), rep(dt_x, nrow(df_cor2))))
+plt = ggplot(df_cor, aes(x = time_value, y = value)) +
+  geom_line(aes(color = Shift)) +
+  labs(title = sprintf("Correlation between %s and cases", symptom),
+       subtitle = sprintf("Per day, over counties with at least %i cases", case_num),
+       x = "Date", y = "Correlation") +
+  theme(legend.position = "bottom")
+plt
+```
