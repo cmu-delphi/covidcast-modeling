@@ -1,6 +1,9 @@
 ## Plans
 - Overview: Old GHT, new Google Symptoms.  Go through previous notebook (copy
   that notebook into this directory)
+    - Old GHT: Based on a week of frenzied work, data generating method (i.e., 
+      how privacy is protected) is opaque
+    - New Google Symptoms: Well [documented](https://github.com/google-research/open-covid-19-data/tree/master/data/exports/search_trends_symptoms_dataset)
 - Demo correlations notebook: very crude time analysis where we aggregate over 
   all counties and examine the correlation with respect to time
 - Open problems; each one can be its own notebook:
