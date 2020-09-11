@@ -110,26 +110,28 @@ pull_data_state = function(state, symptom) {
 ```
 
 ```{r read_google_symptoms_data, class.source = 'fold-show', message=FALSE, warnings=FALSE}
+dir.create('./cache/')
 ak = load_state_data('ak')
 symptom_cols = colnames(ak)[
                   str_detect(colnames(ak), 'symptom:')]
 symptom_names = str_replace(symptom_cols, fixed('symptom:'), '')
 
 symptom_df_list = vector('list', length(symptom_names))
+names(symptom_df_list) = symptom_names
 
-for (idx in 1:length(symptom_names)) {
-  symptom = symptom_names[idx]
-  dir.create('.cache/')
+for (symptom in symptom_names) {
+  cat(symptom, '...\n')
   states_list = vector('list', length(states))
   for (idx in 1:length(states)) {
     state = states[idx]
     states_list[[idx]] = pull_data_state(state, symptom)
   }
-  symptom_df_list[[idx]] = bind_rows(states_list)
+  symptom_df_list[[symptom]] = bind_rows(states_list)
 }
 ```
 
-```{r case_correlation, echo = TRUE, message=FALSE, warnings=FALSE, cache=TRUE}
+
+```{r case_spearman_correlation, echo = TRUE, message=FALSE, warnings=FALSE, cache=TRUE}
 start_day = "2020-03-01"
 end_day = "2020-08-15"
 
@@ -143,26 +145,6 @@ geo_values = df_inum %>% group_by(geo_value) %>%
   filter(total >= case_num) %>% pull(geo_value)
 df_inum_act = df_inum %>% filter(geo_value %in% geo_values)
 df_anosmia_act =  anosmia_df %>% filter(geo_value %in% geo_values)
-
-df_cor1 = covidcast_cor(df_anosmia_act, df_inum_act, by = "time_value")
-
-# Same, but now shift incident cases numbers by 10 days forward in time
-dt_x = 7
-df_cor2 = covidcast_cor(df_anosmia_act, df_inum_act, by = "time_value", dt_x = dt_x)
-
-# Stack rowwise into one data frame, then plot time series
-df_cor = rbind(df_cor1, df_cor2)
-df_cor$Shift = as.factor(c(rep(0, nrow(df_cor1)), rep(dt_x, nrow(df_cor2))))
-plt = ggplot(df_cor, aes(x = time_value, y = value)) +
-  geom_line(aes(color = Shift)) +
-  labs(title = sprintf("Correlation between %s and cases", symptom),
-       subtitle = sprintf("Per day, over counties with at least %i cases", case_num),
-       x = "Date", y = "Correlation") +
-  theme(legend.position = "bottom")
-plt
-```
-
-```{r case_spearman_correlation, echo = TRUE, message=FALSE, warnings=FALSE, cache=TRUE}
 # Repeat this comparison, but now using Spearman (rank) correlation
 df_cor1 = covidcast_cor(df_inum_act, df_anosmia_act, by = "time_value",
                         method = "spearman")
@@ -180,3 +162,17 @@ plt = ggplot(df_cor, aes(x = time_value, y = value)) +
   theme(legend.position = "bottom")
 plt
 ```
+
+TODO:
+
+* Understand the amount of missingness for each symptom
+* Does it still make sense to run correlation function for a symptom that 
+  is available only very sporadically?
+* If it does, run correlation function against all symptoms, at various 
+  time lags
+* Efficient way to present data?  Distribution of correlations over time,
+  and the symptoms that consistently achieved high correlations
+* For those very useful symptoms, is the correlation over time homogeneous 
+  in geography, or not?  If not homogeneous in geography, we may want to 
+  be careful with fitting a global model; we don't want to inadvertently
+  make poor predictions for some places.
