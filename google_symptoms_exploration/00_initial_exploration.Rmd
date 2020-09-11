@@ -1,0 +1,148 @@
+---
+title: "Google Symptoms Dataset"
+author: "Addison"
+output:
+    github_document:
+        toc: true
+---
+```{r import_statements, echo = FALSE, message = FALSE}
+library(tidyverse)
+```
+
+In this notebook, we look at California data in order to obtain a
+general impression of the dataset.
+
+```{r base_urls, echo = FALSE, message=FALSE}
+BASE_DAILY_URL = paste0(
+      'https://raw.githubusercontent.com/google-research/open-covid-19-data/',
+      'master/data/exports/search_trends_symptoms_dataset/',
+      'United%20States%20of%20America/subregions/{state}/',
+      '2020_US_{state}_daily_symptoms_dataset.csv')
+BASE_WEEKLY_URL = paste0(
+      'https://raw.githubusercontent.com/google-research/open-covid-19-data/',
+      'master/data/exports/search_trends_symptoms_dataset/',
+      'United%20States%20of%20America/subregions/{state}/',
+      '2020_US_{state}_weekly_symptoms_dataset.csv')
+
+CA_DAILY_URL = str_replace_all(BASE_DAILY_URL,
+                               fixed('{state}'), 'California')
+CA_WEEKLY_URL = str_replace_all(BASE_WEEKLY_URL,
+                                fixed('{state}'), 'California')
+```
+
+```{r read_data, echo = FALSE, message=FALSE}
+ca_daily_df = read_csv(CA_DAILY_URL)
+ca_weekly_df = read_csv(CA_WEEKLY_URL)
+```
+
+
+### Temporal availability
+Data is available at a daily resolution, starting on January 1, 2020.
+Google also provides weekly rollups every Monday, starting on January 6, 2020.
+The weekly rollups are useful because the increase in sample size
+diminishes the effect of the noise added for differential privacy; or in
+circumstances may allow us obtain information in regions where data is
+too sparse to be reported at a consistent daily resolution.
+
+Daily availability:
+```{r daily_availability, echo = TRUE}
+print(head(unique(ca_daily_df$date)))
+print(tail(unique(ca_daily_df$date)))
+print(length(unique(ca_daily_df$date)))
+```
+
+Weekly availability:
+```{r weekly_availability, echo = TRUE}
+print(unique(ca_weekly_df$date))
+```
+
+### Spatial availability
+Data is available at the county level, which is an improvement upon our
+original Google Health Trends signal.  However, there are varying degrees
+of missingness in the data, in line with Google's standards for not reporting
+data when the counts are too small, in order to protect users' privacy.
+
+```{r spatial_availability, echo = TRUE}
+print(unique(ca_daily_df$open_covid_region_code))
+```
+
+### Symptom availability
+The dataset provides normalized search volumes for 422 distinct "symptoms".
+Note, however, that one search may count towards multiple symptoms
+[citation needed, but I read this in their documentation].  The normalization
+is a linear scaling such that (TODO -- but the info about this is in their
+PDF).
+
+```{r extract_symptom_columns, echo = TRUE}
+symptom_cols = colnames(ca_daily_df)[
+                  str_detect(colnames(ca_daily_df), 'symptom:')]
+symptom_names = str_replace(symptom_cols, fixed('symptom:'), '')
+```
+
+Although there are hundreds of topics included, note that neither
+`covid` nor `corona` is a substring in any term.
+
+```{r grep_covid_corona, echo = TRUE}
+sum(str_detect(symptom_names, fixed('covid', ignore_case=TRUE)))
+sum(str_detect(symptom_names, fixed('corona', ignore_case=TRUE)))
+```
+
+```{r calculate_availability, echo = FALSE}
+data_matrix = ca_daily_df %>% filter(
+    date >= '2020-03-15',
+  ) %>% select (
+    contains('symptom:'),
+  ) %>% as.matrix
+availability_vector = apply(!is.na(data_matrix), 2, mean)
+names(availability_vector) = symptom_names
+```
+
+The large number of symptoms for which data is provided spans those that
+are availability almost every day to those availabile on amount 10% of days.
+If my understanding is correct, we can think of data availability as roughly
+corresponding to whether search incidence exceeds a certain minimum threshold.
+
+```{r plot_availability, echo = FALSE}
+plot(sort(availability_vector),
+     main='Availability of data across symptoms',
+     ylab='Prop. of days that a symptom reported data'
+)
+```
+
+### Symptoms by degree of availability
+Because 422 topics are too many to parse simultaneously, I organize them
+based on their availability (1 - missingness) level, starting on March 1, 2020
+(a soft start point for the coronavirus pandemic in the United States).
+```{r print_symptoms_by_availibility, echo = TRUE}
+for (idx in 9:0) {
+  cat(sprintf('Symptoms that reported data on %d%% to %d%% of days:',
+              idx*10, (idx+1)*10), '\n')
+  print(names(availability_vector[
+          (availability_vector >= idx/10)
+          &(availability_vector <= (idx+1)/10)]))
+  cat('\n')
+}
+```
+
+### All symptoms
+Here we print the entire symptom list, ordered by the columns in Google's
+dataset:
+```{r print_all_symptoms, echo = TRUE}
+print(symptom_names)
+```
+
+```{r comment_block, echo = FALSE}
+# Further directions
+# Filter to counties [states] for each
+# Concatenate all counties [states]
+# Export
+
+# * Missingness in data by column (symptom type)
+#   * Need a better way of visualizing given that there are over 400 symptoms
+# * Many of these symptoms are not necessarily related to COVID; most seem like 
+#   general health terms, such as "Weight gain" and "Wart"
+# * Some way of imputation
+# * Find principal components (maybe some subset of the columns that are densely
+#   populated?), use PC1 as the initial signal
+# * Run correlations analysis against initial version of signal
+```
