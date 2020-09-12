@@ -1,6 +1,7 @@
-.Rproj.user/
-.Rhistory
-.RData
+.Rproj.user
+*.Rhistory
+*.RData
 .Ruserdata
-delphi-epi-forcasting.Rproj
 .DS_Store
+.DS_Store?
+*.Rproj
