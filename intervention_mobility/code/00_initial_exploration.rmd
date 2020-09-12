@@ -1,0 +1,160 @@
+---
+title: "Government Intervention and Mobility Trend"
+author: "Kenneth Lee"
+date: "10/09/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+## Mobility and Cases Data Exploration
+
+In this notebook, we will explore the mobility data from Safegraph via [Delphi Epidata API](https://cmu-delphi.github.io/delphi-epidata/api/covidcast_signals.html). 
+
+
+```{r import packages, warning = FALSE, message = FALSE}
+library(ggplot2)
+library (readr)
+library(tidyverse)
+library(dplyr)
+library(covidcast)
+library(lubridate)
+library(ggpubr)
+```
+
+```{r define global variables}
+STARTDATE <- "2020-02-20"
+ENDDATE <- date(Sys.time())
+GEO_TYPE = "state" # state-level
+GEO_VALUE = "*" # all states
+EXCLUDED_AREAS = c("as","gu", "mp","vi") # excluded areas due to small sample size
+DT_X = 7 # 	 Time shifts to consider for x
+```
+
+
+```{r import data, warning = FALSE, message=FALSE}
+# The fraction of mobile devices that spent more than 6 hours at a 
+# location other than their home during the daytime 
+# (SafeGraph’s full_time_work_behavior_devices / device_count)
+ftime <- covidcast_signal(data_source = "safegraph", 
+                          signal ="full_time_work_prop",
+                          start_day = STARTDATE, 
+                          end_day = ENDDATE,
+                          geo_type = GEO_TYPE, 
+                          geo_values = GEO_VALUE)
+
+ftime <- ftime %>%  filter(!(geo_value %in% EXCLUDED_AREAS))
+
+# A composite signal from JHU and USA facts
+case_avg <- covidcast_signal(data_source = "indicator-combination",
+                         signal ="confirmed_7dav_incidence_num",
+                         start_day = STARTDATE, 
+                         end_day = ENDDATE,
+                         geo_type = GEO_TYPE, 
+                         geo_values = GEO_VALUE)
+
+case_avg <- case_avg %>%  filter(!(geo_value %in% EXCLUDED_AREAS))
+
+case_count <- covidcast_signal(data_source = "indicator-combination",
+                         signal ="confirmed_incidence_num",
+                         start_day = STARTDATE, 
+                         end_day = ENDDATE,
+                         geo_type = GEO_TYPE, 
+                         geo_values = GEO_VALUE)
+
+case_count <- case_count %>%  filter(!(geo_value %in% EXCLUDED_AREAS))
+```
+
+```{r full-time signal line plot}
+p <- ggplot(ftime, aes(x=time_value, y=value)) +
+  geom_line(aes(color = geo_value)) + 
+  labs(title = "Full-time away home signal", y= "The fraction of mobile devices that spent more than 6 hours other than home")
+p
+```
+
+## Correlation between cases and mobility signal
+
+We might be intersted in knowing how cases now correlate with mobility signal in the future. Using the $dt_x$ parameter, we can shift the signal by 7 days forward in time, before calculating correlations. 
+
+```{r correlation between case and mobility}
+cor1 <- covidcast_cor(case_avg, ftime, by = "time_value")
+cor2 <- covidcast_cor(case_avg, ftime,  by = "time_value", dt_x = DT_X)
+cor3 <- covidcast_cor(case_avg, ftime,  by = "time_value", dt_x = 10)
+
+
+# Stack rowwise into one data frame, then plot time series
+all_cor <- rbind(cor1, cor2, cor3)
+# Add labels
+all_cor$Shift <- as.factor(c(rep(0, nrow(cor1)), rep(DT_X, nrow(cor2)), rep(14, nrow(cor3))))
+
+# Plot the graph
+signal_name = "full-time away home"
+p <- ggplot(all_cor, aes(x = time_value, y = value)) +
+  geom_line(aes(color = Shift)) +
+  labs(title = sprintf("Pearson Correlation between %s and cases", signal_name),
+       subtitle = "Average per 7 days, over states",
+       x = "Date", y = "Correlation") 
+p
+```
+
+### Spearman correlation
+
+```{r spearman correlation}
+scor1 <- covidcast_cor(case_avg, ftime, by = "time_value",  method = "spearman")
+scor2 <- covidcast_cor(case_avg, ftime,  by = "time_value", dt_x = DT_X,  method = "spearman")
+scor3 <- covidcast_cor(case_avg, ftime,  by = "time_value", dt_x = 10,  method = "spearman")
+
+# Stack rowwise into one data frame, then plot time series
+all_scor <- rbind(scor1, scor2, scor3)
+# Add labels
+all_scor$Shift <- as.factor(c(rep(0, nrow(scor1)), rep(DT_X, nrow(scor2)), rep(10, nrow(scor3))))
+
+# Plot the graph
+signal_name = "full-time away home"
+p <- ggplot(all_scor, aes(x = time_value, y = value)) +
+  geom_line(aes(color = Shift)) +
+  labs(title = sprintf("Spearman Correlation between %s and cases", signal_name),
+       subtitle = "Average per 7 days, over states",
+       x = "Date", y = "Correlation") 
+p
+```
+
+### Correlation in space
+
+```{r correlation plot in space}
+# Set a bunch of fields so that the data frame knows how to plot itself
+cor3_by_geo <- covidcast_cor(case_avg, ftime,  by = "geo_value", dt_x = 10)
+
+cor3_by_geo$time_value = STARTDATE
+cor3_by_geo$issue = STARTDATE
+attributes(cor3_by_geo)$geo_type = "state"
+class(cor3_by_geo) = c("covidcast_signal", "data.frame")
+
+# Plot choropleth maps, using the covidcast plotting functionality
+plot(cor3_by_geo, title = "Correlations between 10-day shifted cases and mobility signal",
+     range = c(-1, 1), choro_col = c("orange","lightblue", "purple"))
+```
+
+## Lag analysis
+```{r lag analysis}
+# Loop over values for the time shift, and compute correlations per state
+dt_vec <- 0:30
+df_list <- vector("list", length(dt_vec))
+for (i in 1:length(dt_vec)) {
+  df_list[[i]] <- covidcast_cor(case_avg, ftime, dt_x = dt_vec[i],
+                               by = "geo_value")
+  df_list[[i]]$dt <- dt_vec[i]
+}
+
+# Stack into one big data frame, and then plot the median correlation by shift
+df <- do.call(rbind, df_list)
+df %>%
+  group_by(dt) %>%
+  summarize(median = median(value, na.rm = TRUE), .groups = "drop_last") %>%
+  ggplot(aes(x = dt, y = median)) + geom_line() + geom_point() +
+  labs(title = "Median correlation between mobility and cases",
+       x = "Shift", y = "Correlation") +
+  theme(legend.position = "bottom", legend.title = element_blank())
+```
