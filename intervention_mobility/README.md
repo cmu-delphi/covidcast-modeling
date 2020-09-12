@@ -1,4 +1,6 @@
 
+# Mobility, Government Intervention, and Potential Confounders
+
 ## Goals and Research Questions
 
 Mobility trends: Historically, did mobility patterns change as a result of government interventions? (Appears on mission statement)
@@ -7,13 +9,48 @@ Mobility trends: Historically, did mobility patterns change as a result of gover
 2. As college semesters start up, pick out a few college towns with mostly student populations (like College Station, TX, or Oxford, OH) and graph surveys, cases, mobility, etc. to see what happened when students returned.
 3. Need to deal with confounding by case counts (behavioral responses to # of cases/deaths)
 
+## File Directory Description
+
+* `/data/`: this folder stores all data files.
+
+* `/code/`: this folder contains all the codes.
+
+* `/notebooks/`: this folder contains the main report in HTML produced by R Markdown.
+
 ## Data sources
 
 ### Mobility 
 
-Covidcast signals...
+  * [Delphi's COVIDcast](https://cmu-delphi.github.io/delphi-epidata/api/covidcast_signals.html)
 
 ### Interventions 
 
+* Country-level:
+
+  * [Oxford COVID19 policy tracker](https://github.com/OxCGRT/covid-policy-tracker)
+  
+  * [ACAPS COVID-19: Government Measures Dataset](https://data.humdata.org/dataset/acaps-covid19-government-measures-dataset)
+  
+* State-level:
+
+  * [State-level social distancing policies in response to COVID-19](https://github.com/COVID19StatePolicy/SocialDistancing)
+  
+  * [US_interventions_from_Wikipedia](https://docs.google.com/spreadsheets/d/1k1ENKntZILmXGOTvjjoJMAEb3WQOYqp_pHJHzpZojGo/edit#gid=0)
+  
+  * [State's Phased Re-Opening Plans by Start Date (Governing)](https://www.governing.com/now/Reopening-the-Economy-Under-COVID-19-States-Plot-a-Way-Back.html)
+
+* County-level:
+
+  * [Coronavirus City and County Non-Pharmaceutical intervention roll date dataset (Keystone)](https://www.keystonestrategy.com/coronavirus-covid19-intervention-dataset-model/)
+  
+  * [Help Predict COVID-19’s Spread in Your Community (Stanford)](https://socialdistancing.stanford.edu/)
+  
+  * [Standford Crowdsourced COVID-19 intervention data](https://docs.google.com/spreadsheets/d/133Lry-k80-BfdPXhlS0VHsLEUQh5_UutqAt7czZd7ek/edit#gid=0)
+  
+  * [US County-level COVID19 summaries](https://github.com/JieYingWu/COVID-19_US_County-level_Summaries/tree/master/raw_data/national)
+
+### Potential Counders
+
+  * [Delphi's COVIDcast](https://cmu-delphi.github.io/delphi-epidata/api/covidcast_signals.html)
 
 
