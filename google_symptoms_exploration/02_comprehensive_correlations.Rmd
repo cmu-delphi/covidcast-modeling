@@ -116,22 +116,40 @@ symptom_cols = colnames(ak)[
                   str_detect(colnames(ak), 'symptom:')]
 symptom_names = str_replace(symptom_cols, fixed('symptom:'), '')
 
-symptom_df_list = vector('list', length(symptom_names))
-names(symptom_df_list) = symptom_names
+if (file.exists('symptom_df_list.RDS')) {
+  symptom_df = readRDS('symptoms_df.RDS')
+} else {
+  symptom_df_list = vector('list', length(symptom_names))
+  names(symptom_df_list) = symptom_names
 
-for (symptom in symptom_names) {
-  cat(symptom, '...\n')
-  states_list = vector('list', length(states))
-  for (idx in 1:length(states)) {
-    state = states[idx]
-    states_list[[idx]] = pull_data_state(state, symptom)
+  for (symptom in symptom_names) {
+    cat(symptom, '...\n')
+    states_list = vector('list', length(states))
+    for (idx in 1:length(states)) {
+      state = states[idx]
+      states_list[[idx]] = pull_data_state(state, symptom)
+    }
+    single_symptom_df = bind_rows(states_list)
+    single_symptom_df['symptom_name'] = symptom
+    symptom_df_list[[symptom]] = single_symptom_df
   }
-  symptom_df_list[[symptom]] = bind_rows(states_list)
+  symptom_df = bind_rows(symptom_df_list)
+  saveRDS(symptom_df, 'symptom_df.RDS')
 }
 ```
 
+```{r temp, echo = FALSE}
+  for (symptom in symptom_names) {
+    single_symptom_df = symptom_df_list[[symptom]]
+    single_symptom_df['symptom_name'] = symptom
+    symptom_df_list[[symptom]] = single_symptom_df
+  }
+  symptom_df = bind_rows(symptom_df_list)
+  saveRDS(symptom_df, 'symptom_df.RDS')
+```
 
-```{r case_spearman_correlation, echo = TRUE, message=FALSE, warnings=FALSE, cache=TRUE}
+
+```{r download_filter_data, echo = TRUE, message=FALSE, warnings=FALSE, cache=TRUE}
 start_day = "2020-03-01"
 end_day = "2020-08-15"
 
@@ -144,23 +162,37 @@ geo_values = df_inum %>% group_by(geo_value) %>%
   summarize(total = sum(value)) %>%
   filter(total >= case_num) %>% pull(geo_value)
 df_inum_act = df_inum %>% filter(geo_value %in% geo_values)
-df_anosmia_act =  anosmia_df %>% filter(geo_value %in% geo_values)
-# Repeat this comparison, but now using Spearman (rank) correlation
+for (symptom in symptom_names) {
+  symptom_df_list[[symptom]] = symptom_df_list[[symptom]] %>% filter (
+    geo_value %in% geo_values,
+  )
+}
+```
+
+```{r assess_missingness, echo = TRUE}
+# Plot a separate faint line for each symptom
+# Each line is a time series of % availability (get % availability
+# by dividing by length(geo_values)
+
+
+# Based on this, decide whether it is worthwhile to calculate correlations
+# for all symptoms, or immediately restrict ourselves to a subset
+# Basically, if not available at enough counties on a given day, correlation
+# may not be reliable.............................
+```
+
+```{r calculate_correlations, echo = TRUE}
+# loop over symptoms and apply the following:
 df_cor1 = covidcast_cor(df_inum_act, df_anosmia_act, by = "time_value",
                         method = "spearman")
-df_cor2 = covidcast_cor(df_inum_act, df_anosmia_act, by = "time_value", dt_x = dt_x,
-                        method = "spearman")
+# this gives us a new list of correlations, which we should reshape into a
+# tall data format (if that is helpful)
+```
 
-# Stack rowwise into one data frame, then plot time series
-df_cor = rbind(df_cor1, df_cor2)
-df_cor$Shift = as.factor(c(rep(0, nrow(df_cor1)), rep(dt_x, nrow(df_cor2))))
-plt = ggplot(df_cor, aes(x = time_value, y = value)) +
-  geom_line(aes(color = Shift)) +
-  labs(title = sprintf("Correlation between %s and cases", symptom),
-       subtitle = sprintf("Per day, over counties with at least %i cases", case_num),
-       x = "Date", y = "Correlation") +
-  theme(legend.position = "bottom")
-plt
+```{r correlation_demo, echo = FALSE}
+# plot correlations en masse, see if we can visually see how many symptoms 
+# may be useful
+# important: must suppress legend, and make all same color
 ```
 
 TODO:
