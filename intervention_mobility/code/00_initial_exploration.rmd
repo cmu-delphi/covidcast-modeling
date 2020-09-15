@@ -26,7 +26,7 @@ library(ggpubr)
 
 ```{r define global variables}
 STARTDATE <- "2020-02-20"
-ENDDATE <- date(Sys.time())
+ENDDATE <- trunc(Sys.time(), "days")
 GEO_TYPE = "state" # state-level
 GEO_VALUE = "*" # all states
 EXCLUDED_AREAS = c("as","gu", "mp","vi") # excluded areas due to small sample size
@@ -61,25 +61,25 @@ case_avg <- covidcast_signal(data_source = "indicator-combination",
 case_avg <- case_avg %>%  filter(!(geo_value %in% EXCLUDED_AREAS))
 
 # Cumulative confirmed COVID19 cases on average per 7 days
-#cum_case <- covidcast_signal(data_source = "indicator-combination",
-#                         signal ="confirmed_7dav_cumulative_num	",
-#                         start_day = STARTDATE, 
-#                         end_day = ENDDATE,
-#                         geo_type = GEO_TYPE, 
-#                         geo_values = GEO_VALUE)
+cum_case <- covidcast_signal(data_source = "indicator-combination",
+                             signal = "confirmed_7dav_cumulative_num",
+                             start_day = STARTDATE,
+                             end_day = ENDDATE,
+                             geo_type = GEO_TYPE,
+                             geo_values = GEO_VALUE)
 
-#cum_case <- cum_case %>%  filter(!(geo_value %in% EXCLUDED_AREAS))
+cum_case <- cum_case %>%  filter(!(geo_value %in% EXCLUDED_AREAS))
 
 # Cumulative confirmed COVID19 cases on average per 7 days, per 100,000 population
 
-#cum_case_prop <- covidcast_signal(data_source = "indicator-combination",
-#                         signal ="confirmed_7dav_cumulative_prop	",
-#                         start_day = STARTDATE, #
-#                         end_day = ENDDATE,
-#                         geo_type = GEO_TYPE, 
-#                         geo_values = GEO_VALUE)
+cum_case_prop <- covidcast_signal(data_source = "indicator-combination",
+                         signal ="confirmed_7dav_cumulative_prop",
+                         start_day = STARTDATE, 
+                         end_day = ENDDATE,
+                         geo_type = GEO_TYPE, 
+                         geo_values = GEO_VALUE)
 
-#cum_case_prop <- cum_case_prop %>%  filter(!(geo_value %in% EXCLUDED_AREAS))
+cum_case_prop <- cum_case_prop %>%  filter(!(geo_value %in% EXCLUDED_AREAS))
 
 ########### Death cases ######################
 
@@ -103,7 +103,7 @@ cum_death_case <- covidcast_signal(data_source = "indicator-combination",
 cum_death_case  <- cum_death_case  %>%  filter(!(geo_value %in% EXCLUDED_AREAS))
 
 # State-level restaurant data
-res <- read.csv("../data/state_restaurants_visit_num.csv")
+res <- read.csv("data/state_restaurants_visit_num.csv")
 # Change date type
 res$date <- ymd(res$date)
 # Filter the data
@@ -157,6 +157,8 @@ p <- ggplot(all_cor, aes(x = time_value, y = value)) +
        x = "Date", y = "Correlation") 
 p
 ```
+
+
 ### Spearman correlation
 
 ```{r spearman correlation by time}
@@ -221,7 +223,15 @@ getMedian <-function(df){
 # Compute pearson correlation between new confirmed cases and mobility
 df_p_case <- getCorrByShift(100, case_avg, ftime, "pearson")
 df_pcase_med <- getMedian(df_p_case)
-df_pcase_med$Comparison <- "confirmed case"
+df_pcase_med$Comparison <- "7-day avg. confirmed case"
+
+df_p_case_num <- getCorrByShift(100, cum_case, ftime, "pearson")
+df_pcase_med_num <- getMedian(df_p_case_num)
+df_pcase_med_num$Comparison <- "Cum 7day avg. confirmed case"
+
+df_p_case_cum <- getCorrByShift(100, cum_case_prop, ftime, "pearson")
+df_pcase_med_cum <- getMedian(df_p_case_cum)
+df_pcase_med_cum$Comparison <- "Cum 7day avg. confirmed case, per 100,000"
 
 # Compute pearson correlation between death cases and mobility
 df_p_death <- getCorrByShift(100, death_case,ftime, "pearson")
@@ -236,13 +246,13 @@ df_cum_death_med <-  getMedian(df_cump_death)
 df_cum_death_med$Comparison <- "cumulative death case"
 
 # Stack two dataframe row-wise
-df_all_signals <- rbind(df_pcase_med, df_pdeath_med, df_cum_death_med)
+df_all_signals <- rbind(df_pcase_med, df_pcase_med_num, df_pcase_med_cum, df_pdeath_med, df_cum_death_med)
 
 # plot the graph
 ggplot(df_all_signals, aes(x = dt, y = median)) + geom_line(aes(color = Comparison)) + geom_point(aes(color = Comparison)) +
   labs(title = "Median Pearson correlation between mobility and other signals",
        x = "Shift", y = "Correlation") +
-  theme(legend.position = "bottom", legend.title = element_blank())
+  theme(legend.title = element_blank())
 ```
 
 ### Let's change to a different correlation method.
@@ -252,6 +262,14 @@ ggplot(df_all_signals, aes(x = dt, y = median)) + geom_line(aes(color = Comparis
 df_p_case <- getCorrByShift(100, case_avg, ftime, "spearman")
 df_pcase_med <- getMedian(df_p_case)
 df_pcase_med$Comparison <- "confirmed case"
+
+df_p_case_num <- getCorrByShift(100, cum_case, ftime, "spearman")
+df_pcase_med_num <- getMedian(df_p_case_num)
+df_pcase_med_num$Comparison <- "Cum 7day avg. confirmed case"
+
+df_p_case_cum <- getCorrByShift(100, cum_case_prop, ftime, "spearman")
+df_pcase_med_cum <- getMedian(df_p_case_cum)
+df_pcase_med_cum$Comparison <- "Cum 7day avg. confirmed case, per 100,000"
 
 # Compute spearman correlation between death cases and mobility
 df_p_death <- getCorrByShift(100, death_case,ftime, "spearman")
@@ -264,13 +282,13 @@ df_cum_death_med <-  getMedian(df_cump_death)
 df_cum_death_med$Comparison <- "cumulative death case"
 
 # Stack two dataframe row-wise
-df_all_signals <- rbind(df_pcase_med, df_pdeath_med, df_cum_death_med)
+df_all_signals <- rbind(df_pcase_med,df_pcase_med_num,  df_pcase_med_cum, df_pdeath_med, df_cum_death_med)
 
 # plot the graph
 ggplot(df_all_signals, aes(x = dt, y = median)) + geom_line(aes(color = Comparison)) + geom_point(aes(color = Comparison)) +
   labs(title = "Median Spearman correlation between mobility and other signals",
        x = "Shift", y = "Correlation") +
-  theme(legend.position = "bottom", legend.title = element_blank())
+  theme(legend.title = element_blank())
 ```
 
 ## What will happen if we change the mobility signal from staying away from home to restaurant visit?
@@ -280,6 +298,14 @@ ggplot(df_all_signals, aes(x = dt, y = median)) + geom_line(aes(color = Comparis
 df_p_restaurant <- getCorrByShift(100, case_avg, new_res, "pearson")
 df_prestaurant_med <- getMedian(df_p_restaurant)
 df_prestaurant_med$Comparison <- "confirmed case"
+
+df_p_case_num <- getCorrByShift(100, cum_case, new_res, "pearson")
+df_pcase_med_num <- getMedian(df_p_case_num)
+df_pcase_med_num$Comparison <- "Cum 7day avg. confirmed case"
+
+df_p_case_cum <- getCorrByShift(100, cum_case_prop, new_res, "pearson")
+df_pcase_med_cum <- getMedian(df_p_case_cum)
+df_pcase_med_cum$Comparison <- "Cum 7day avg. confirmed case, per 100,000"
 
 # Compute pearson correlation between death cases and mobility
 df_p_death <- getCorrByShift(100, death_case, new_res, "pearson")
@@ -294,13 +320,13 @@ df_cum_death_med <-  getMedian(df_cump_death)
 df_cum_death_med$Comparison <- "cumulative death case"
 
 # Stack two dataframe row-wise
-df_all_signals <- rbind(df_prestaurant_med, df_pdeath_med, df_cum_death_med)
+df_all_signals <- rbind(df_prestaurant_med, df_pcase_med_num, df_pcase_med_cum, df_pdeath_med, df_cum_death_med)
 
 # plot the graph
 ggplot(df_all_signals, aes(x = dt, y = median)) + geom_line(aes(color = Comparison)) + geom_point(aes(color = Comparison)) +
   labs(title = "Median Pearson correlation between restaurant visit signal and other signals",
        x = "Shift", y = "Correlation") +
-  theme(legend.position = "bottom", legend.title = element_blank())
+  theme(legend.title = element_blank())
 ```
 
 ```{r spearman restaurant visit}
@@ -308,6 +334,14 @@ ggplot(df_all_signals, aes(x = dt, y = median)) + geom_line(aes(color = Comparis
 df_s_restaurant <- getCorrByShift(100, case_avg, new_res, "spearman")
 df_srestaurant_med <- getMedian(df_s_restaurant)
 df_srestaurant_med$Comparison <- "confirmed case"
+
+df_p_case_num <- getCorrByShift(100, cum_case, new_res, "spearman")
+df_pcase_med_num <- getMedian(df_p_case_num)
+df_pcase_med_num$Comparison <- "Cum 7day avg. confirmed case"
+
+df_p_case_cum <- getCorrByShift(100, cum_case_prop, new_res, "spearman")
+df_pcase_med_cum <- getMedian(df_p_case_cum)
+df_pcase_med_cum$Comparison <- "Cum 7day avg. confirmed case, per 100,000"
 
 # Compute pearson correlation between death cases and mobility
 df_s_death <- getCorrByShift(100, death_case, new_res, "spearman")
@@ -322,13 +356,15 @@ df_cum_death_med_s <-  getMedian(df_cump_death_s)
 df_cum_death_med_s$Comparison <- "cumulative death case"
 
 # Stack two dataframe row-wise
-df_all_signals_s <- rbind(df_srestaurant_med, df_sdeath_med , df_cum_death_med_s)
+df_all_signals_s <- rbind(df_srestaurant_med, df_pcase_med_num , df_pcase_med_cum, df_sdeath_med , df_cum_death_med_s)
 
 # plot the graph
 ggplot(df_all_signals_s, aes(x = dt, y = median)) + geom_line(aes(color = Comparison)) + geom_point(aes(color = Comparison)) +
   labs(title = "Median Spearman correlation between restaurant visit signal and other signals",
        x = "Shift", y = "Correlation") +
-  theme(legend.position = "bottom", legend.title = element_blank())
+  theme(legend.title = element_blank())
 ```
+
+
 
 
