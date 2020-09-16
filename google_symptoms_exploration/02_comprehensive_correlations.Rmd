@@ -48,6 +48,16 @@ BASE_DAILY_URL = paste0(
       'United%20States%20of%20America/subregions/{state}/',
       '2020_US_{state_underscore}_daily_symptoms_dataset.csv')
 cache_data_list = list()
+signal_description_df = tribble(
+    ~signal,            ~description,
+    'Podalgia',                         'pain in the foot',
+    'Anosmia',                          'loss of smell',
+    'Purpura',                          "red/purple skin spots; 'blood spots'",
+    'Radiculopathy',                    'pinched nerve',
+    'Ageusia',                          'loss of taste',
+    'Erythema chronicum migrans',       'expanding rash early in lyme disease',
+    'Photodermatitis',                  'allergic rash that reqs light',
+)
 ```
 
 ```{r declare_helper_functions}
@@ -197,7 +207,7 @@ most_missing = availability_df %>% group_by (
 )
 ```
 
-For the signal that is most sparselay available, the number of 
+For the signal that is most sparsely available, the number of 
 counties at which it tends to be available daily is:
 
 ```{r symptom_min_counties_available, echo = TRUE}
@@ -226,6 +236,10 @@ if (file.exists('cor_df.RDS')) {
   cor_df = bind_rows(cor_list)
   saveRDS(cor_df, 'cor_df.RDS')
 }
+cor_df = cor_df %>% left_join(
+  signal_description_df,
+  on='signal',
+)
 ```
 
 ```{r correlation_demo, echo = FALSE}
@@ -234,6 +248,26 @@ min_available_time = cor_df %>% filter(
   ) %>% pull (
     time_value,
   ) %>% min
+plot_cor_df = cor_df %>% filter(time_value >= min_available_time)
+plt = (ggplot(plot_cor_df)
+       + geom_line(aes(x=time_value,
+                       y=value,
+                       group=factor(signal)),
+                   ,
+                   color='dodgerblue4',
+                   size=0.1,
+                   alpha=1.0)
+       + ylab('rank correlation')
+       + scale_x_date(breaks=lubridate::ymd(c('2020-03-01',
+            '2020-03-15', '2020-04-01', '2020-04-15', '2020-05-01',
+            '2020-05-15', '2020-06-01', '2020-06-15', '2020-07-01',
+            '2020-07-15', '2020-08-01', '2020-08-15')))
+       + theme(axis.text.x = element_text(angle = 45))
+       )
+plt
+```
+
+```{r investigate_max_max_cor, echo = TRUE}
 top_cor_signals = cor_df %>% group_by (
     signal,
   ) %>% filter (
@@ -244,7 +278,8 @@ top_cor_signals = cor_df %>% group_by (
   ) %>% head (
     5,
   )
-plot_cor_df = cor_df %>% filter(time_value >= min_available_time)
+print('Symptoms with the largest all-time correlation:')
+print(top_cor_df)
 plt = (ggplot(plot_cor_df)
        + geom_line(aes(x=time_value,
                        y=value,
@@ -287,6 +322,8 @@ top_min_cor = cor_df %>% group_by (
   ) %>% head (
     5,
   )
+print('Symptoms that consistently stay away from 0 correlation:')
+print(top_min_cor)
 plt = (ggplot(plot_cor_df)
        + geom_line(aes(x=time_value,
                        y=value,
@@ -331,11 +368,18 @@ Could the negative correlation at the beginning of the pandemic be due to:
 
 TODO:
 
+* [X] Re-create overall correlations plot
 * [X] Look at the "consistently ok" ones - top 5 min
-* [ ] Top 5: Group by location, aggregate over time, produce chloropeth?
-* [ ] Table that lists symptom, summary statistics of correlation, 
-  layperson description
+* [ ] Table that lists symptom, summary statistics of correlation (transform
+      existing table.......
+* [ ] Top 5: Group by location, aggregate over time, run correlation
+* [ ] With county-sliced correlations, produce chloropeth
+  layperson description.  Then plot using:
+  https://cmu-delphi.github.io/covidcast/covidcastR/articles/correlation-utils.html
 * [ ] Run lasso / quantile lasso fit
+  * [ ] One fit that uses my "curated" variables
+  * [ ] One fit that just throws everything in
+* [ ] Polish and add some prose
 
 
 ### Appendix
