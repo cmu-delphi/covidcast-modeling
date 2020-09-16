@@ -116,8 +116,8 @@ symptom_cols = colnames(ak)[
                   str_detect(colnames(ak), 'symptom:')]
 symptom_names = str_replace(symptom_cols, fixed('symptom:'), '')
 
-if (file.exists('symptom_df_list.RDS')) {
-  symptom_df = readRDS('symptoms_df.RDS')
+if (file.exists('symptom_df.RDS')) {
+  symptom_df = readRDS('symptom_df.RDS')
 } else {
   symptom_df_list = vector('list', length(symptom_names))
   names(symptom_df_list) = symptom_names
@@ -129,23 +129,11 @@ if (file.exists('symptom_df_list.RDS')) {
       state = states[idx]
       states_list[[idx]] = pull_data_state(state, symptom)
     }
-    single_symptom_df = bind_rows(states_list)
-    single_symptom_df['symptom_name'] = symptom
-    symptom_df_list[[symptom]] = single_symptom_df
+    symptom_df_list[[symptom]] = bind_rows(states_list)
   }
   symptom_df = bind_rows(symptom_df_list)
   saveRDS(symptom_df, 'symptom_df.RDS')
 }
-```
-
-```{r temp, echo = FALSE}
-  for (symptom in symptom_names) {
-    single_symptom_df = symptom_df_list[[symptom]]
-    single_symptom_df['symptom_name'] = symptom
-    symptom_df_list[[symptom]] = single_symptom_df
-  }
-  symptom_df = bind_rows(symptom_df_list)
-  saveRDS(symptom_df, 'symptom_df.RDS')
 ```
 
 
@@ -162,46 +150,222 @@ geo_values = df_inum %>% group_by(geo_value) %>%
   summarize(total = sum(value)) %>%
   filter(total >= case_num) %>% pull(geo_value)
 df_inum_act = df_inum %>% filter(geo_value %in% geo_values)
-for (symptom in symptom_names) {
-  symptom_df_list[[symptom]] = symptom_df_list[[symptom]] %>% filter (
-    geo_value %in% geo_values,
-  )
+```
+```{r subset_symptom_data, echo = TRUE}
+symptom_df_act = symptom_df %>% filter (
+  geo_value %in% geo_values,
+)
+```
+
+Here we plot the availaibility of each symptom over time
+(proportion is percentage of counties for which the symptom
+was available).  We see that for each signal, the availability
+level is consistent over time, subject to a strong weekend
+effect.
+
+```{r assess_missingness, echo = TRUE}
+availability_df = symptom_df_act %>% group_by (
+  time_value,
+  signal,
+) %>% summarize (
+  prop_available = n() / length(geo_values),
+) %>% ungroup (
+)
+
+plt = (ggplot(availability_df)
+       + geom_line(aes(x=time_value,
+                       y=prop_available,
+                       group=factor(signal)),
+                   color='dodgerblue4',
+                   size=0.1)
+       )
+plt
+```
+
+The symptoms for which data is most sparse are:
+
+```{r symptoms_most_missingness, echo = TRUE}
+most_missing = availability_df %>% group_by (
+  signal,
+) %>% summarize (
+  avg_available = mean(prop_available)
+) %>% ungroup (
+) %>% filter (
+  avg_available <= 0.05
+) %>% arrange (
+  avg_available,
+)
+```
+
+For the signal that is most sparselay available, the number of 
+counties at which it tends to be available daily is:
+
+```{r symptom_min_counties_available, echo = TRUE}
+min(most_missing$avg_available) * length(geo_values)
+```
+
+Based on this, we leave all the symptoms in for the full
+correlations analysis.
+
+```{r calculate_correlations, echo = TRUE}
+cor_list = vector('list', length(symptom_names))
+names(cor_list) = symptom_names
+
+if (file.exists('cor_df.RDS')) {
+  cor_df = readRDS('cor_df.RDS')
+} else {
+  for (symptom in symptom_names) {
+    cat(symptom, '...\n')
+    df_cor1 = covidcast_cor(symptom_df_act %>% filter(signal == symptom),
+                            df_inum_act,
+                            by = "time_value",
+                            method = "spearman")
+    df_cor1['signal'] = symptom
+    cor_list[[symptom]] = df_cor1
+  }
+  cor_df = bind_rows(cor_list)
+  saveRDS(cor_df, 'cor_df.RDS')
 }
 ```
 
-```{r assess_missingness, echo = TRUE}
-# Plot a separate faint line for each symptom
-# Each line is a time series of % availability (get % availability
-# by dividing by length(geo_values)
-
-
-# Based on this, decide whether it is worthwhile to calculate correlations
-# for all symptoms, or immediately restrict ourselves to a subset
-# Basically, if not available at enough counties on a given day, correlation
-# may not be reliable.............................
-```
-
-```{r calculate_correlations, echo = TRUE}
-# loop over symptoms and apply the following:
-df_cor1 = covidcast_cor(df_inum_act, df_anosmia_act, by = "time_value",
-                        method = "spearman")
-# this gives us a new list of correlations, which we should reshape into a
-# tall data format (if that is helpful)
-```
-
 ```{r correlation_demo, echo = FALSE}
-# plot correlations en masse, see if we can visually see how many symptoms 
-# may be useful
-# important: must suppress legend, and make all same color
+min_available_time = cor_df %>% filter(
+    !is.na(value),
+  ) %>% pull (
+    time_value,
+  ) %>% min
+top_cor_signals = cor_df %>% group_by (
+    signal,
+  ) %>% filter (
+    abs(value) == max(abs(value), na.rm=TRUE),
+  ) %>% ungroup (
+  ) %>% arrange(
+    -abs(value),
+  ) %>% head (
+    5,
+  )
+plot_cor_df = cor_df %>% filter(time_value >= min_available_time)
+plt = (ggplot(plot_cor_df)
+       + geom_line(aes(x=time_value,
+                       y=value,
+                       group=factor(signal)),
+                   data=plot_cor_df %>% filter (
+                      !signal %in% top_cor_signals$signal
+                   ),
+                   color='dodgerblue4',
+                   size=0.1,
+                   alpha=0.1)
+       + geom_line(aes(x=time_value,
+                       y=value,
+                       group=factor(signal),
+                       colour=factor(signal)
+                       ),
+                   data=plot_cor_df %>% filter (
+                      signal %in% top_cor_signals$signal,
+                   ),
+                   #color='darkorange',
+                   size=0.3)
+       + ylab('rank correlation')
+       + scale_x_date(breaks=lubridate::ymd(c('2020-03-01',
+            '2020-03-15', '2020-04-01', '2020-04-15', '2020-05-01',
+            '2020-05-15', '2020-06-01', '2020-06-15', '2020-07-01',
+            '2020-07-15', '2020-08-01', '2020-08-15')))
+       + theme(axis.text.x = element_text(angle = 45))
+       )
+plt
+```
+```{r top_correlations_plot, echo = TRUE}
+plt = (ggplot(plot_cor_df)
+       + geom_line(aes(x=time_value,
+                       y=value,
+                       group=factor(signal)),
+                   data=plot_cor_df %>% filter (
+                      signal %in% top_cor_signals$signal,
+                      !signal %in% top_cor_signals$signal[1:5],
+                   ),
+                   color='darkorange',
+                   size=0.1)
+       + geom_line(aes(x=time_value,
+                       y=value,
+                       group=factor(signal)),
+                   data=plot_cor_df %>% filter (
+                      signal %in% top_cor_signals$signal[1:5],
+                   ),
+                   color='darkgreen',
+                   size=0.3,
+                   alpha=0.5)
+       + ylab('rank correlation')
+       + scale_x_date(breaks=lubridate::ymd(c('2020-03-01',
+            '2020-03-15', '2020-04-01', '2020-04-15', '2020-05-01',
+            '2020-05-15', '2020-06-01', '2020-06-15', '2020-07-01',
+            '2020-07-15', '2020-08-01', '2020-08-15')))
+       + theme(axis.text.x = element_text(angle = 45))
+       + ggtitle(paste(
+                'Correlation between cases and symptom search volumes\n',
+                'Only top 20 symptoms with largest all-time max corr plotted',
+                sep='\n'))
+       )
+plt
+```
+
+```{r investigate_max_min_cor, echo = FALSE}
+top_min_cor = cor_df %>% group_by (
+    signal,
+  ) %>% filter (
+    abs(value) == abs(min(value, na.rm=TRUE)),
+  ) %>% ungroup (
+  ) %>% arrange(
+    abs(value),
+  ) %>% head (
+    5,
+  )
+plt = (ggplot(plot_cor_df)
+       + geom_line(aes(x=time_value,
+                       y=value,
+                       group=factor(signal)),
+                   data=plot_cor_df %>% filter (
+                      !signal %in% top_min_cor$signal
+                   ),
+                   color='dodgerblue4',
+                   size=0.1,
+                   alpha=0.3)
+       + geom_line(aes(x=time_value,
+                       y=value,
+                       group=factor(signal)),
+                   data=plot_cor_df %>% filter (
+                      signal %in% top_min_cor$signal,
+                   ),
+                   color='darkorange',
+                   size=0.3)
+       + ylab('rank correlation')
+       + scale_x_date(breaks=lubridate::ymd(c('2020-03-01',
+            '2020-03-15', '2020-04-01', '2020-04-15', '2020-05-01',
+            '2020-05-15', '2020-06-01', '2020-06-15', '2020-07-01',
+            '2020-07-15', '2020-08-01', '2020-08-15')))
+       + theme(axis.text.x = element_text(angle = 45))
+       )
+plt
+print(top_min_cor$signal)
+print(intersect(top_min_cor$signal, top_cor_signals$signal[1:5]))
+```
+
+```{r top_cor_symptoms, echo = TRUE}
+print('Five symptoms with greatest all-time high correlation:')
+print(top_cor_signals$signal[1:5])
+print('Next fifteen:')
+print(top_cor_signals$signal[6:20])
 ```
 
 TODO:
 
-* Understand the amount of missingness for each symptom
-* Does it still make sense to run correlation function for a symptom that 
-  is available only very sporadically?
-* If it does, run correlation function against all symptoms, at various 
-  time lags
+* [ ] Look at the "consistently ok" ones - top 5 min
+* [ ] Understand why there are some symptoms that fall in the top correlation 
+  in July-ish, but don't fall into the top 20...
+* [ ] Top 5: Group by location, aggregate over time, produce chloropeth?
+* [ ] Table that lists symptom, summary statistics of correlation, 
+  layperson description
+* [ ] Run lasso / quantile lasso fit
+
 * Efficient way to present data?  Distribution of correlations over time,
   and the symptoms that consistently achieved high correlations
 * For those very useful symptoms, is the correlation over time homogeneous 
