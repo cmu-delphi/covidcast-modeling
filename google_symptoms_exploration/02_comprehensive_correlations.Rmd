@@ -119,16 +119,69 @@ pull_data_state = function(state, symptom) {
 }
 ```
 
-```{r read_google_symptoms_data, class.source = 'fold-show', message=FALSE, warnings=FALSE}
-dir.create('./cache/')
-ak = load_state_data('ak')
-symptom_cols = colnames(ak)[
-                  str_detect(colnames(ak), 'symptom:')]
-symptom_names = str_replace(symptom_cols, fixed('symptom:'), '')
+### Summary
 
+* 422 symptom signals, each with varying levels of availability.  The most
+  sparsely available symptoms are still available at at least XXXX counties
+  daily.  As a result, we retain all symptoms for this initial round of
+  analysis.
+* *First*, we assess the correlation between each symptom and cases over
+  time.  To do this, we group by (symptom, date), and calculate the rank
+  correlation between search interest and cases (the free variable here
+  being counties).  (A previous analysis found that leading / lagging the
+  signal does not improve correlation, which is in line with the intuition
+  that searcher interest should provide a "today" snapshot of COVID
+  prevalence).
+* We see that there are a handful of symptoms that are highly correlated
+  with cases, but there is a surprising temporal dependency.  Specifically,
+  almost all signals suffer a degradation in correlation from XXXX to
+  XXXX.  This is likely due to non-stationarity in both searcher behavior as
+  well as in the dynamics of COVID-spread (which is also highly community
+  dependent).
+* The symptoms that achieve the greatest single-day correlation with cases
+  include the usual suspects: anosmia (lack of smell), ageusia (lack of taste),
+  fever, XXXX, XXXX.  Concerningly, these high-signal symptoms also
+  suffer from degradation during XXXX, with anosmia bottoming out with a
+  near-zero correlation with cases on XXXX.  We need to develop an
+  understanding of why even these correlations degrade.  Nonetheless,
+  these symptoms will likely form the bedrock of a new Google Symptoms
+  indicator.
+* We also examine the symptoms which maximize the minimum absolute correlation
+  -- i.e., the symptoms that are uniformly bounded away from zero (many
+  symptoms that achieve high single-day correlations also have days 
+  with very low correlation).  These symptoms are not medically linked
+  to the coronavirus, based on my own rudimentary understanding.  However,
+  we pose a latent variable that may explain why they achieve consistent
+  negative correlation with cases: more cases in a community discourages
+  non-vital medical appointments, decreasing diagnoses which may spur
+  patients to Google unfamiliar terms like "Erythema chronicum migrans".
+* The hypothesis that an increase in cases reduces search interest in
+  medical terms, especially obscure ones, by reducing non-vital medical
+  visits may be further examined by incorporating Safegraph location data
+  for general medical visits (not to be confused with the Doctor's Visits
+  indicator, which measures the proportion of doctor's visits that are
+  related to COVID).
+* *Second*, we assess whether the correlation between search interest in
+  these symptoms and cases is homogeneous in location.  To do this,
+  we group by (symptom, county), and calculate the correlation varying time.
+* TODO
+* *Finally*, we set up a rudimentary prediction problem, modeled on
+  XXXX, to assess the forecasting ability of this new data alone.
+* TODO
+
+### Initial ingestion and exploration
+
+```{r read_google_symptoms_data, class.source = 'fold-show', message=FALSE, warnings=FALSE}
 if (file.exists('symptom_df.RDS')) {
   symptom_df = readRDS('symptom_df.RDS')
+  symptom_names = unique(symptom_df$signal)
 } else {
+  dir.create('./cache/')
+  ak = load_state_data('ak')
+  symptom_cols = colnames(ak)[
+                    str_detect(colnames(ak), 'symptom:')]
+  symptom_names = str_replace(symptom_cols, fixed('symptom:'), '')
+
   symptom_df_list = vector('list', length(symptom_names))
   names(symptom_df_list) = symptom_names
 
@@ -217,6 +270,8 @@ min(most_missing$avg_available) * length(geo_values)
 Based on this, we leave all the symptoms in for the full
 correlations analysis.
 
+### Correlations 
+
 ```{r calculate_correlations, echo = TRUE}
 cor_list = vector('list', length(symptom_names))
 names(cor_list) = symptom_names
@@ -242,6 +297,7 @@ cor_df = cor_df %>% left_join(
 )
 ```
 
+#### Correlation over time: all symptoms
 ```{r correlation_demo, echo = FALSE}
 min_available_time = cor_df %>% filter(
     !is.na(value),
@@ -266,6 +322,10 @@ plt = (ggplot(plot_cor_df)
        )
 plt
 ```
+
+#### Correlation over time: largest single-day correlation
+When we discuss the "size" of a correlation, we consider the absolute value
+of correlation.
 
 ```{r investigate_max_max_cor, echo = TRUE}
 top_cor_signals = plot_cor_df %>% group_by (
@@ -325,6 +385,8 @@ plt = (ggplot(plot_cor_df)
        )
 plt
 ```
+
+#### Correlation over time: "consistently away from zero" symptoms
 
 ```{r investigate_max_min_cor, echo = FALSE}
 top_min_cor = plot_cor_df %>% group_by (
@@ -386,6 +448,8 @@ print(intersect(top_min_cor$signal, top_cor_signals$signal[1:5]))
 ```
 Interestingly, although anosmia technically is one of the "most stable" by our
 criterion, its distribution actually covers zero.
+
+### Correlation across location: TODO
 
 Could the negative correlation at the beginning of the pandemic be due to:
 
