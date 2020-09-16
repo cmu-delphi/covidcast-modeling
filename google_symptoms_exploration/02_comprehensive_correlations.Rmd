@@ -268,7 +268,7 @@ plt
 ```
 
 ```{r investigate_max_max_cor, echo = TRUE}
-top_cor_signals = cor_df %>% group_by (
+top_cor_signals = plot_cor_df %>% group_by (
     signal,
   ) %>% filter (
     abs(value) == max(abs(value), na.rm=TRUE),
@@ -278,8 +278,23 @@ top_cor_signals = cor_df %>% group_by (
   ) %>% head (
     5,
   )
+top_cor_sum_stats = plot_cor_df %>% filter (
+    signal %in% top_cor_signals$signal,
+  ) %>% group_by (
+    signal,
+  ) %>% summarize (
+    min = min(value, na.rm=TRUE),
+    quart1 = quantile(value, 0.25, na.rm=TRUE),
+    med = median(value, na.rm=TRUE),
+    mean = mean(value, na.rm=TRUE),
+    quart3 = quantile(value, 0.75, na.rm=TRUE),
+    max = max(value, na.rm=TRUE),
+  ) %>% ungroup (
+  )
 print('Symptoms with the largest all-time correlation:')
-print(top_cor_df)
+print(top_cor_signals %>% left_join(top_cor_sum_stats, on='signal')
+        %>% select(-time_value, -value),
+      width=100)
 plt = (ggplot(plot_cor_df)
        + geom_line(aes(x=time_value,
                        y=value,
@@ -312,7 +327,7 @@ plt
 ```
 
 ```{r investigate_max_min_cor, echo = FALSE}
-top_min_cor = cor_df %>% group_by (
+top_min_cor = plot_cor_df %>% group_by (
     signal,
   ) %>% filter (
     abs(value) == min(abs(value), na.rm=TRUE),
@@ -322,8 +337,23 @@ top_min_cor = cor_df %>% group_by (
   ) %>% head (
     5,
   )
+top_min_sum_stats = plot_cor_df %>% filter (
+    signal %in% top_min_cor$signal,
+  ) %>% group_by (
+    signal,
+  ) %>% summarize (
+    min = min(value, na.rm=TRUE),
+    quart1 = quantile(value, 0.25, na.rm=TRUE),
+    med = median(value, na.rm=TRUE),
+    mean = mean(value, na.rm=TRUE),
+    quart3 = quantile(value, 0.75, na.rm=TRUE),
+    max = max(value, na.rm=TRUE),
+  ) %>% ungroup (
+  )
 print('Symptoms that consistently stay away from 0 correlation:')
-print(top_min_cor)
+print(top_min_cor %>% left_join(top_min_sum_stats, on='signal')
+        %>% select(-time_value, -value),
+      width=100)
 plt = (ggplot(plot_cor_df)
        + geom_line(aes(x=time_value,
                        y=value,
@@ -354,6 +384,8 @@ plt
 print(top_min_cor$signal)
 print(intersect(top_min_cor$signal, top_cor_signals$signal[1:5]))
 ```
+Interestingly, although anosmia technically is one of the "most stable" by our
+criterion, its distribution actually covers zero.
 
 Could the negative correlation at the beginning of the pandemic be due to:
 
@@ -370,7 +402,7 @@ TODO:
 
 * [X] Re-create overall correlations plot
 * [X] Look at the "consistently ok" ones - top 5 min
-* [ ] Table that lists symptom, summary statistics of correlation (transform
+* [x] Table that lists symptom, summary statistics of correlation (transform
       existing table.......
 * [ ] Top 5: Group by location, aggregate over time, run correlation
 * [ ] With county-sliced correlations, produce chloropeth
