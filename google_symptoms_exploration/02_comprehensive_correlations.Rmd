@@ -252,9 +252,9 @@ plt = (ggplot(plot_cor_df)
                    data=plot_cor_df %>% filter (
                       !signal %in% top_cor_signals$signal
                    ),
-                   color='dodgerblue4',
+                   color='cornsilk',
                    size=0.1,
-                   alpha=0.1)
+                   alpha=1.0)
        + geom_line(aes(x=time_value,
                        y=value,
                        group=factor(signal),
@@ -271,39 +271,7 @@ plt = (ggplot(plot_cor_df)
             '2020-05-15', '2020-06-01', '2020-06-15', '2020-07-01',
             '2020-07-15', '2020-08-01', '2020-08-15')))
        + theme(axis.text.x = element_text(angle = 45))
-       )
-plt
-```
-```{r top_correlations_plot, echo = TRUE}
-plt = (ggplot(plot_cor_df)
-       + geom_line(aes(x=time_value,
-                       y=value,
-                       group=factor(signal)),
-                   data=plot_cor_df %>% filter (
-                      signal %in% top_cor_signals$signal,
-                      !signal %in% top_cor_signals$signal[1:5],
-                   ),
-                   color='darkorange',
-                   size=0.1)
-       + geom_line(aes(x=time_value,
-                       y=value,
-                       group=factor(signal)),
-                   data=plot_cor_df %>% filter (
-                      signal %in% top_cor_signals$signal[1:5],
-                   ),
-                   color='darkgreen',
-                   size=0.3,
-                   alpha=0.5)
-       + ylab('rank correlation')
-       + scale_x_date(breaks=lubridate::ymd(c('2020-03-01',
-            '2020-03-15', '2020-04-01', '2020-04-15', '2020-05-01',
-            '2020-05-15', '2020-06-01', '2020-06-15', '2020-07-01',
-            '2020-07-15', '2020-08-01', '2020-08-15')))
-       + theme(axis.text.x = element_text(angle = 45))
-       + ggtitle(paste(
-                'Correlation between cases and symptom search volumes\n',
-                'Only top 20 symptoms with largest all-time max corr plotted',
-                sep='\n'))
+       + ggtitle("Top 5 signals by all-time max(|corr|)")
        )
 plt
 ```
@@ -312,10 +280,10 @@ plt
 top_min_cor = cor_df %>% group_by (
     signal,
   ) %>% filter (
-    abs(value) == abs(min(value, na.rm=TRUE)),
+    abs(value) == min(abs(value), na.rm=TRUE),
   ) %>% ungroup (
   ) %>% arrange(
-    abs(value),
+    -abs(value),
   ) %>% head (
     5,
   )
@@ -326,16 +294,16 @@ plt = (ggplot(plot_cor_df)
                    data=plot_cor_df %>% filter (
                       !signal %in% top_min_cor$signal
                    ),
-                   color='dodgerblue4',
+                   color='cornsilk',
                    size=0.1,
-                   alpha=0.3)
+                   alpha=1.0)
        + geom_line(aes(x=time_value,
                        y=value,
-                       group=factor(signal)),
+                       group=factor(signal),
+                       color=factor(signal)),
                    data=plot_cor_df %>% filter (
                       signal %in% top_min_cor$signal,
                    ),
-                   color='darkorange',
                    size=0.3)
        + ylab('rank correlation')
        + scale_x_date(breaks=lubridate::ymd(c('2020-03-01',
@@ -343,28 +311,35 @@ plt = (ggplot(plot_cor_df)
             '2020-05-15', '2020-06-01', '2020-06-15', '2020-07-01',
             '2020-07-15', '2020-08-01', '2020-08-15')))
        + theme(axis.text.x = element_text(angle = 45))
+       + ggtitle("Top 5 signals by all-time min(|corr|)")
        )
 plt
 print(top_min_cor$signal)
 print(intersect(top_min_cor$signal, top_cor_signals$signal[1:5]))
 ```
 
-```{r top_cor_symptoms, echo = TRUE}
-print('Five symptoms with greatest all-time high correlation:')
-print(top_cor_signals$signal[1:5])
-print('Next fifteen:')
-print(top_cor_signals$signal[6:20])
-```
+Could the negative correlation at the beginning of the pandemic be due to:
+
+1. Social distancing / lockdown => non-critical medical visits cancelled
+2. Fewer non-COVID diagnoses => fewer unfamiliar terms for people to 
+   research on Google
+3. We could examine this hypothesis more closely by correlating these
+   "null" symptoms against mobility / Safegraph data for medical building
+   visits (not to be confused with the Doctor's Visits signal, which
+   specifically counts doctor's visits for CLI).
+
 
 TODO:
 
-* [ ] Look at the "consistently ok" ones - top 5 min
-* [ ] Understand why there are some symptoms that fall in the top correlation 
-  in July-ish, but don't fall into the top 20...
+* [X] Look at the "consistently ok" ones - top 5 min
 * [ ] Top 5: Group by location, aggregate over time, produce chloropeth?
 * [ ] Table that lists symptom, summary statistics of correlation, 
   layperson description
 * [ ] Run lasso / quantile lasso fit
+
+
+### Appendix
+Some things I'm still worried about / next steps:
 
 * Efficient way to present data?  Distribution of correlations over time,
   and the symptoms that consistently achieved high correlations
