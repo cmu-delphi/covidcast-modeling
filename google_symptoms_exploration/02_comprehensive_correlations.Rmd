@@ -477,21 +477,47 @@ geo_cor_df = geo_cor_df %>% left_join(
 )
 ```
 
-```{r plot_chloropeth_max_cor, echo = FALSE options}
+```{r plot_chloropeth_max_cor, echo = TRUE}
 for (symptom in top_cor_signals$signal) {
   df_cor2 = geo_cor_df %>% filter (signal == symptom)
   df_cor2$time_value = min_available_time
   df_cor2$issue = min_available_time
   attributes(df_cor2)$geo_type = 'county'
   class(df_cor2) = c("covidcast_signal", "data.frame")
+  n_available_county = df_cor2 %>% filter (!is.na(value)) %>% nrow()
 
   # Plot choropleth maps, using the covidcast plotting functionality
+  title_text = sprintf("Correlations between cases and %s (%d counties)",
+                             symptom, n_available_county)
+  if (!is.na(df_cor2$description[1])) {
+    title_text = paste0(title_text, '\n', sprintf('(%s)', df_cor2$description[1]))
+  } 
   print(plot(df_cor2,
-             title = sprintf("Correlations between cases and %s", symptom),
+             title = title_text,
             range = c(-1, 1), choro_col = c("orange","lightblue", "purple")))
 }
 ```
 
+```{r plot_chloropeth_min_cor, echo = TRUE}
+for (symptom in top_min_cor$signal) {
+  df_cor2 = geo_cor_df %>% filter (signal == symptom)
+  df_cor2$time_value = min_available_time
+  df_cor2$issue = min_available_time
+  attributes(df_cor2)$geo_type = 'county'
+  class(df_cor2) = c("covidcast_signal", "data.frame")
+  n_available_county = df_cor2 %>% filter (!is.na(value)) %>% nrow()
+
+  # Plot choropleth maps, using the covidcast plotting functionality
+  title_text = sprintf("Correlations between cases and %s (%d counties)",
+                             symptom, n_available_county)
+  if (!is.na(df_cor2$description[1])) {
+    title_text = paste0(title_text, '\n', sprintf('(%s)', df_cor2$description[1]))
+  } 
+  print(plot(df_cor2,
+             title = title_text,
+            range = c(-1, 1), choro_col = c("orange","lightblue", "purple")))
+}
+```
 
 TODO:
 
