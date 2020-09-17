@@ -258,13 +258,14 @@ most_missing = availability_df %>% group_by (
 ) %>% arrange (
   avg_available,
 )
+print(most_missing)
 ```
 
 For the signal that is most sparsely available, the number of 
 counties at which it tends to be available daily is:
 
 ```{r symptom_min_counties_available, echo = TRUE}
-min(most_missing$avg_available) * length(geo_values)
+print(min(most_missing$avg_available) * length(geo_values))
 ```
 
 Based on this, we leave all the symptoms in for the full
@@ -451,15 +452,45 @@ criterion, its distribution actually covers zero.
 
 ### Correlation across location: TODO
 
-Could the negative correlation at the beginning of the pandemic be due to:
+```{r calculate_correlations_geo, echo = TRUE}
+if (file.exists('geo_cor_df.RDS')) {
+  geo_cor_df = readRDS('geo_cor_df.RDS')
+} else {
+  geo_cor_list = vector('list', length(symptom_names))
+  names(geo_cor_list) = symptom_names
 
-1. Social distancing / lockdown => non-critical medical visits cancelled
-2. Fewer non-COVID diagnoses => fewer unfamiliar terms for people to 
-   research on Google
-3. We could examine this hypothesis more closely by correlating these
-   "null" symptoms against mobility / Safegraph data for medical building
-   visits (not to be confused with the Doctor's Visits signal, which
-   specifically counts doctor's visits for CLI).
+  for (symptom in symptom_names) {
+    cat(symptom, '...\n')
+    df_cor1 = covidcast_cor(symptom_df_act %>% filter(signal == symptom),
+                            df_inum_act,
+                            by = "geo_value",
+                            method = "spearman")
+    df_cor1['signal'] = symptom
+    geo_cor_list[[symptom]] = df_cor1
+  }
+  geo_cor_df = bind_rows(geo_cor_list)
+  saveRDS(geo_cor_df, 'geo_cor_df.RDS')
+}
+geo_cor_df = geo_cor_df %>% left_join(
+  signal_description_df,
+  on='signal',
+)
+```
+
+```{r plot_chloropeth_max_cor, echo = FALSE options}
+for (symptom in top_cor_signals$signal) {
+  df_cor2 = geo_cor_df %>% filter (signal == symptom)
+  df_cor2$time_value = min_available_time
+  df_cor2$issue = min_available_time
+  attributes(df_cor2)$geo_type = 'county'
+  class(df_cor2) = c("covidcast_signal", "data.frame")
+
+  # Plot choropleth maps, using the covidcast plotting functionality
+  print(plot(df_cor2,
+             title = sprintf("Correlations between cases and %s", symptom),
+            range = c(-1, 1), choro_col = c("orange","lightblue", "purple")))
+}
+```
 
 
 TODO:
@@ -468,8 +499,8 @@ TODO:
 * [X] Look at the "consistently ok" ones - top 5 min
 * [x] Table that lists symptom, summary statistics of correlation (transform
       existing table.......
-* [ ] Top 5: Group by location, aggregate over time, run correlation
-* [ ] With county-sliced correlations, produce chloropeth
+* [X] Top 5: Group by location, aggregate over time, run correlation
+* [ ] With county-sliced correlations, produce chloropeth for top 5
   layperson description.  Then plot using:
   https://cmu-delphi.github.io/covidcast/covidcastR/articles/correlation-utils.html
 * [ ] Run lasso / quantile lasso fit
