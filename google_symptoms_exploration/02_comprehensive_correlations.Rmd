@@ -122,10 +122,10 @@ pull_data_state = function(state, symptom) {
 ### Summary
 
 * 422 symptom signals, each with varying levels of availability.  The most
-  sparsely available symptoms are still available at at least XXXX counties
+  sparsely available symptoms are still available at at least 30 counties
   daily.  As a result, we retain all symptoms for this initial round of
   analysis.
-* *First*, we assess the correlation between each symptom and cases over
+* **First**, we assess the correlation between each symptom and cases over
   time.  To do this, we group by (symptom, date), and calculate the rank
   correlation between search interest and cases (the free variable here
   being counties).  (A previous analysis found that leading / lagging the
@@ -134,18 +134,25 @@ pull_data_state = function(state, symptom) {
   prevalence).
 * We see that there are a handful of symptoms that are highly correlated
   with cases, but there is a surprising temporal dependency.  Specifically,
-  almost all signals suffer a degradation in correlation from XXXX to
-  XXXX.  This is likely due to non-stationarity in both searcher behavior as
-  well as in the dynamics of COVID-spread (which is also highly community
-  dependent).
+  almost all signals suffer a degradation in correlation from the beginning of
+  May to mid-June. This is may be due to non-stationarity in both searcher
+  behavior as well as in the dynamics of COVID-spread (which is also highly
+  community dependent).
 * The symptoms that achieve the greatest single-day correlation with cases
   include the usual suspects: anosmia (lack of smell), ageusia (lack of taste),
-  fever, XXXX, XXXX.  Concerningly, these high-signal symptoms also
-  suffer from degradation during XXXX, with anosmia bottoming out with a
-  near-zero correlation with cases on XXXX.  We need to develop an
-  understanding of why even these correlations degrade.  Nonetheless,
-  these symptoms will likely form the bedrock of a new Google Symptoms
-  indicator.
+  viral pneumonia; this naive measure of usefulness also selects a couple
+  less expected symptoms such as _Erythema chronicum migrans_ (an expanding
+  rash that occurs early in Lyme disease) and _photodermatitis_, an
+  rash caused by allergens that require light to be active.  Concerningly,
+  these high-signal symptoms also
+  suffer from degradation during May to June, with anosmia bottoming out with a
+  near-zero correlation with cases at the beginning of June.  
+  We also see degradation of correlation again in August into September,
+  with near-zero correlation between _anosmia_ and _ageusia_ with cases
+  in the most recent data.  We need to
+  develop an understanding of why even these correlations degrade.  We also
+  should look into some obvious symptoms that didn't make the cut, such 
+  as fever.
 * We also examine the symptoms which maximize the minimum absolute correlation
   -- i.e., the symptoms that are uniformly bounded away from zero (many
   symptoms that achieve high single-day correlations also have days 
@@ -161,17 +168,24 @@ pull_data_state = function(state, symptom) {
   for general medical visits (not to be confused with the Doctor's Visits
   indicator, which measures the proportion of doctor's visits that are
   related to COVID).
-* *Second*, we assess whether the correlation between search interest in
+* **Second**, we assess whether the correlation between search interest in
   these symptoms and cases is homogeneous in location.  To do this,
   we group by (symptom, county), and calculate the correlation varying time.
 * TODO
-* *Finally*, we set up a rudimentary prediction problem, modeled on
+* **Finally**, we set up a rudimentary prediction problem, modeled on
   XXXX, to assess the forecasting ability of this new data alone.
 * TODO
+* The **latency for this data** can be worse than our original Google Health
+  Trends indicator.  To give an example, as of writing time, the last update of
+  this dataset was on September 16th, 2020, which provided data up until
+  September 9th, 2020.  Meanwhile, the GHT indicator has data up until
+  September 13th, 2020.  (But remember that this data provides us greater
+  geographical resolution).  We may want to request a lower latency stream
+  from our Google contacts.
 
 ### Initial ingestion and exploration
 
-```{r read_google_symptoms_data, class.source = 'fold-show', message=FALSE, warnings=FALSE}
+```{r read_google_symptoms_data, message=FALSE, warnings=FALSE}
 if (file.exists('symptom_df.RDS')) {
   symptom_df = readRDS('symptom_df.RDS')
   symptom_names = unique(symptom_df$signal)
@@ -202,7 +216,7 @@ if (file.exists('symptom_df.RDS')) {
 
 ```{r download_filter_data, echo = TRUE, message=FALSE, warnings=FALSE, cache=TRUE}
 start_day = "2020-03-01"
-end_day = "2020-08-15"
+end_day = "2020-09-15"
 
 df_inum = covidcast_signal(data_source = "jhu-csse",
                    signal = "confirmed_7dav_incidence_num",
@@ -318,7 +332,8 @@ plt = (ggplot(plot_cor_df)
        + scale_x_date(breaks=lubridate::ymd(c('2020-03-01',
             '2020-03-15', '2020-04-01', '2020-04-15', '2020-05-01',
             '2020-05-15', '2020-06-01', '2020-06-15', '2020-07-01',
-            '2020-07-15', '2020-08-01', '2020-08-15')))
+            '2020-07-15', '2020-08-01', '2020-08-15',
+            '2020-09-01', '2020-09-15')))
        + theme(axis.text.x = element_text(angle = 45))
        )
 plt
@@ -380,7 +395,8 @@ plt = (ggplot(plot_cor_df)
        + scale_x_date(breaks=lubridate::ymd(c('2020-03-01',
             '2020-03-15', '2020-04-01', '2020-04-15', '2020-05-01',
             '2020-05-15', '2020-06-01', '2020-06-15', '2020-07-01',
-            '2020-07-15', '2020-08-01', '2020-08-15')))
+            '2020-07-15', '2020-08-01', '2020-08-15',
+            '2020-09-01', '2020-09-15')))
        + theme(axis.text.x = element_text(angle = 45))
        + ggtitle("Top 5 signals by all-time max(|corr|)")
        )
