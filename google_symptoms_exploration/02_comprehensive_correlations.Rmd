@@ -1,0 +1,778 @@
+---
+title: "Google Symptoms Dataset"
+author: "Addison"
+output:
+  html_document:
+    toc: true
+    code_folding: hide
+---
+
+```{r import_statements, echo = FALSE, message = FALSE}
+library(tidyverse)
+library(covidcast)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r declare_global_constants}
+POSTAL_TO_STATE = list('AL'='Alabama', 'AK'='Alaska', 'AS'='American Samoa',
+                       'AZ'='Arizona', 'AR'='Arkansas', 'CA'='California',
+                       'CO'='Colorado', 'CT'='Connecticut', 'DE'='Delaware',
+                       'DC'='District of Columbia', 'FL'='Florida',
+                       'GA'='Georgia', 'GU'='Guam', 'HI'='Hawaii',
+                       'ID'='Idaho', 'IL'='Illinois', 'IN'='Indiana',
+                       'IA'='Iowa', 'KS'='Kansas', 'KY'='Kentucky',
+                       'LA'='Louisiana', 'ME'='Maine', 'MD'='Maryland',
+                       'MA'='Massachusetts', 'MI'='Michigan', 'MN'='Minnesota',
+                       'MS'='Mississippi', 'MO'='Missouri', 'MT'='Montana',
+                       'NE'='Nebraska', 'NV'='Nevada', 'NH'='New Hampshire',
+                       'NJ'='New Jersey', 'NM'='New Mexico', 'NY'='New York',
+                       'NC'='North Carolina', 'ND'='North Dakota',
+                       'MP'='Northern Mariana Islands', 'OH'='Ohio',
+                       'OK'='Oklahoma', 'OR'='Oregon', 'PA'='Pennsylvania',
+                       'PR'='Puerto Rico', 'RI'='Rhode Island', 'SC'='South Carolina',
+                       'SD'='South Dakota', 'TN'='Tennessee',
+                       'TX'='Texas', 'UT'='Utah', 'VT'='Vermont', 'VI'='Virgin Islands',
+                       'VA'='Virginia', 'WA'='Washington', 'WV'='West Virginia',
+                       'WI'='Wisconsin', 'WY'='Wyoming')
+
+states = c("al", "ak", "az", "ar", "ca", "co", "ct", "de", "fl", "ga", "hi",
+           "id", "il", "in", "ia", "ks", "ky", "la", "me", "md", "ma", "mi",
+           "mn", "ms", "mo", "mt", "ne", "nv", "nh", "nj", "nm", "ny", "nc",
+           "nd", "oh", "ok", "or", "pa", "ri", "sc", "sd", "tn", "tx", "ut",
+           "vt", "va", "wa", "wv", "wi", "wy")
+
+BASE_DAILY_URL = paste0(
+      'https://raw.githubusercontent.com/google-research/open-covid-19-data/',
+      'master/data/exports/search_trends_symptoms_dataset/',
+      'United%20States%20of%20America/subregions/{state}/',
+      '2020_US_{state_underscore}_daily_symptoms_dataset.csv')
+cache_data_list = list()
+signal_description_df = tribble(
+    ~signal,            ~description,
+    'Podalgia',                         'pain in the foot',
+    'Anosmia',                          'loss of smell',
+    'Purpura',                          "red/purple skin spots; 'blood spots'",
+    'Radiculopathy',                    'pinched nerve',
+    'Ageusia',                          'loss of taste',
+    'Erythema chronicum migrans',       'expanding rash early in lyme disease',
+    'Photodermatitis',                  'allergic rash that reqs light',
+)
+```
+
+```{r declare_helper_functions}
+expand_state_name = function(state) {
+  state_name = POSTAL_TO_STATE[[str_to_upper(state)]]
+  return(state_name)
+}
+
+load_state_data = function(state) {
+  if (state %in% names(cache_data_list)) return (cache_data_list[[state]])
+  # Check whether there is a cached version
+  state_fname = sprintf('cache/%s.csv', state)
+  # if there isn't, then download
+  if (!file.exists(state_fname)) {
+    state_name = expand_state_name(state)
+    message(sprintf('Downloading data for %s...', state_name))
+    state_name_underscore = str_replace_all(state_name, ' ', '_')
+    STATE_DAILY_URL = str_replace_all(BASE_DAILY_URL,
+                                   fixed('{state}'), state_name)
+    STATE_DAILY_URL = str_replace_all(STATE_DAILY_URL,
+                                   fixed('{state_underscore}'),
+                                   state_name_underscore)
+    STATE_DAILY_URL = str_replace_all(STATE_DAILY_URL,
+                                   fixed(' '),
+                                   '%20')
+    download.file(STATE_DAILY_URL, state_fname)
+  }
+  single_state = readr::read_csv(state_fname)
+  cache_data_list[[state]] <<- single_state
+  return (single_state)
+}
+
+
+pull_data_state = function(state, symptom) {
+  single_state = load_state_data(state)
+  unique(single_state$sub_region_2_code)
+  single_state_counties = single_state[!is.na(single_state$sub_region_2_code),]
+  selected_symptom = paste0('symptom:', symptom)
+  single_state_symptom = single_state_counties[,c('sub_region_2_code',
+                                                  'date',
+                                                  selected_symptom)]
+  # Shape into what we want
+  colnames(single_state_symptom) = c('geo_value', 'time_value', 'value')
+  single_state_symptom = single_state_symptom %>% filter (
+      !is.na(value),
+    )
+  single_state_symptom = single_state_symptom %>% transmute (
+      geo_value = sprintf('%05d', as.numeric(geo_value)),
+      signal = symptom,
+      time_value = time_value,
+      direction = NA,
+      issue = lubridate::today(),
+      lag = issue - time_value,
+      value = value,
+      stderr = NA,
+      sample_size = NA,
+      data_source = 'google_symptoms',
+    )
+}
+```
+
+## Summary
+
+* 422 symptom signals, each with varying levels of availability.  The most
+  sparsely available symptoms are still available at at least 30 counties
+  daily.  As a result, we retain all symptoms for this initial round of
+  analysis.
+* **First**, we assess the correlation between each symptom and cases over
+  time.  To do this, we group by (symptom, date), and calculate the rank
+  correlation between search interest and cases (the free variable here
+  being counties).  (A previous analysis found that leading / lagging the
+  signal does not improve correlation, which is in line with the intuition
+  that searcher interest should provide a "today" snapshot of COVID
+  prevalence).
+* We see that there are a handful of symptoms that are highly correlated
+  with cases, but there is a surprising temporal dependency.  Specifically,
+  almost all signals suffer a degradation in correlation from the beginning of
+  May to mid-June. This is may be due to non-stationarity in both searcher
+  behavior as well as in the dynamics of COVID-spread (which is also highly
+  community dependent).
+* The symptoms that achieve the greatest single-day correlation with cases
+  include the usual suspects: anosmia (lack of smell), ageusia (lack of taste),
+  viral pneumonia; this naive measure of usefulness also selects a couple
+  less expected symptoms such as _Erythema chronicum migrans_ (an expanding
+  rash that occurs early in Lyme disease) and _photodermatitis_, an
+  rash caused by allergens that require light to be active.  Concerningly,
+  these high-signal symptoms also
+  suffer from degradation during May to June, with anosmia bottoming out with a
+  near-zero correlation with cases at the beginning of June.  
+  We also see degradation of correlation again in August into September,
+  with near-zero correlation between _anosmia_ and _ageusia_ with cases
+  in the most recent data.  We need to
+  develop an understanding of why even these correlations degrade.  We also
+  should look into some obvious symptoms that didn't make the cut, such 
+  as fever.
+* We also examine the symptoms which maximize the minimum absolute correlation
+  -- i.e., the symptoms that are uniformly bounded away from zero (many
+  symptoms that achieve high single-day correlations also have days 
+  with very low correlation).  These symptoms are not medically linked
+  to the coronavirus, based on my own rudimentary understanding.  However,
+  we pose a latent variable that may explain why they achieve
+  negative correlation with cases: more cases in a community discourages
+  non-vital medical appointments, decreasing diagnoses which may spur
+  patients to Google unfamiliar terms like "Erythema chronicum migrans".
+* The hypothesis that an increase in cases reduces search interest in
+  medical terms, especially obscure ones, by reducing non-vital medical
+  visits may be further examined by incorporating Safegraph location data
+  for general medical visits (not to be confused with the Doctor's Visits
+  indicator, which measures the proportion of doctor's visits that are
+  related to COVID).  After examining the location-slices chloropeths,
+  I am also led to believe that these correlation for these symptoms is
+  also less noisy simply because they cover more counties, thereby increasing
+  the sample size.
+* **Second**, we assess whether the correlation between search interest in
+  these symptoms and cases is homogeneous in location.  To do this,
+  we group by (symptom, county), and calculate the correlation varying time.
+* We find that for the high-signal symptoms of _viral pneumonia_, 
+  _anosmia_, and _ageusia_, the sign of a symptom's correlation against
+  cases is homogeneous in location (an encouraging sign).
+* The chloropeths also reveal that the symptoms whose correlations are
+  consistent in time also have much higher geographical coverage; therefore
+  I am led to believe that the relatively low noise in these correlations
+  is due to increased sample size.
+* **Finally**, we set up a rudimentary prediction problem, modeled on
+  XXXX, to assess the forecasting ability of this new data alone.
+* TODO
+* The **latency for this data** can be worse than our original Google Health
+  Trends indicator.  To give an example, as of writing time, the last update of
+  this dataset was on September 16th, 2020, which provided data up until
+  September 9th, 2020.  Meanwhile, the GHT indicator has data up until
+  September 13th, 2020.  (But remember that this data provides us greater
+  geographical resolution).  We may want to request a lower latency stream
+  from our Google contacts.
+
+## Initial ingestion and exploration
+
+```{r read_google_symptoms_data, message=FALSE, warnings=FALSE}
+if (file.exists('symptom_df.RDS')) {
+  symptom_df = readRDS('symptom_df.RDS')
+  symptom_names = unique(symptom_df$signal)
+} else {
+  dir.create('./cache/')
+  ak = load_state_data('ak')
+  symptom_cols = colnames(ak)[
+                    str_detect(colnames(ak), 'symptom:')]
+  symptom_names = str_replace(symptom_cols, fixed('symptom:'), '')
+
+  symptom_df_list = vector('list', length(symptom_names))
+  names(symptom_df_list) = symptom_names
+
+  for (symptom in symptom_names) {
+    cat(symptom, '...\n')
+    states_list = vector('list', length(states))
+    for (idx in 1:length(states)) {
+      state = states[idx]
+      states_list[[idx]] = pull_data_state(state, symptom)
+    }
+    symptom_df_list[[symptom]] = bind_rows(states_list)
+  }
+  symptom_df = bind_rows(symptom_df_list)
+  saveRDS(symptom_df, 'symptom_df.RDS')
+}
+```
+
+
+```{r download_filter_data, echo = TRUE, message=FALSE, warnings=FALSE, cache=TRUE}
+start_day = "2020-03-01"
+end_day = "2020-09-15"
+
+df_inum = covidcast_signal(data_source = "jhu-csse",
+                   signal = "confirmed_7dav_incidence_num",
+                   start_day = start_day, end_day = end_day)
+
+case_num = 500
+geo_values = df_inum %>% group_by(geo_value) %>%
+  summarize(total = sum(value)) %>%
+  filter(total >= case_num) %>% pull(geo_value)
+df_inum_act = df_inum %>% filter(geo_value %in% geo_values)
+```
+```{r subset_symptom_data, echo = TRUE}
+symptom_df_act = symptom_df %>% filter (
+  geo_value %in% geo_values,
+)
+```
+
+Here we plot the availaibility of each symptom over time
+(proportion is percentage of counties for which the symptom
+was available).  We see that for each signal, the availability
+level is consistent over time, subject to a strong weekend
+effect.
+
+```{r assess_missingness, echo = TRUE}
+availability_df = symptom_df_act %>% group_by (
+  time_value,
+  signal,
+) %>% summarize (
+  prop_available = n() / length(geo_values),
+) %>% ungroup (
+)
+
+plt = (ggplot(availability_df)
+       + geom_line(aes(x=time_value,
+                       y=prop_available,
+                       group=factor(signal)),
+                   color='dodgerblue4',
+                   size=0.1)
+       + ggtitle(paste('Within-single availability stable over time,',
+                       'weekend effects'))
+       )
+plt
+```
+
+The symptoms for which data is most sparse are:
+
+```{r symptoms_most_missingness, echo = TRUE}
+most_missing = availability_df %>% group_by (
+  signal,
+) %>% summarize (
+  avg_available = mean(prop_available)
+) %>% ungroup (
+) %>% filter (
+  avg_available <= 0.05
+) %>% arrange (
+  avg_available,
+)
+print(most_missing)
+```
+
+For the signal that is most sparsely available, the number of 
+counties at which it tends to be available daily is:
+
+```{r symptom_min_counties_available, echo = TRUE}
+print(min(most_missing$avg_available) * length(geo_values))
+```
+
+Based on this, we leave all the symptoms in for the full
+correlations analysis.
+
+## Correlations 
+
+```{r calculate_correlations, echo = TRUE}
+cor_list = vector('list', length(symptom_names))
+names(cor_list) = symptom_names
+
+if (file.exists('cor_df.RDS')) {
+  cor_df = readRDS('cor_df.RDS')
+} else {
+  for (symptom in symptom_names) {
+    cat(symptom, '...\n')
+    df_cor1 = covidcast_cor(symptom_df_act %>% filter(signal == symptom),
+                            df_inum_act,
+                            by = "time_value",
+                            method = "spearman")
+    df_cor1['signal'] = symptom
+    cor_list[[symptom]] = df_cor1
+  }
+  cor_df = bind_rows(cor_list)
+  saveRDS(cor_df, 'cor_df.RDS')
+}
+cor_df = cor_df %>% left_join(
+  signal_description_df,
+  on='signal',
+)
+```
+
+### Correlation over time: all symptoms
+```{r correlation_demo, echo = FALSE}
+min_available_time = cor_df %>% filter(
+    !is.na(value),
+  ) %>% pull (
+    time_value,
+  ) %>% min
+plot_cor_df = cor_df %>% filter(time_value >= min_available_time)
+plt = (ggplot(plot_cor_df)
+       + geom_line(aes(x=time_value,
+                       y=value,
+                       group=factor(signal)),
+                   ,
+                   color='dodgerblue4',
+                   size=0.1,
+                   alpha=1.0)
+       + ylab('rank correlation')
+       + scale_x_date(breaks=lubridate::ymd(c('2020-03-01',
+            '2020-03-15', '2020-04-01', '2020-04-15', '2020-05-01',
+            '2020-05-15', '2020-06-01', '2020-06-15', '2020-07-01',
+            '2020-07-15', '2020-08-01', '2020-08-15',
+            '2020-09-01', '2020-09-15')))
+       + theme(axis.text.x = element_text(angle = 45))
+       + ggtitle(paste('Correlations degrade beginning of June;',
+                       'again in Sept for "best" symptoms'))
+       )
+plt
+```
+
+### Correlation over time: largest single-day correlation symptoms
+When we discuss the "size" of a correlation, we consider the absolute value
+of correlation.
+
+```{r investigate_max_max_cor, echo = TRUE}
+top_cor_signals = plot_cor_df %>% group_by (
+    signal,
+  ) %>% filter (
+    abs(value) == max(abs(value), na.rm=TRUE),
+  ) %>% ungroup (
+  ) %>% arrange(
+    -abs(value),
+  ) %>% head (
+    5,
+  )
+top_cor_sum_stats = plot_cor_df %>% filter (
+    signal %in% top_cor_signals$signal,
+  ) %>% group_by (
+    signal,
+  ) %>% summarize (
+    min = min(value, na.rm=TRUE),
+    quart1 = quantile(value, 0.25, na.rm=TRUE),
+    med = median(value, na.rm=TRUE),
+    mean = mean(value, na.rm=TRUE),
+    quart3 = quantile(value, 0.75, na.rm=TRUE),
+    max = max(value, na.rm=TRUE),
+  ) %>% ungroup (
+  )
+print('Symptoms with the largest all-time correlation:')
+print(top_cor_signals %>% left_join(top_cor_sum_stats, on='signal')
+        %>% select(-time_value, -value),
+      width=100)
+plt = (ggplot(plot_cor_df)
+       + geom_line(aes(x=time_value,
+                       y=value,
+                       group=factor(signal)),
+                   data=plot_cor_df %>% filter (
+                      !signal %in% top_cor_signals$signal
+                   ),
+                   color='cornsilk',
+                   size=0.1,
+                   alpha=1.0)
+       + geom_line(aes(x=time_value,
+                       y=value,
+                       group=factor(signal),
+                       colour=factor(signal)
+                       ),
+                   data=plot_cor_df %>% filter (
+                      signal %in% top_cor_signals$signal,
+                   ),
+                   #color='darkorange',
+                   size=0.3)
+       + ylab('rank correlation')
+       + scale_x_date(breaks=lubridate::ymd(c('2020-03-01',
+            '2020-03-15', '2020-04-01', '2020-04-15', '2020-05-01',
+            '2020-05-15', '2020-06-01', '2020-06-15', '2020-07-01',
+            '2020-07-15', '2020-08-01', '2020-08-15',
+            '2020-09-01', '2020-09-15')))
+       + theme(axis.text.x = element_text(angle = 45))
+       + ggtitle("Top 5 signals by all-time max(|corr|)")
+       )
+plt
+```
+
+### Correlation over time: "consistently away from zero" symptoms
+
+```{r investigate_max_min_cor, echo = FALSE}
+top_min_cor = plot_cor_df %>% group_by (
+    signal,
+  ) %>% filter (
+    abs(value) == min(abs(value), na.rm=TRUE),
+  ) %>% ungroup (
+  ) %>% arrange(
+    -abs(value),
+  ) %>% head (
+    5,
+  )
+top_min_sum_stats = plot_cor_df %>% filter (
+    signal %in% top_min_cor$signal,
+  ) %>% group_by (
+    signal,
+  ) %>% summarize (
+    min = min(value, na.rm=TRUE),
+    quart1 = quantile(value, 0.25, na.rm=TRUE),
+    med = median(value, na.rm=TRUE),
+    mean = mean(value, na.rm=TRUE),
+    quart3 = quantile(value, 0.75, na.rm=TRUE),
+    max = max(value, na.rm=TRUE),
+  ) %>% ungroup (
+  )
+print('Symptoms that consistently stay away from 0 correlation:')
+print(top_min_cor %>% left_join(top_min_sum_stats, on='signal')
+        %>% select(-time_value, -value),
+      width=100)
+plt = (ggplot(plot_cor_df)
+       + geom_line(aes(x=time_value,
+                       y=value,
+                       group=factor(signal)),
+                   data=plot_cor_df %>% filter (
+                      !signal %in% top_min_cor$signal
+                   ),
+                   color='cornsilk',
+                   size=0.1,
+                   alpha=1.0)
+       + geom_line(aes(x=time_value,
+                       y=value,
+                       group=factor(signal),
+                       color=factor(signal)),
+                   data=plot_cor_df %>% filter (
+                      signal %in% top_min_cor$signal,
+                   ),
+                   size=0.3)
+       + ylab('rank correlation')
+       + scale_x_date(breaks=lubridate::ymd(c('2020-03-01',
+            '2020-03-15', '2020-04-01', '2020-04-15', '2020-05-01',
+            '2020-05-15', '2020-06-01', '2020-06-15', '2020-07-01',
+            '2020-07-15', '2020-08-01', '2020-08-15')))
+       + theme(axis.text.x = element_text(angle = 45))
+       + ggtitle("Top 5 signals by all-time min(|corr|)")
+       )
+plt
+```
+
+### Correlation across location: largest single-day correlation symptoms
+
+```{r calculate_correlations_geo, echo = TRUE}
+if (file.exists('geo_cor_df.RDS')) {
+  geo_cor_df = readRDS('geo_cor_df.RDS')
+} else {
+  geo_cor_list = vector('list', length(symptom_names))
+  names(geo_cor_list) = symptom_names
+
+  for (symptom in symptom_names) {
+    cat(symptom, '...\n')
+    df_cor1 = covidcast_cor(symptom_df_act %>% filter(signal == symptom),
+                            df_inum_act,
+                            by = "geo_value",
+                            method = "spearman")
+    df_cor1['signal'] = symptom
+    geo_cor_list[[symptom]] = df_cor1
+  }
+  geo_cor_df = bind_rows(geo_cor_list)
+  saveRDS(geo_cor_df, 'geo_cor_df.RDS')
+}
+geo_cor_df = geo_cor_df %>% left_join(
+  signal_description_df,
+  on='signal',
+)
+```
+
+The sign of the correlation with cases is fairly homogeneous in geography
+for viral pneumonia, anosmia, and ageusia, which increases my confidence that
+they will serve well as signals for predicting cases in a global model.
+I do not fully understand why there is a negative correlation between viral
+pneumonia and cases.  Also important to note is that this handful of
+high-signal symptoms only cover a smattering of counties, mostly
+high-population areas -- 50-100 counties out of 3000 total.  For context,
+the modeling team's county-level forecasts target roughly 200 counties,
+as of September 2020.
+
+```{r plot_chloropeth_max_cor, echo = TRUE}
+for (symptom in top_cor_signals$signal) {
+  df_cor2 = geo_cor_df %>% filter (signal == symptom)
+  df_cor2$time_value = min_available_time
+  df_cor2$issue = min_available_time
+  attributes(df_cor2)$geo_type = 'county'
+  class(df_cor2) = c("covidcast_signal", "data.frame")
+  n_available_county = df_cor2 %>% filter (!is.na(value)) %>% nrow()
+
+  # Plot choropleth maps, using the covidcast plotting functionality
+  title_text = sprintf("Correlations between cases and %s (%d counties)",
+                             symptom, n_available_county)
+  if (!is.na(df_cor2$description[1])) {
+    title_text = paste0(title_text, '\n', sprintf('(%s)', df_cor2$description[1]))
+  } 
+  print(plot(df_cor2,
+             title = title_text,
+            range = c(-1, 1), choro_col = c("orange","lightblue", "purple")))
+}
+```
+
+### Correlation across location: "consistently away from zero" symptoms
+
+The sign of the correlation with cases for "consistently away from zero"
+symptoms is also fairly homogeneous in location.  However, the main takeaway,
+in my opinion, of these plots is to show the greater geographical coverage
+of this set of symptoms compared to the high-signal set of symptoms.
+I am led to believe that "consistently away from zero" is tied to noise-level,
+which is affected by sample size, which is greater for these (presumably
+common) symptoms.
+
+```{r plot_chloropeth_min_cor, echo = TRUE}
+for (symptom in top_min_cor$signal) {
+  df_cor2 = geo_cor_df %>% filter (signal == symptom)
+  df_cor2$time_value = min_available_time
+  df_cor2$issue = min_available_time
+  attributes(df_cor2)$geo_type = 'county'
+  class(df_cor2) = c("covidcast_signal", "data.frame")
+  n_available_county = df_cor2 %>% filter (!is.na(value)) %>% nrow()
+
+  # Plot choropleth maps, using the covidcast plotting functionality
+  title_text = sprintf("Correlations between cases and %s (%d counties)",
+                             symptom, n_available_county)
+  if (!is.na(df_cor2$description[1])) {
+    title_text = paste0(title_text, '\n', sprintf('(%s)', df_cor2$description[1]))
+  } 
+  print(plot(df_cor2,
+             title = title_text,
+            range = c(-1, 1), choro_col = c("orange","lightblue", "purple")))
+}
+```
+
+## Rudimentary prediction problem
+Here we use code liberally borrowed from an
+[upcoming blog post](https://github.com/cmu-delphi/delphi-blog/blob/google-survey/content/post/google-fb-forecast-demo/demo.R)
+to perform a prediction task.
+
+Tried something but it doesn't look too well :/ 
+
+```{r prediction_setup, echo = TRUE, eval=FALSE}
+# Function to append shift values (lags or leads) to data frame
+append_shifts = function(df, shifts) {
+  # Make sure that we have a complete record of dates for each geo_value (fill
+  # with NAs as necessary)
+  df_all = df %>% group_by(geo_value) %>%
+    summarize(time_value = seq.Date(as.Date(min(time_value)),
+                                    as.Date(max(time_value)),
+                                    by = "day")) %>% ungroup()
+  df = full_join(df, df_all, by = c("geo_value", "time_value"))
+  
+  # Group by geo value, sort rows by increasing time
+  df = df %>% group_by(geo_value) %>% arrange(time_value) 
+  
+  # Load over shifts, and add lag value or lead value
+  for (shift in shifts) {
+    fun = ifelse(shift < 0, lag, lead)
+    varname = sprintf("value%+d", shift)
+    df = mutate(df, !!varname := fun(value, n = abs(shift)))
+  }
+  
+  # Ungroup and return
+  return(ungroup(df))
+}
+
+# Some useful functions for transformations
+Log = function(x, a = 0.01) log(x + a)
+Exp = function(y, a = 0.01) exp(y) - a
+Logit = function(x, a = 0.01) log((x + a) / (1 - x + a))
+Sigmd = function(y, a = 0.01) (exp(y) * (1 + a) - a) / (1 + exp(y))
+Id = function(x) x
+ 
+# Transforms to consider, in what follows
+trans = Id
+inv_trans = Id
+
+# Rescale factors for our signals: bring them all down to proportions (between
+# 0 and 1)
+rescale_symptom = 1e-2 # Originally b/t 0 and 100
+rescale_case = 1e-5 # Originally a count per 100,000 people
+
+# Consider only counties with at least 200 cumulative cases by Google's end
+case_num = 200
+geo_values = covidcast_signal("jhu-csse", "confirmed_cumulative_num",
+                              "2020-05-14", "2020-05-14") %>%
+  filter(value >= case_num) %>% pull(geo_value) 
+
+# Fetch county-level Google and Facebook % CLI-in-community signals, and JHU
+# confirmed case incidence proportion
+if (!'symptom_df' %in% ls()) {
+  symptom_df = readRDS('symptom_df.RDS')
+}
+start_day = "2020-04-11"
+end_day = "2020-09-01"
+anosmia = symptom_df %>% filter(signal == 'Anosmia') %>% 
+  select(geo_value, time_value, value) %>%
+  filter(geo_value %in% geo_values,
+				 time_value >= start_day,
+				 time_value <= end_day) 
+ageusia = symptom_df %>% filter(signal == 'Ageusia') %>% 
+  select(geo_value, time_value, value) %>%
+  filter(geo_value %in% geo_values,
+				 time_value >= start_day,
+				 time_value <= end_day) 
+viral_pneumonia = symptom_df %>% filter(signal == 'Viral pneumonia') %>% 
+  select(geo_value, time_value, value) %>%
+  filter(geo_value %in% geo_values,
+				 time_value >= start_day,
+				 time_value <= end_day) 
+case = covidcast_signal("jhu-csse", "confirmed_7dav_incidence_prop",
+                     start_day, end_day) %>%
+  select(geo_value, time_value, value) %>%
+  filter(geo_value %in% geo_values) 
+geo_values_complete = intersect(intersect(intersect(anosmia$geo_value, ageusia$geo_value),
+                                viral_pneumonia$geo_value), case$geo_value)
+# Filter to complete counties, transform the signals, append 1-2 week lags to 
+# all three, and also 1-2 week leads to case rates
+lags = -1:-2 * 7
+leads = 1:2 * 7
+anosmia = anosmia %>% filter(geo_value %in% geo_values_complete) %>% 
+  mutate(value = trans(value * rescale_symptom)) %>% 
+  append_shifts(shifts = lags) 
+ageusia = ageusia %>% filter(geo_value %in% geo_values_complete) %>% 
+  mutate(value = trans(value * rescale_symptom)) %>% 
+  append_shifts(shifts = lags) 
+viral_pneumonia = viral_pneumonia %>% filter(geo_value %in% geo_values_complete) %>% 
+  mutate(value = trans(value * rescale_symptom)) %>% 
+  append_shifts(shifts = lags) 
+case = case %>% filter(geo_value %in% geo_values_complete) %>% 
+  mutate(value = trans(value * rescale_case)) %>% 
+  append_shifts(shifts = c(lags, leads))
+
+# Rename columns
+colnames(anosmia) = sub("^value", "anosmia", colnames(anosmia))
+colnames(ageusia) = sub("^value", "ageusia", colnames(ageusia))
+colnames(viral_pneumonia) = sub("^value", "viral_pneumonia", colnames(viral_pneumonia))
+colnames(case) = sub("^value", "case", colnames(case))
+
+# Make one big matrix by joining these three data frames
+z = full_join(full_join(full_join(anosmia, ageusia, by = c("geo_value", "time_value")),
+              viral_pneumonia, by = c("geo_value", "time_value")),
+              case, by = c("geo_value", "time_value"))
+
+##### Analysis #####
+
+# Use quantgen for LAD regression (this package supports quantile regression and
+# more; you can find it on GitHub here: https://github.com/ryantibs/quantgen)
+library(quantgen) 
+
+res_list = vector("list", length = length(leads)) 
+n = 14 # Number of trailing days to use for training set
+verbose = TRUE # Print intermediate progress to console?
+
+# Loop over lead, forecast dates, build models and record errors (warning: this
+# computation takes a while)
+for (i in 1:length(leads)) { 
+  lead = leads[i]; if (verbose) cat("***", lead, "***\n")
+  
+  # Create a data frame to store our results. Code below populates its rows in a
+  # way that breaks from typical dplyr operations, done for efficiency
+  res_list[[i]] = z %>% 
+    filter(between(time_value, as.Date(start_day) - min(lags) + lead, 
+                   as.Date(end_day) - lead)) %>%
+    select(geo_value, time_value) %>%
+    mutate(err0 = as.double(NA), err1 = as.double(NA), err2 = as.double(NA), 
+           #err3 = as.double(NA), err4 = as.double(NA),
+           lead = lead) 
+  valid_dates = unique(res_list[[i]]$time_value)
+  
+  for (j in 1:length(valid_dates)) {
+    date = valid_dates[j]; if (verbose) cat(format(date), "... ")
+    
+    # Filter down to training set and test set
+    z_tr = z %>% filter(between(time_value, date - lead - n, date - lead))
+    z_te = z %>% filter(time_value == date)
+    inds = which(res_list[[i]]$time_value == date)
+    
+    # Create training and test responses
+    y_tr = z_tr %>% pull(paste0("case+", lead))
+    y_te = z_te %>% pull(paste0("case+", lead))
+    
+    # Strawman model
+    if (verbose) cat("0")
+    y_hat = z_te %>% pull(case)
+    res_list[[i]][inds,]$err0 = abs(inv_trans(y_hat) - inv_trans(y_te))
+    
+    # Cases only model
+    if (verbose) cat("1")
+    x_tr_case = z_tr %>% select(starts_with("case") & !contains("+"))
+    x_te_case = z_te %>% select(starts_with("case") & !contains("+"))
+    x_tr = x_tr_case; x_te = x_te_case # For symmetry wrt what follows 
+    ok = complete.cases(x_tr, y_tr)
+    if (sum(ok) > 0) {
+      obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
+                           lambda = 0, stand = FALSE, lp_solver = "gurobi")
+      y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
+      res_list[[i]][inds,]$err1 = abs(inv_trans(y_hat) - inv_trans(y_te)) 
+    }
+    
+    # Cases and symptoms model
+    if (verbose) cat("2")
+    x_tr_anosmia = z_tr %>% select(starts_with("anosmia"))
+    x_te_anosmia = z_te %>% select(starts_with("anosmia"))
+    x_tr_ageusia = z_tr %>% select(starts_with("ageusia"))
+    x_te_ageusia = z_te %>% select(starts_with("ageusia"))
+    x_tr_viral_pneumonia = z_tr %>% select(starts_with("viral_pneumonia"))
+    x_te_viral_pneumonia = z_te %>% select(starts_with("viral_pneumonia"))
+    x_tr = cbind(x_tr_case, x_tr_anosmia, x_tr_ageusia, x_tr_viral_pneumonia)
+    x_te = cbind(x_te_case, x_te_anosmia, x_te_ageusia, x_te_viral_pneumonia)
+    ok = complete.cases(x_tr, y_tr)
+    if (sum(ok) > 0) {
+      obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
+                           lambda = 0, stand = FALSE, lp_solver = "gurobi")
+      y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
+      err_vec = abs(inv_trans(y_hat) - inv_trans(y_te))
+      res_list[[i]][inds,]$err2 = err_vec
+    }
+  }
+}
+
+# Bind results over different leads into one big data frame
+res = do.call(rbind, res_list)
+
+# Calculate the median of the scaled errors for the various model: that is, the 
+# errors relative to the strawman's error
+res_med = res %>% mutate(err1 = err1 / err0, err2 = err2 / err0) %>%
+  select(-err0) %>% 
+  tidyr::pivot_longer(names_to = "model", values_to = "err", 
+                      cols = -c(geo_value, time_value, lead)) %>%
+  group_by(time_value, lead, model) %>% 
+  summarize(err = median(err, na.rm = TRUE)) %>%
+  ungroup() %>% 
+  mutate(lead = factor(lead, labels = paste(leads, "days ahead")),
+         model = factor(model, labels = c("Cases", "Cases + Symptoms")))
+
+saveRDS(res, 'res.RDS')
+saveRDS(res_med, 'res_med.RDS')
+
+ggplot(res_med, aes(x = time_value, y = err)) + 
+  geom_line(aes(color = model)) + 
+  geom_hline(yintercept = 1, linetype = 2, color = "gray") +
+  facet_wrap(vars(lead)) + 
+  labs(x = "Date", y = "Scaled error", title = "Id transform") +
+  theme_bw() + theme(legend.pos = "bottom", legend.title = element_blank())
+```
