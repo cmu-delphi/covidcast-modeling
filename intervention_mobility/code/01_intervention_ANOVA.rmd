@@ -1,0 +1,247 @@
+---
+title: "Analysis of Variance on State-level Government Intervention"
+author: "Kenneth Lee"
+date: "15/09/2020"
+output: 
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: True
+      smooth_scroll: True
+---
+
+## Data Preprocessing
+```{r import packages, warning = FALSE, message = FALSE}
+library(ggplot2)
+library (readr)
+library(tidyverse)
+library(dplyr)
+library(covidcast)
+library(lubridate)
+library(ggpubr)
+library(reshape2)
+library(tidyr)
+library(viridis)
+library(gridExtra)
+library(zoo)
+library(cowplot)
+
+
+source("code/painter.r")
+source("code/load_all_data.r")
+```
+
+```{r define global variables}
+STARTDATE <- "2020-02-20"
+ENDDATE <- lubridate::today()
+GEO_TYPE = "state" # state-level
+GEO_VALUE = "*" # all states
+EXCLUDED_AREAS = c("as","gu", "mp","vi") # excluded areas due to small sample size
+DT_X = 7 # 	 Time shifts to consider for x
+```
+
+```{r import data, warning = FALSE, message=FALSE}
+data <- load_data(STARTDATE, ENDDATE, GEO_TYPE, GEO_VALUE, EXCLUDED_AREAS)
+
+# Read government intervention data
+urlfile="https://raw.githubusercontent.com/COVID19StatePolicy/SocialDistancing/master/data/USstatesCov19distancingpolicy.csv"
+policy <- read_csv(url(urlfile))
+
+```
+
+```{r preprocess policy data}
+# Convert to lower case
+policy$StatePostal <- tolower(policy$StatePostal)
+# First we convert the date to a proper format
+policy[, c("DateIssued", "DateEnacted", "DateExpiry" ,"DateEased", "DateEnded", "DateReexpanded1", "DateReeased1")] <- data.frame(lapply(policy[, c("DateIssued", "DateEnacted", "DateExpiry" ,"DateEased", "DateEnded", "DateReexpanded1", "DateReeased1")], function(x) as.Date(as.character(x), "%Y%m%d")))
+
+# How many unique policy per state for each policy?
+state.policy <- policy %>% filter(StateWide == 1)
+```
+
+## Explore the variability of policy across states
+
+```{r Count of all policies}
+# Plot for non-distinct count and mandate distribution
+policy.by.state <- state.policy[,c("StateName","StatePolicy", "Mandate")]
+# Get the count
+new_counts <- table(policy.by.state$StatePolicy, policy.by.state$Mandate)
+
+# Convert to data frame
+new_counts.df <- as.data.frame(new_counts)
+# Change the colname for the future legend readibility
+colnames(new_counts.df)[2] <- "Mandate?"
+
+# Plot the graph for the count
+p <- ggplot(new_counts.df,aes(x= reorder(Var1,Freq),Freq)) +
+  geom_bar(stat ="identity")+
+  coord_flip()+
+  labs(title = "Count of State-wide Policy Across States", y="Distinct Count", x="Policy")
+p
+
+# Show the difference by Mandate?
+p <- ggplot(new_counts.df,aes(x= reorder(Var1,Freq),Freq, fill = `Mandate?`)) +
+  geom_bar(stat ="identity")+
+  coord_flip()+
+  labs(title = "Count of State-wide Policy Across States", y="Distinct Count", x="Policy")+
+   guides(fill=guide_legend(title="Mandate?"))
+p
+
+```
+
+```{r Distinct count of policies}
+# Filter the dataframe by distrinct rows
+unique.policy.by.state <- distinct(state.policy[,c("StateName","StatePolicy")])
+# Get the count
+counts <- table(unique.policy.by.state$StatePolicy)
+
+# Convert to data frame
+counts.df <- as.data.frame(counts) 
+
+# Rename the policy for better readibility
+counts.df[,"Var1"] <- c("Bar restrictions", "Case-based isolation orders", "Emergency declarations", "Gathering Recommendations", "Gathering Restriction", "Non-essential business closures", "Other Business closures", "Public mask", "Travel-based quarantine order", "Restaurant restrictions", "School closures", "Stay-at-home order", "TravelRestrictEntry", "TravelRestrictExit", "TravelRestrictWithinState")
+  
+# Plot the graph for ditinct count
+p <- ggplot(counts.df,aes(x= reorder(Var1,Freq),Freq, fill=Freq))+
+  geom_bar(stat ="identity")+
+  coord_flip()+
+  labs(title = "Distinct Count of State-wide Policy Across States", y="Distinct Count", x="Policy")
+
+p
+```
+
+
+
+## Construct government intervention signal over time
+
+We may construct a simple signal to represent state-wide government intervention over time. To do so, we count the number of policies that has been enacted in a day and take the average number within 7 days as an intervention signal.
+
+```{r construct government intervention signal}
+
+# Get the dates between start and end date
+all.dates <- seq(as.Date(STARTDATE), as.Date(ENDDATE), by="days")
+time_value <- sort(rep(all.dates, length(unique(policy$StatePostal)) )) 
+
+# Generate geo_value
+geo_value <- rep(unique(policy$StatePostal), length(all.dates))
+policy_signal <- data.frame(time_value = time_value, geo_value = geo_value)
+
+# Create empty columns
+policy_signal[,unique(policy$StatePolicy)] <- 0
+
+# Fill in the count for each date
+  # Get the policy name and state to filer policy signal 
+for (row in (1:nrow(policy))){
+  current.policy <- policy[row,]$StatePolicy
+  current.state <- policy[row,]$StatePostal
+  if (is.na(policy[row,]$DateEnded)){
+    # Filter the rows of dataframe to be the current state and the time value that is after the policy is enacted.
+    policy_signal[policy_signal$geo_value == current.state & policy_signal$time_value > as.Date(policy[row,]$DateEnacted), current.policy] <- 1
+  }else{
+    # Get time range between Date Enacted and Date Ended
+    time.range <- seq(as.Date(policy[row,]$DateEnacted), as.Date(policy[row,]$DateEnded), by = "days")
+    
+    # Fill in the the rows that are in the current policy and fall between the time arrange to be 1
+    policy_signal[policy_signal$time_value %in% time.range & policy_signal$geo_value == current.state, current.policy] <- 1
+    }
+}
+
+# Compute the sum of the number of policies for every day in the state
+policy_signal$total.num.policy <- rowSums(policy_signal[unique(policy$StatePolicy)])
+
+# Compute the average on a 7day sliding window
+policy_signal <-policy_signal %>%
+    arrange(desc(geo_value)) %>% 
+    group_by(geo_value) %>% 
+    mutate(num.policy.7avg = rollmean(total.num.policy, k = 7, fill = NA))%>%
+    ungroup()
+
+# Finalize the covidcast-like signal for governemnt intervention
+covidcast.like.policy.signal <- policy_signal %>% transmute(
+  geo_value = geo_value,
+  signal = "policy_7dav_num",
+  time_value = time_value,
+  direction = NA,
+  issue = lubridate::today(),
+  lag = issue - time_value,
+  value = num.policy.7avg,
+  stderr = NA,
+  sample_size = NA,
+  data_source = 'University of Washington')
+
+# Pearson correlation between the number of policies and mobility across states
+pearson_policy <- getCorrByShift(150, covidcast.like.policy.signal, data$Full.Time.Mobility, "pearson")
+
+pearson_policy_med <-  getMedian(pearson_policy)
+
+# plot the graph
+p <- ggplot(pearson_policy_med , aes(x = dt, y = median)) + geom_line() + geom_point() + labs(title = "Median Pearson correlation between the number of policies and mobility", x = "Shift", y = "Correlation") +
+  theme(legend.title = element_blank())
+
+p
+
+# Spearman correlation between the number of policies and mobility across states
+spearman_policy <- getCorrByShift(150, covidcast.like.policy.signal,data$Full.Time.Mobility, "spearman")
+
+spearman_policy_med <-  getMedian(spearman_policy)
+
+s<- ggplot(spearman_policy_med, aes(x = dt, y = median)) + geom_line() + geom_point() + labs(title = "Median spearman correlation between the number of policies and mobility", x = "Shift", y = "Correlation") +
+  theme(legend.title = element_blank())
+s
+```
+
+## Correlation across states over different day shift 
+
+```{r correlation based on different lags on multiple maps}
+# Set a bunch of fields so that the data frame knows how to plot itself
+ls = list()
+idx <- seq(50,125,25)
+count <- 1
+for (i in idx){
+  policy.mobility.cor <- covidcast_cor(covidcast.like.policy.signal, data$Full.Time.Mobility, by = "geo_value", dt_x = i, method = "spearman")
+
+  policy.mobility.cor$time_value = STARTDATE
+  policy.mobility.cor$issue = STARTDATE
+  attributes(policy.mobility.cor)$geo_type = "state"
+  class(policy.mobility.cor) = c("covidcast_signal", "data.frame")
+
+# Plot choropleth maps, using the covidcast plotting functionality
+ls[[count]]  <-plot(policy.mobility.cor, title = sprintf("%s-day shifted num of policies and mobility", i), range = c(-1, 1), choro_col = cm.colors(10), alpha = 0.4)
+count <- count + 1
+}
+
+# Plot all graphs
+do.call(grid.arrange,ls)
+```
+
+## Is there a treatment effect of the governemnt intervention on mobility?
+
+We will first begin by using ANOVA with the following different null hypotheses:
+
+* $H_{0}$ = there is no difference in average of mobility signal between for stayhome order or not.
+
+* $H_{0}$ = there is no difference in average of mobility signal between for stayhome order or not
+
+
+### Two-way ANOVA model
+
+* $Y_{ijk} = \mu_{..} + \alpha_{i} + \beta_{j} + (\alpha\beta)_{ij}) + \epsilon_{ijk}$
+
+
+```{r two-factor ANOVA}
+# Two factor ANOVA, one factor:geo_value; another factor: stay home order
+
+# For every state and every policy
+
+# Compute the time range that is valid 
+
+
+
+# ANOVA model fitting
+#lm.fit <- lm(g1tmathss ~ g1classtype + g1schid,data=data)
+#anova.fit <- aov(lm.fit)
+```
+
+```{r check interaction}
+#interaction.plot(Audit$Block, Audit$Method,Audit$Proficiency)
+```
