@@ -2,7 +2,12 @@
 title: "Government Intervention and Mobility Trend"
 author: "Kenneth Lee"
 date: "10/09/2020"
-output: html_document
+output:
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: True
+      smooth_scroll: True
 ---
 
 ```{r setup, include=FALSE}
@@ -22,6 +27,8 @@ library(dplyr)
 library(covidcast)
 library(lubridate)
 library(ggpubr)
+
+source("code/painter.r")
 ```
 
 ```{r define global variables}
@@ -200,26 +207,6 @@ plot(cor3_by_geo, title = "Correlations between 10-day shifted cases and mobilit
 ### What lag one signal is most correlated with the other?
 
 ```{r lag analysis}
-# A function to compute the corrlation by various number of shifts
-getCorrByShift <- function(num_shift, signal_1, signal_2, corr_method, typename){
-   dt_vec <- 0:num_shift
-df_list <- vector("list", length(dt_vec))
-for (i in 1:length(dt_vec)) {
-  df_list[[i]] <- covidcast_cor(signal_1, signal_2, dt_x = dt_vec[i],by = "geo_value", method= corr_method)
-  df_list[[i]]$dt <- dt_vec[i]
-}
-df <- do.call(rbind, df_list)
-return(df)
-}
-
-# A function to derive median of the signal from each shift 
-getMedian <-function(df){
-  df_med <- df %>%
-  group_by(dt) %>%
-  summarize(median = median(value, na.rm = TRUE), .groups = "drop_last")
-  return(df_med)
-}
-
 # Compute pearson correlation between new confirmed cases and mobility
 df_p_case <- getCorrByShift(100, case_avg, ftime, "pearson")
 df_pcase_med <- getMedian(df_p_case)
