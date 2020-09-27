@@ -42,7 +42,7 @@ DT_X = 7 # 	 Time shifts to consider for x
 ```
 
 ```{r import data, warning = FALSE, message=FALSE}
-data <- load_data(STARTDATE, ENDDATE, GEO_TYPE, GEO_VALUE, EXCLUDED_AREAS)
+data <- load_covidcast_data(STARTDATE, ENDDATE, GEO_TYPE, GEO_VALUE, EXCLUDED_AREAS)
 
 # Read government intervention data
 urlfile="https://raw.githubusercontent.com/COVID19StatePolicy/SocialDistancing/master/data/USstatesCov19distancingpolicy.csv"

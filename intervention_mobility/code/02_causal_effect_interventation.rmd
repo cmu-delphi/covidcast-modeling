@@ -35,12 +35,27 @@ DT_X = 7 # 	 Time shifts to consider for x
 ```
 
 ```{r import data, warning = FALSE, message=FALSE, echo=FALSE}
-data <- load_data(STARTDATE, ENDDATE, GEO_TYPE, GEO_VALUE, EXCLUDED_AREAS)
+library(data.table)
+library(dplyr)
+source("code/painter.r")
+source("code/load_all_data.r")
 
-# Read government intervention data
-urlfile="https://raw.githubusercontent.com/COVID19StatePolicy/SocialDistancing/master/data/USstatesCov19distancingpolicy.csv"
-policy <- read_csv(url(urlfile))
+STARTDATE <- "2019-01-01"
+ENDDATE <- lubridate::today()
+GEO_TYPE = "state" # state-level
+GEO_VALUE = "ca" # all states
+#EXCLUDED_AREAS = c("as","gu", "mp","vi") # excluded areas due to small sample size
+DT_X = 7 # 	 Time shifts to consider for x
 
+ftime_mobility <- covidcast_signal(data_source = "safegraph", signal ="full_time_work_prop",start_day = STARTDATE, end_day = ENDDATE,geo_type = GEO_TYPE, geo_values = GEO_VALUE)
+
+
+# Create a dataframe with mobility and other potential covariates
+tbl <-list.files(path = "data/temperature",
+               pattern = "*.csv", 
+               full.names = T) %>% map_df(~read_csv(.)) 
+
+intervention <- load_policy_data(STARTDATE, ENDDATE)
 ```
 
 ## Introduction
@@ -57,21 +72,60 @@ Particularly, we will use the R package called [`CausalImpact`](https://google.g
 
 ## Implementation
 
-* We will use the full-time mobility signal as the treated time series. We then select the following as our control time-series: temperature, holiday (binary), outdoor air quality (PM 2.5), weekend indicator (binary),  
+* We will use the full-time mobility signal as the treated time series. We then select the following as our control time-series: average temperature, holiday (binary), weekend indicator (binary).
 
-```{r load data, echo=FALSE}
-STARTDATE <- "2018-01-01"
-ENDDATE <- lubridate::today()
-GEO_TYPE = "state" # state-level
-GEO_VALUE = "*" # all states
-EXCLUDED_AREAS = c("as","gu", "mp","vi") # excluded areas due to small sample size
-DT_X = 7 # 	 Time shifts to consider for x
+```{r preprocess, echo=FALSE}
 
-ftime_mobility <- covidcast_signal(data_source = "safegraph", signal ="full_time_work_prop",start_day = STARTDATE, end_day = ENDDATE,geo_type = GEO_TYPE, geo_values = GEO_VALUE)
+# Get the average temperature
+avg.temp <- tbl %>%
+  group_by(DATE) %>%
+  summarize(avg.temp = mean(TAVG, na.rm=TRUE))
+colnames(avg.temp)[1] <- "time_value"
 
-# Create a dataframe with mobility and other potential covariates
+# Get mobility data
+mobility <- ftime_mobility[c("time_value", "value")]
+
+# full outer join 
+df <- full_join(mobility,avg.temp, by="time_value")
+
+# Get the last time stamp available in data
+lastdate <- tail(df$time_value, n=1)
+# Create dummy indicators 
+weekend <- ifelse(weekdays(seq(as.Date(STARTDATE), as.Date(lastdate), by="days")) %in% c("Saturday", "Sunday"), 1, 0)
+df$weekend <- weekend
+
+
+# get intervention data for only ca
+ca_policy <- intervention %>% filter(geo_value == "ca" & total.num.policy > 0)
+
+# get the first date of the intervention
+interventio.first.day <- ca_policy$time_value[1]
+
+# Create pre and post period for the causal impact package
+pre.period <- as.Date(c(STARTDATE, as.character(interventio.first.day-1)))
+post.period <- as.Date(c(interventio.first.day, ENDDATE))
+
+
+data <- zoo(cbind(df$value, df$avg.temp, df$weekend), df$time_value)
+
+# plot the see how mobility may correlate with average temperature of CA
+matplot(cbind(log(df$value), log(df$avg.temp), df$weekend), type = "l")
 ```
 
+### Visualize the causal estimate 
+
+We show that the causal estimate by counterfactual prediction (blue line) and observations (black line)
+
+```{r build model}
+impact <- CausalImpact(data, pre.period, post.period)
+plot(impact)
+```
+
+### Interpret the result 
+```{r generate_report, echo=FALSE}
+summary(impact)
+summary(impact, "report")
+```
 ### Reference
 
 * “CausalImpact 1.2.1, Brodersen et al., Annals of Applied Statistics (2015). http://google.github.io/CausalImpact/”
