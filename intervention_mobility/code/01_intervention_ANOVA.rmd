@@ -25,7 +25,8 @@ library(viridis)
 library(gridExtra)
 library(zoo)
 library(cowplot)
-
+library(gplots)
+library(car)
 
 source("code/painter.r")
 source("code/load_all_data.r")
@@ -214,34 +215,137 @@ count <- count + 1
 do.call(grid.arrange,ls)
 ```
 
-## Is there a treatment effect of the governemnt intervention on mobility?
+```{r combine intervention, mobility, cases, echo=FALSE}
+# Intervention left join mobility
+intervention_mobility <- left_join(data$Full.Time.Mobility,policy_signal, by=c("time_value", "geo_value"))
 
-We will first begin by using ANOVA with the following different null hypotheses:
+# Then we have the resutling df left join another cases dataframe
+intervention_mobility_case <- left_join(intervention_mobility, data$Avg.Confirmed.Case.Count, by=c("time_value", "geo_value"))
 
-* $H_{0}$ = there is no difference in average of mobility signal between for stayhome order or not.
+# Change the categorical variable to be factor
+factored_data <- cbind(intervention_mobility_case[1:10], lapply(intervention_mobility_case[11:25], as.factor),intervention_mobility_case[26:35])
 
-* $H_{0}$ = there is no difference in average of mobility signal between for stayhome order or not
-
-
-### Two-way ANOVA model
-
-* $Y_{ijk} = \mu_{..} + \alpha_{i} + \beta_{j} + (\alpha\beta)_{ij}) + \epsilon_{ijk}$
-
-
-```{r two-factor ANOVA}
-# Two factor ANOVA, one factor:geo_value; another factor: stay home order
-
-# For every state and every policy
-
-# Compute the time range that is valid 
-
-
-
-# ANOVA model fitting
-#lm.fit <- lm(g1tmathss ~ g1classtype + g1schid,data=data)
-#anova.fit <- aov(lm.fit)
+# Filter state "pr" as it is not available in the intervention data
+factored_data <- factored_data %>% filter(!(geo_value %in% c("pr")))
 ```
 
-```{r check interaction}
-#interaction.plot(Audit$Block, Audit$Method,Audit$Proficiency)
+## Distribution of mobility by various intervention across states
+
+```{r exploration, echo=FALSE}
+# grouped boxplot
+ggplot(factored_data, aes(x=value.x, y=geo_value, fill=BarRestrict)) + 
+    geom_boxplot() +
+  labs(title="Mobility by state and bar restriction",x="mobility", y="State")
+
+# restaurant restriction
+ggplot(factored_data, aes(x=value.x, y=geo_value, fill=RestaurantRestrict)) + 
+    geom_boxplot() +
+  labs(title="Mobility by state and restaurant restriction", x="mobility", y="State")
+
+# Stay-at-home order
+ggplot(factored_data, aes(x=value.x, y=geo_value, fill=
+StayAtHome)) + 
+    geom_boxplot() +
+  labs(title="Mobility by state and stay-at-home order", x="mobility", y="State")
+
+# Emergency declaration
+ggplot(factored_data, aes(x=value.x, y=geo_value, fill=EmergDec)) + 
+    geom_boxplot() +
+  labs(title="Mobility by state and Emergency declaration", x="mobility", y="State")
 ```
+
+## Treatment effect of government interventions
+
+Moreover, we may be interested to know the following:
+
+* Is there a difference in the means of mobility signal across state?
+
+* Is there a difference in the means of mobility signal in terms of stay-at-home order?
+
+* Is there an interaction between the factor of states and the factor of the order?
+
+To answer these questions, assuming that the data are normally distributed and the variance across groups are homogeneous, we will use ANOVA (Analysis of Variance). We will check these assumptions in the model diagnostics. 
+
+
+### Main effect of States
+
+We can see that some states have a particularly higher range of the mean mobility signal. For example, Montana (MT) clearly stands out from the rest, whereas Hawaii (HI) has a much lower mean mobility signal from Feb. to Sep. in 2020.
+h
+```{r check main effect}
+# Plotting the main effect of geo_value
+plotmeans(value.x~geo_value,data=intervention_mobility_case, xlab="Geo_value", ylab="Mobility", main="Main effect (States)") 
+```
+
+### Correlation of the residuals from two linear regression models
+
+```{r linear regression model}
+
+# Plot the correlation between residuals given by two linear regression models
+
+# model 0 : include only (X1) states, (X2) stayhome signal, (y) mobility
+lm.fit.0 <- lm(value.x ~ as.factor(StayAtHome)+as.factor(geo_value), data=factored_data)
+summary(lm.fit.0)
+
+# model 1: include only (X1) states, (X2) cases signal, (y) mobility
+lm.fit.1 <- lm(value.x ~ value.y+as.factor(geo_value), data=factored_data)
+summary(lm.fit.1)
+
+# Plot a scatter plot of the residual's correlation
+plot(lm.fit.0$residuals, lm.fit.1$residuals)
+```
+
+### ANOVA
+
+Due to the complexity of the model, we only select a model that includes up to all two-way interaction terms called model 4 and compare it with a model that doesn't include any interaction terms and call it model 3.
+
+### Interpret the result
+
+We can see that 
+
+* Geo_value, Emergency declaration, and garthering restriction are statistically significant that would lead us to believe that these factors are associated with the mobility signal. 
+
+* Internvation signals don't interact with each other significantly either. 
+
+* The interaction between geo_value and gathering restriction has a largest sums of squares, it implies that the relationships between states and mobility depends on the emergency declariation.
+
+```{r ANOVA table, echo=FALSE}
+# Change the default setting for unbalanced ANOVA
+options(contrasts = c("contr.sum", "contr.poly"))
+
+# model 3: without interaction
+model3 <- lm(value.x ~., data=factored_data[c("value.x","geo_value", "BarRestrict","OtherBusinessClose","RestaurantRestrict",  "StayAtHome", "EmergDec", "GathRestrict", "NEBusinessClose")])
+
+# ANOVA test for unbalanced designs.
+Anova(model3, type = "III")
+
+# model 4: with interaction
+model4 <- lm(value.x ~.^2, data=factored_data[c("value.x","geo_value", "BarRestrict","OtherBusinessClose","RestaurantRestrict",  "StayAtHome", "EmergDec", "GathRestrict", "NEBusinessClose")])
+
+# print the ANOVA table
+Anova(model4, singular.ok = T, type = "III") #set singular.ok = T to avoid error 
+```
+
+### Model diagnostics
+
+* Homogenity of variance
+  
+  * We see the model hardly satisify this assumption. By the Levine's test, the variance across groups is statistically significantly different with the p-value is less than the significance level of 0.05. 
+
+* Normality assumption
+  
+  * Visually, the normality assumption is roughly satisfied based on the normal qq plot. 
+
+```{r model diagnostics, echo=FALSE}
+# Model diagnoistics
+par(mfrow=c(2,2))
+plot(model3)
+plot(model4)
+par(mfrow=c(1,1))
+```
+
+```{r levine test, echo=FALSE}
+leveneTest(value.x ~., data=factored_data[c("value.x","geo_value", "BarRestrict","OtherBusinessClose","RestaurantRestrict",  "StayAtHome", "EmergDec", "GathRestrict", "NEBusinessClose")])
+```
+
+
+
