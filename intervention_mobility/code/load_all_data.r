@@ -1,4 +1,4 @@
-load_data <- function(STARTDATE, ENDDATE, GEO_TYPE, GEO_VALUE, EXCLUDED_AREAS){
+load_covidcast_data <- function(STARTDATE, ENDDATE, GEO_TYPE, GEO_VALUE, EXCLUDED_AREAS){
   ftime <- covidcast_signal(data_source = "safegraph", 
                             signal ="full_time_work_prop",
                             start_day = STARTDATE, 
@@ -87,3 +87,52 @@ load_data <- function(STARTDATE, ENDDATE, GEO_TYPE, GEO_VALUE, EXCLUDED_AREAS){
     data_source = 'Weekly Patterns')
   return(list(Full.Time.Mobility=ftime, Avg.Confirmed.Case.Count=case_avg,  Cum.Avg.Case.Count=cum_case, Cum.Avg.Case.Count.Prop = cum_case_prop, Avg.Death.Case.Count = death_case, Cum.Avg.Death.Count = cum_death_case, Restaurant.Visit.Count = new_res))
 }
+
+
+load_policy_data <- function(STARTDATE, ENDDATE){
+  # Read government intervention data
+  urlfile="https://raw.githubusercontent.com/COVID19StatePolicy/SocialDistancing/master/data/USstatesCov19distancingpolicy.csv"
+  policy <- read_csv(url(urlfile))
+  
+  # Convert to lower case
+  policy$StatePostal <- tolower(policy$StatePostal)
+  # First we convert the date to a proper format
+  policy[, c("DateIssued", "DateEnacted", "DateExpiry" ,"DateEased", "DateEnded", "DateReexpanded1", "DateReeased1")] <- data.frame(lapply(policy[, c("DateIssued", "DateEnacted", "DateExpiry" ,"DateEased", "DateEnded", "DateReexpanded1", "DateReeased1")], function(x) as.Date(as.character(x), "%Y%m%d")))
+  
+  # Get the dates between start and end date
+  all.dates <- seq(as.Date(STARTDATE), as.Date(ENDDATE), by="days")
+  time_value <- sort(rep(all.dates, length(unique(policy$StatePostal)) )) 
+  
+  # Generate geo_value
+  geo_value <- rep(unique(policy$StatePostal), length(all.dates))
+  policy_signal <- data.frame(time_value = time_value, geo_value = geo_value)
+  
+  # Create empty columns
+  policy_signal[,unique(policy$StatePolicy)] <- 0
+  
+  # Fill in the count for each date
+  # Get the policy name and state to filer policy signal 
+  for (row in (1:nrow(policy))){
+    current.policy <- policy[row,]$StatePolicy
+    current.state <- policy[row,]$StatePostal
+    
+    if (is.na(policy[row,]$DateEnded)){
+      
+      # Filter the rows of dataframe to be the current state and the time value that is after the policy is enacted.
+      policy_signal[policy_signal$geo_value == current.state & policy_signal$time_value > as.Date(policy[row,]$DateEnacted), current.policy] <- 1
+    
+      }else{
+      
+      # Get time range between Date Enacted and Date Ended
+      time.range <- seq(as.Date(policy[row,]$DateEnacted), as.Date(policy[row,]$DateEnded), by = "days")
+      
+      # Fill in the the rows that are in the current policy and fall between the time arrange to be 1
+      policy_signal[policy_signal$time_value %in% time.range & policy_signal$geo_value == current.state, current.policy] <- 1
+    }
+  }
+  
+  # Compute the sum of the number of policies for every day in the state
+  policy_signal$total.num.policy <- rowSums(policy_signal[unique(policy$StatePolicy)])
+  
+  return(policy_signal)
+  }
