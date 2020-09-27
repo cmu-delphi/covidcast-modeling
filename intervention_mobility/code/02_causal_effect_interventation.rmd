@@ -1,0 +1,78 @@
+---
+title: "Estimating Causal Effect of Government Intervention to Mobility"
+author: "Kenneth Lee"
+date: "23/09/2020"
+output: html_document
+---
+
+```{r import packages, echo=FALSE, warning = FALSE, message = FALSE}
+library(ggplot2)
+library (readr)
+library(tidyverse)
+library(dplyr)
+library(covidcast)
+library(lubridate)
+library(ggpubr)
+library(reshape2)
+library(tidyr)
+library(viridis)
+library(gridExtra)
+library(zoo)
+library(cowplot)
+library(CausalImpact)
+
+source("code/painter.r")
+source("code/load_all_data.r")
+```
+
+```{r define global variables, echo=FALSE}
+STARTDATE <- "2020-02-20"
+ENDDATE <- lubridate::today()
+GEO_TYPE = "state" # state-level
+GEO_VALUE = "*" # all states
+EXCLUDED_AREAS = c("as","gu", "mp","vi") # excluded areas due to small sample size
+DT_X = 7 # 	 Time shifts to consider for x
+```
+
+```{r import data, warning = FALSE, message=FALSE, echo=FALSE}
+data <- load_data(STARTDATE, ENDDATE, GEO_TYPE, GEO_VALUE, EXCLUDED_AREAS)
+
+# Read government intervention data
+urlfile="https://raw.githubusercontent.com/COVID19StatePolicy/SocialDistancing/master/data/USstatesCov19distancingpolicy.csv"
+policy <- read_csv(url(urlfile))
+
+```
+
+## Introduction
+
+We would like to estimate the causal effect of governement intervention, collected from University of Washington, on the mobility signal, produced by covidcast signal by using Baysiean structural time-series model. The question we want to answer is: how the mobility signal was increased/decreased by various state policies? 
+
+Particularly, we will use the R package called [`CausalImpact`](https://google.github.io/CausalImpact/CausalImpact.html). This package constructs a Bayesian structural time-series model by using a given response time series (e.g. mobility signal) and a set of control time-series (e.g. mobility signal in state that doesn't have the policy). We use this package because 1.) our data is not a randomized experiement 2.) 
+
+## Model assumption
+
+* We assume that there is a set control time series that were themselves not affected by the intervention. 
+
+* The model also assumes that the relationship between covariates and treated time series, as established during the pre-period, remains stable throughout the post-period.
+
+## Implementation
+
+* We will use the full-time mobility signal as the treated time series. We then select the following as our control time-series: temperature, holiday (binary), outdoor air quality (PM 2.5), weekend indicator (binary),  
+
+```{r load data, echo=FALSE}
+STARTDATE <- "2018-01-01"
+ENDDATE <- lubridate::today()
+GEO_TYPE = "state" # state-level
+GEO_VALUE = "*" # all states
+EXCLUDED_AREAS = c("as","gu", "mp","vi") # excluded areas due to small sample size
+DT_X = 7 # 	 Time shifts to consider for x
+
+ftime_mobility <- covidcast_signal(data_source = "safegraph", signal ="full_time_work_prop",start_day = STARTDATE, end_day = ENDDATE,geo_type = GEO_TYPE, geo_values = GEO_VALUE)
+
+# Create a dataframe with mobility and other potential covariates
+```
+
+### Reference
+
+* “CausalImpact 1.2.1, Brodersen et al., Annals of Applied Statistics (2015). http://google.github.io/CausalImpact/”
+
