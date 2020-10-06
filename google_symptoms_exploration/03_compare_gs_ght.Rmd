@@ -533,7 +533,7 @@ plt = (ggplot(corr_mean_signal)
        )
 plt
 
-rm(corr_by_time, corr_mean_signal)
+rm(corr_mean_signal)
 ```
 
 
@@ -666,6 +666,7 @@ library(quantgen)
 res_list = vector("list", length = length(leads)) 
 n = 14 # Number of trailing days to use for training set
 verbose = TRUE # Print intermediate progress to console?
+lp_solver = "glpk" # LP solver to use in quantile_lasso()
 
 # Loop over lead, forecast dates, build models, and record errors (warning: this
 # computation takes a while)
@@ -708,7 +709,7 @@ for (i in 1:length(leads)) {
     ok = complete.cases(x_tr, y_tr)
     if (sum(ok) > 0) {
       obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
-                           lambda = 0, stand = FALSE, lp_solver = "gurobi")
+                           lambda = 0, stand = FALSE, lp_solver = lp_solver)
       y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
       res_list[[i]][inds,]$err1 = abs(inv_trans(y_hat) - inv_trans(y_te)) 
     }
@@ -724,7 +725,7 @@ for (i in 1:length(leads)) {
     ok = complete.cases(x_tr, y_tr)
     if (sum(ok) > 0) {
       obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
-                           lambda = 0, stand = FALSE, lp_solver = "gurobi")
+                           lambda = 0, stand = FALSE, lp_solver = lp_solver)
       y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
       err_vec = abs(inv_trans(y_hat) - inv_trans(y_te))
       res_list[[i]][inds,]$err2 = err_vec
@@ -822,7 +823,7 @@ Differences in model fit are (very) significantly different.
 "To mitigate the dependence across time (which intuitively seems to matter more than that across space), we recomputed these tests in a stratified way, where for each day we run a sign test on the scaled errors between two models over all [geographic regions]. The results are plotted as histograms below", where one count corresponds to one prediction date ([source](https://delphi.cmu.edu/blog/2020/09/21/can-symptoms-surveys-improve-covid-19-forecasts/)).
 
 
-```{r}
+```{r calc p-values from sign test across all states for each date}
 # Red, blue (similar to ggplot defaults), then yellow
 ggplot_colors = c("#FC4E07", "#00AFBB", "#E7B800")
 
@@ -839,8 +840,227 @@ ggplot(res_dif %>%
   theme_bw() + theme(legend.pos = "none")
 ```
 
+```{r prediction_setup over days ahead, echo = TRUE, eval=FALSE}
+# Some useful functions for transformations
+Log = function(x, a = 0.01) log(x + a)
+Exp = function(y, a = 0.01) exp(y) - a
+Logit = function(x, a = 0.01) log((x + a) / (1 - x + a))
+Sigmd = function(y, a = 0.01) (exp(y) * (1 + a) - a) / (1 + exp(y))
+Id = function(x) x
+ 
+# Transforms to consider, in what follows
+trans = Id
+inv_trans = Id
+
+# Rescale factors for our signals: bring them all down to proportions (between
+# 0 and 1)
+rescale_symptom = 1e-2 # Originally b/t 0 and 100
+rescale_case = 1e-5 # Originally a count per 100,000 people
+
+# Signal settings
+geo_type = "state"
+min_case_num = 200
+
+# Timeframe to validate over.
+start_day = "2020-04-11"
+end_day = "2020-09-01"
+
+# Set how far to forecast ahead.
+leads = 5:20
+lags = -1 * leads
+
+# Function to append shift values (lags or leads) to data frame
+append_shifts = function(df, shifts) {
+  # Make sure that we have a complete record of dates for each geo_value (fill
+  # with NAs as necessary)
+  df_all = df %>% group_by(geo_value) %>%
+    summarize(time_value = seq.Date(as.Date(min(time_value)),
+                                    as.Date(max(time_value)),
+                                    by = "day")) %>% ungroup()
+  df = full_join(df, df_all, by = c("geo_value", "time_value"))
+  
+  # Group by geo value, sort rows by increasing time
+  df = df %>% group_by(geo_value) %>% arrange(time_value) 
+  
+  # Load over shifts, and add lag value or lead value
+  for (shift in shifts) {
+    fun = ifelse(shift < 0, lag, lead)
+    varname = sprintf("value%+d", shift)
+    df = mutate(df, !!varname := fun(value, n = abs(shift)))
+  }
+  
+  # Ungroup and return
+  return(ungroup(df))
+}
+
+# Consider only states with at least min_case_num cumulative cases by Google's end
+geo_values = covidcast_signal("jhu-csse", "confirmed_cumulative_num",
+                              "2020-05-14", "2020-05-14", 
+                              geo_type = geo_type) %>%
+  filter(value >= min_case_num) %>% pull(geo_value) 
+
+# Fetch state-level GS search term popularity and JHU
+# confirmed case incidence proportion
+if (!'symptom_df' %in% ls()) {
+  symptom_df = readRDS('anosmia_ageusia.RDS')
+}
 
 
+anosmia = symptom_df %>% filter(signal == 'Anosmia') %>% 
+  select(geo_value, time_value, value) %>%
+  filter(geo_value %in% geo_values,
+				 time_value >= start_day,
+				 time_value <= end_day) 
+ageusia = symptom_df %>% filter(signal == 'Ageusia') %>% 
+  select(geo_value, time_value, value) %>%
+  filter(geo_value %in% geo_values,
+				 time_value >= start_day,
+				 time_value <= end_day) 
+
+# Number of new daily confirmed COVID cases per 100000 people
+case = covidcast_signal("jhu-csse", "confirmed_7dav_incidence_prop",
+                     start_day, end_day, geo_type = geo_type) %>%
+  select(geo_value, time_value, value) %>%
+  filter(geo_value %in% geo_values) 
+
+# Get geo values that appear in all datasets.
+geo_values_complete = intersect(intersect(anosmia$geo_value, ageusia$geo_value),
+                                case$geo_value)
+
+
+
+# Filter to complete states, transform the signals, append 1-2 week lags to 
+# all three, and also 1-2 week leads to case rates
+anosmia = anosmia %>%
+  filter(geo_value %in% geo_values_complete) %>% 
+  mutate(value = trans(value * rescale_symptom)) %>% 
+  append_shifts(shifts = lags) 
+ageusia = ageusia %>%
+  filter(geo_value %in% geo_values_complete) %>% 
+  mutate(value = trans(value * rescale_symptom)) %>% 
+  append_shifts(shifts = lags) 
+case = case %>%
+  filter(geo_value %in% geo_values_complete) %>% 
+  mutate(value = trans(value * rescale_case)) %>% 
+  append_shifts(shifts = c(lags, leads))
+
+# Rename columns
+colnames(anosmia) = sub("^value", "anosmia", colnames(anosmia))
+colnames(ageusia) = sub("^value", "ageusia", colnames(ageusia))
+colnames(case) = sub("^value", "case", colnames(case))
+
+# Make one big matrix by joining these three data frames
+z = full_join(full_join(anosmia, ageusia, by = c("geo_value", "time_value")),
+              case, by = c("geo_value", "time_value"))
+
+##### Analysis #####
+
+# Use quantgen for LAD regression (this package supports quantile regression and
+# more; you can find it on GitHub here: https://github.com/ryantibs/quantgen)
+library(quantgen) 
+
+res_list = vector("list", length = length(leads)) 
+n = 14 # Number of trailing days to use for training set
+verbose = TRUE # Print intermediate progress to console?
+lp_solver = "glpk" # LP solver to use in quantile_lasso()
+
+# Loop over lead, forecast dates, build models, and record errors (warning: this
+# computation takes a while)
+for (i in 1:length(leads)) { 
+  lead = leads[i]; if (verbose) cat("***", lead, "***\n")
+  
+  # Create a data frame to store our results. Code below populates its rows in a
+  # way that breaks from typical dplyr operations, done for efficiency
+  res_list[[i]] = z %>% 
+    filter(between(time_value, as.Date(start_day) - min(lags) + lead, 
+                   as.Date(end_day) - lead)) %>%
+    select(geo_value, time_value) %>%
+    mutate(err0 = as.double(NA), err1 = as.double(NA), err2 = as.double(NA), 
+           #err3 = as.double(NA), err4 = as.double(NA),
+           lead = lead) 
+  valid_dates = unique(res_list[[i]]$time_value)
+  
+  for (j in 1:length(valid_dates)) {
+    date = valid_dates[j]; if (verbose) cat(format(date), "... ")
+    
+    # Filter down to training set and test set
+    z_tr = z %>% filter(between(time_value, date - lead - n, date - lead))
+    z_te = z %>% filter(time_value == date)
+    inds = which(res_list[[i]]$time_value == date)
+    
+    # Create training and test responses
+    y_tr = z_tr %>% pull(paste0("case+", lead))
+    y_te = z_te %>% pull(paste0("case+", lead))
+    
+    # Strawman model
+    if (verbose) cat("0")
+    y_hat = z_te %>% pull(case)
+    res_list[[i]][inds,]$err0 = abs(inv_trans(y_hat) - inv_trans(y_te))
+    
+    # Cases only model
+    if (verbose) cat("1")
+    x_tr_case = z_tr %>% select(starts_with("case") & !contains("+"))
+    x_te_case = z_te %>% select(starts_with("case") & !contains("+"))
+    x_tr = x_tr_case; x_te = x_te_case # For symmetry wrt what follows 
+    ok = complete.cases(x_tr, y_tr)
+    if (sum(ok) > 0) {
+      obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
+                           lambda = 0, stand = FALSE, lp_solver = lp_solver)
+      y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
+      res_list[[i]][inds,]$err1 = abs(inv_trans(y_hat) - inv_trans(y_te)) 
+    }
+    
+    # Cases and symptoms model
+    if (verbose) cat("2")
+    x_tr_anosmia = z_tr %>% select(starts_with("anosmia"))
+    x_te_anosmia = z_te %>% select(starts_with("anosmia"))
+    x_tr_ageusia = z_tr %>% select(starts_with("ageusia"))
+    x_te_ageusia = z_te %>% select(starts_with("ageusia"))
+    x_tr = cbind(x_tr_case, x_tr_anosmia, x_tr_ageusia)
+    x_te = cbind(x_te_case, x_te_anosmia, x_te_ageusia)
+    ok = complete.cases(x_tr, y_tr)
+    if (sum(ok) > 0) {
+      obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
+                           lambda = 0, stand = FALSE, lp_solver = lp_solver)
+      y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
+      err_vec = abs(inv_trans(y_hat) - inv_trans(y_te))
+      res_list[[i]][inds,]$err2 = err_vec
+    }
+  }
+}
+
+# Bind results over different leads into one big data frame
+res = do.call(rbind, res_list)
+```
+
+```{r median error between cases only and cases + sypmtoms models by num days forecast ahead}
+# Compute and plot median errors as function of number of days ahead
+err_by_lead = res %>%
+  # select(-c(err3, err4)) %>%
+  drop_na() %>%                                       # Restrict to common time
+  mutate(err1 = err1 / err0, err2 = err2 / err0) %>%  # Compute relative error
+                                                      # to strawman model
+  ungroup() %>%
+  select(-err0) %>%
+  pivot_longer(names_to = "model", values_to = "err",
+               cols = -c(geo_value, time_value, lead)) %>%
+  mutate(model = factor(model, labels = model_names[1:2])) %>%
+  group_by(model, lead) %>%
+  summarize(err = median(err)) %>% 
+  ungroup()
+
+ggplot(err_by_lead, aes(x = lead, y = err)) + 
+  geom_line(aes(color = model)) + 
+  geom_point(aes(color = model)) + 
+  scale_color_manual(values = c("black", ggplot_colors)) +
+  geom_hline(yintercept = err_by_lead %>% 
+               filter(lead %in% 7, model == "Cases") %>% pull(err),
+             linetype = 2, color = "gray") +
+  labs(title = "Forecasting errors by number of days ahead",
+       subtitle = sprintf("Over all states"),
+       x = "Number of days ahead", y = "Median scaled error") +
+  theme_bw() + theme(legend.pos = "bottom", legend.title = element_blank())
+```
 
 
 
