@@ -408,6 +408,11 @@ raw_ght_long = raw_ght_div100_gs_df_long %>%
   filter(signal %in% c("raw_ght_div100", "raw_gs_anosmia_ageusia")) %>% 
   mutate(signal = ifelse(signal == "raw_ght_div100", "raw_ght", "raw_gs_aa_x100"), value = value * 100)
 
+low_gs_long = low_gs_high_raw_ght %>%
+  select(-raw_ght) %>%
+  tidyr::gather(signal, value, -time_value, -geo_value)
+
+
 for (start_index in 1:ceiling(length(states) / 9)) {
 # for (start_index in 1:2) {
   local_state_subset = states[(9 * start_index - 8):(9 * start_index)] 
@@ -424,6 +429,8 @@ for (start_index in 1:ceiling(length(states) / 9)) {
 
   print(plt_add)
 }
+
+rm(raw_ght_div100_gs_df_long, low_gs_long, low_gs_high_raw_ght)
 ```
 
 As can be seen in the plots above, GHT corresponding to missing GS (presumed to be close to 0) is only much higher than baseline/background GHT and scaled GS in low-population states. These states are characterized by completely or partially-missing GS data and high variability in GHT (i.e. most values are near or equal to 0, but the signal jumps into the hundreds occasionally). This implies that high GHT values are caused by noise due to low sample size.
@@ -521,10 +528,12 @@ plt = (ggplot(corr_mean_signal)
                        y=value,
                        color=signal),
                    size=0.2)
-       + ggtitle(paste('Correlation between GHT / 100 and Google Symptoms A+A', 
-                       'in all states'))
+       + ggtitle(paste('Median orrelation between GHT / 100 and Google Symptoms A+A', 
+                       'across all states'))
        )
 plt
+
+rm(corr_by_time, corr_mean_signal)
 ```
 
 
