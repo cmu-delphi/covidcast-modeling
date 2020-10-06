@@ -664,7 +664,7 @@ z = full_join(full_join(anosmia, ageusia, by = c("geo_value", "time_value")),
 library(quantgen) 
 
 res_list = vector("list", length = length(leads)) 
-# n = 14 # Number of trailing days to use for training set
+n = 14 # Number of trailing days to use for training set
 verbose = TRUE # Print intermediate progress to console?
 
 # Loop over lead, forecast dates, build models, and record errors (warning: this
@@ -757,3 +757,104 @@ ggplot(res_med, aes(x = time_value, y = err)) +
   labs(x = "Date", y = "Scaled error", title = "Id transform") +
   theme_bw() + theme(legend.pos = "bottom", legend.title = element_blank())
 ```
+
+It's not clear from this comparison if adding in GS anosmia and ageusia signals was helpful. We can see that during some time periods, median scaled error for the cases + symptoms model is lower than that for the cases-only model, but it is more variable. There's also a particularly bad error in mid-May.
+
+```{r compare_media_err_over_all_time_and_states}
+model_names = c("Cases", "Cases + Anosmia + Ageusia")
+
+# Restrict to common period for all models, then calculate the scaled errors 
+# for each model, that is, the error relative to the strawman's error
+res_all = res %>%
+  drop_na() %>%                                       # Restrict to common time
+  mutate(err1 = err1 / err0, err2 = err2 / err0      # Compute relative error
+         # , err3 = err3 / err0, err4 = err4 / err0
+         ) %>%  # to strawman model
+  mutate(dif12 = err1 - err2    # Compute differences
+         # , dif13 = err1 - err3, dif14 = err1 - err4
+         ) %>%                     # relative to cases model
+  ungroup() %>%
+  select(-err0) 
+         
+# Calculate and print median errors, for all models
+res_err = res_all %>% 
+  select(-starts_with("dif")) %>%
+  pivot_longer(names_to = "model", values_to = "err",
+               cols = -c(geo_value, time_value, lead)) %>%
+  mutate(lead = factor(lead, labels = paste(leads, "days ahead")),
+         model = factor(model, labels = model_names))
+
+knitr::kable(res_err %>% 
+               group_by(model, lead) %>%
+               summarize(err = median(err), n = length(unique(time_value))) %>% 
+               arrange(lead) %>% ungroup() %>%
+               rename("Model" = model, "Median scaled error" = err, 
+                      "Target" = lead, "Test days" = n), 
+             caption = paste("Test period:", min(res_err$time_value), "to",
+                             max(res_err$time_value)),
+             format = "html", table.attr = "style='width:70%;'")
+```
+
+"Are these differences in median scaled errors significant? It’s hard to say [for certain given the spatial and temporal dependence of the data], but some basic hypothesis testing suggests that they probably are: below we conduct a sign test for whether the difference in the “Cases” model’s scaled error and each other model’s scaled error is centered at zero" ([source](https://delphi.cmu.edu/blog/2020/09/21/can-symptoms-surveys-improve-covid-19-forecasts/)).
+
+```{r is difference in scaled error between models centered at 0?}
+# Compute p-values using the sign test against a one-sided alternative, for
+# all models
+res_dif = res_all %>%
+  select(-starts_with("err")) %>%
+  pivot_longer(names_to = "model", values_to = "dif",
+               cols = -c(geo_value, time_value, lead)) %>%
+  mutate(lead = factor(lead, labels = paste(leads, "days ahead")),
+         model = factor(model, 
+                        labels = c("Cases vs Cases + Symptoms"))) 
+
+knitr::kable(res_dif %>%
+               group_by(model, lead) %>%
+               summarize(p = binom.test(x = sum(dif > 0, na.rm = TRUE), 
+                                        n = n(), alt = "greater")$p.val) %>%
+               ungroup() %>%
+               rename("Comparison" = model, "Target" = lead, "P-value" = p), 
+             format = "html", table.attr = "style='width:50%;'")
+```
+
+Differences in model fit are (very) significantly different. 
+
+"To mitigate the dependence across time (which intuitively seems to matter more than that across space), we recomputed these tests in a stratified way, where for each day we run a sign test on the scaled errors between two models over all [geographic regions]. The results are plotted as histograms below", where one count corresponds to one prediction date ([source](https://delphi.cmu.edu/blog/2020/09/21/can-symptoms-surveys-improve-covid-19-forecasts/)).
+
+
+```{r}
+# Red, blue (similar to ggplot defaults), then yellow
+ggplot_colors = c("#FC4E07", "#00AFBB", "#E7B800")
+
+ggplot(res_dif %>% 
+         group_by(model, lead, time_value) %>%
+         summarize(p = binom.test(x = sum(dif > 0, na.rm = TRUE), 
+                                  n = n(), alt = "greater")$p.val) %>%
+         ungroup(), aes(p)) +
+  geom_histogram(aes(color = model, fill = model), alpha = 0.4) + 
+  scale_color_manual(values = ggplot_colors) +
+  scale_fill_manual(values = ggplot_colors) +
+  facet_wrap(vars(lead, model)) + 
+  labs(x = "P-value", y = "Count") +
+  theme_bw() + theme(legend.pos = "none")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
