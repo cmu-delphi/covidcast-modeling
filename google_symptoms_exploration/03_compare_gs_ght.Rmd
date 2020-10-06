@@ -227,8 +227,8 @@ Anosmia and ageusia are strongly correlated, but quite unusual (~0.5 scaled sear
 
 ```{r plot_anosmia_ageusia_data, message=FALSE, warnings=FALSE}
 
-state_subset = unique(symptom_df$geo_value)
-state_subset = state_subset[1:9]
+states = unique(symptom_df$geo_value)
+state_subset = states[1:9]
 
 plt = (ggplot(symptom_df[symptom_df$geo_value %in% state_subset, ])
        + geom_line(aes(x=time_value,
@@ -358,7 +358,81 @@ plt = (ggplot(ght_gs_df)
 plt
 ```
 
-The shape and correlation of GS A+A vs GHT varies by state.
+Let's look into these low GS-high GHT points to see if we can figure out what's causing them. Data show below is raw GHT where GHT is not missing and GS *is* missing. 
+
+```{r compare_missing_gs_vs_ght_all_states, message=FALSE, warnings=FALSE}
+low_gs_high_raw_ght = ght_gs_df[is.na(ght_gs_df$raw_gs_anosmia_ageusia) & !is.na(ght_gs_df$raw_ght),] %>% 
+  select(geo_value, time_value, raw_ght) %>% 
+  mutate(raw_ght_where_gs_missing = raw_ght)
+
+plt = (ggplot(low_gs_high_raw_ght)
+       + geom_point(aes(x=time_value,
+                       y=raw_ght,
+                       color=geo_value),
+                   size=0.6)
+       + ggtitle(paste('Raw GHT where GS is missing; above ~100 is considered "high"'))
+       )
+plt
+```
+
+Clearly, missing GS values occur in all or almost all states, with a large number of zeroes. Based on the previous plot, we consider any GHT value above approximately 100 to be "high" given the incidence of other GHT values that don't correspond to missing GS.
+
+```{r distribution_missing_gs_vs_ght}
+plt = (ggplot(low_gs_high_raw_ght,
+              aes(x=1,
+                  y=raw_ght_where_gs_missing))
+       + geom_violin(trim=TRUE)
+       + geom_boxplot(width=0.01)
+       + xlim(0, 2)
+       + theme(axis.title.x=element_blank(),
+               axis.text.x=element_blank(),
+               axis.ticks.x=element_blank())
+       + ggtitle(paste('Distribution of raw GHT where GS is missing'))
+)
+plt
+
+
+summary(low_gs_high_raw_ght$raw_ght_where_gs_missing)
+```
+
+Looking at the distribution and summary statistics, we can see that at least 75% of values equal 0. According to the IQR definition, any values not equal to 0 are considered outliers.
+
+```{r compare_missing_gs_vs_ght_by_state}
+raw_ght_div100_gs_df_long = ght_gs_df %>%
+  mutate(raw_ght_div100=raw_ght / 100) %>%
+  select(-smoothed_ght, -raw_gs_anosmia_ageusia_0_fill, -raw_ght) %>%
+  tidyr::gather(signal, value, -time_value, -geo_value)
+
+
+raw_ght_long = raw_ght_div100_gs_df_long %>% 
+  filter(signal %in% c("raw_ght_div100", "raw_gs_anosmia_ageusia")) %>% 
+  mutate(signal = ifelse(signal == "raw_ght_div100", "raw_ght", "raw_gs_aa_x100"), value = value * 100)
+
+for (start_index in 1:ceiling(length(states) / 9)) {
+# for (start_index in 1:2) {
+  local_state_subset = states[(9 * start_index - 8):(9 * start_index)] 
+  plt = (ggplot(raw_ght_long[raw_ght_long$geo_value %in% local_state_subset, ])
+       + geom_line(aes(x=time_value,
+                       y=value,
+                       group=signal,
+                       color=signal),
+                   size=0.2)
+       + ggtitle(paste('Missing GS and corresponding raw GHT'))
+       + facet_wrap(.~ geo_value)
+       )
+  plt_add = plt + geom_point(data = low_gs_long[low_gs_long$geo_value %in% local_state_subset, ], mapping = aes(x=time_value, y=value, group=geo_value, color=signal), size=0.7) + scale_color_manual(values = c("#619CFF", "#F8766D", "#00BA38"))
+
+  print(plt_add)
+}
+```
+
+As can be seen in the plots above, GHT corresponding to missing GS (presumed to be close to 0) is only much higher than baseline/background GHT and scaled GS in low-population states. These states are characterized by completely or partially-missing GS data and high variability in GHT (i.e. most values are near or equal to 0, but the signal jumps into the hundreds occasionally). This implies that high GHT values are caused by noise due to low sample size.
+
+In large-population states, GHT values corresponding to missing GS are in line with GHT and GS trends.
+
+I'm not sure exactly how GHT scaling/signal creation works, but it seems likely that jumps in search popularity are caused by each Google user in that region representing a large number of people. For example, a region with only 5 people will, at any one time, not be likely to search for a rare search term *x*. When someone does search *x*, however, the search incidence will jump from 0 to 20%. A region with many more people will see a much lower but more consistent search incidence for term *x*.
+
+
 
 ```{r plot_gs_vs_ght, message=FALSE, warnings=FALSE}
 plt = (ggplot(ght_gs_df[ght_gs_df$geo_value %in% state_subset, ])
@@ -372,6 +446,9 @@ plt = (ggplot(ght_gs_df[ght_gs_df$geo_value %in% state_subset, ])
        )
 plt
 ```
+
+
+The trajectory and correlation of GS A+A vs GHT varies by state.
 
 ```{r corr_gs_vs_ght_by_state, message=FALSE, warnings=FALSE}
 corr_by_state = ght_gs_df %>%
@@ -448,4 +525,226 @@ plt = (ggplot(corr_mean_signal)
                        'in all states'))
        )
 plt
+```
+
+
+
+
+## Rudimentary prediction problem
+Here we use code liberally borrowed from a
+[blog post](https://github.com/cmu-delphi/delphi-blog/blob/google-survey/content/post/google-fb-forecast-demo/demo.R)
+to perform a prediction task.
+
+```{r prediction_setup, echo = TRUE, eval=FALSE}
+# Some useful functions for transformations
+Log = function(x, a = 0.01) log(x + a)
+Exp = function(y, a = 0.01) exp(y) - a
+Logit = function(x, a = 0.01) log((x + a) / (1 - x + a))
+Sigmd = function(y, a = 0.01) (exp(y) * (1 + a) - a) / (1 + exp(y))
+Id = function(x) x
+ 
+# Transforms to consider, in what follows
+trans = Id
+inv_trans = Id
+
+# Rescale factors for our signals: bring them all down to proportions (between
+# 0 and 1)
+rescale_symptom = 1e-2 # Originally b/t 0 and 100
+rescale_case = 1e-5 # Originally a count per 100,000 people
+
+# Signal settings
+geo_type = "state"
+min_case_num = 200
+
+# Timeframe to validate over.
+start_day = "2020-04-11"
+end_day = "2020-09-01"
+
+# Set how far to forecast ahead.
+leads = 1:2 * 7
+lags = -1 * leads
+
+# Function to append shift values (lags or leads) to data frame
+append_shifts = function(df, shifts) {
+  # Make sure that we have a complete record of dates for each geo_value (fill
+  # with NAs as necessary)
+  df_all = df %>% group_by(geo_value) %>%
+    summarize(time_value = seq.Date(as.Date(min(time_value)),
+                                    as.Date(max(time_value)),
+                                    by = "day")) %>% ungroup()
+  df = full_join(df, df_all, by = c("geo_value", "time_value"))
+  
+  # Group by geo value, sort rows by increasing time
+  df = df %>% group_by(geo_value) %>% arrange(time_value) 
+  
+  # Load over shifts, and add lag value or lead value
+  for (shift in shifts) {
+    fun = ifelse(shift < 0, lag, lead)
+    varname = sprintf("value%+d", shift)
+    df = mutate(df, !!varname := fun(value, n = abs(shift)))
+  }
+  
+  # Ungroup and return
+  return(ungroup(df))
+}
+
+# Consider only states with at least min_case_num cumulative cases by Google's end
+geo_values = covidcast_signal("jhu-csse", "confirmed_cumulative_num",
+                              "2020-05-14", "2020-05-14", 
+                              geo_type = geo_type) %>%
+  filter(value >= min_case_num) %>% pull(geo_value) 
+
+# Fetch state-level GS search term popularity and JHU
+# confirmed case incidence proportion
+if (!'symptom_df' %in% ls()) {
+  symptom_df = readRDS('anosmia_ageusia.RDS')
+}
+
+
+anosmia = symptom_df %>% filter(signal == 'Anosmia') %>% 
+  select(geo_value, time_value, value) %>%
+  filter(geo_value %in% geo_values,
+				 time_value >= start_day,
+				 time_value <= end_day) 
+ageusia = symptom_df %>% filter(signal == 'Ageusia') %>% 
+  select(geo_value, time_value, value) %>%
+  filter(geo_value %in% geo_values,
+				 time_value >= start_day,
+				 time_value <= end_day) 
+
+# Number of new daily confirmed COVID cases per 100000 people
+case = covidcast_signal("jhu-csse", "confirmed_7dav_incidence_prop",
+                     start_day, end_day, geo_type = geo_type) %>%
+  select(geo_value, time_value, value) %>%
+  filter(geo_value %in% geo_values) 
+
+# Get geo values that appear in all datasets.
+geo_values_complete = intersect(intersect(anosmia$geo_value, ageusia$geo_value),
+                                case$geo_value)
+
+
+
+# Filter to complete states, transform the signals, append 1-2 week lags to 
+# all three, and also 1-2 week leads to case rates
+anosmia = anosmia %>%
+  filter(geo_value %in% geo_values_complete) %>% 
+  mutate(value = trans(value * rescale_symptom)) %>% 
+  append_shifts(shifts = lags) 
+ageusia = ageusia %>%
+  filter(geo_value %in% geo_values_complete) %>% 
+  mutate(value = trans(value * rescale_symptom)) %>% 
+  append_shifts(shifts = lags) 
+case = case %>%
+  filter(geo_value %in% geo_values_complete) %>% 
+  mutate(value = trans(value * rescale_case)) %>% 
+  append_shifts(shifts = c(lags, leads))
+
+# Rename columns
+colnames(anosmia) = sub("^value", "anosmia", colnames(anosmia))
+colnames(ageusia) = sub("^value", "ageusia", colnames(ageusia))
+colnames(case) = sub("^value", "case", colnames(case))
+
+# Make one big matrix by joining these three data frames
+z = full_join(full_join(anosmia, ageusia, by = c("geo_value", "time_value")),
+              case, by = c("geo_value", "time_value"))
+
+##### Analysis #####
+
+# Use quantgen for LAD regression (this package supports quantile regression and
+# more; you can find it on GitHub here: https://github.com/ryantibs/quantgen)
+library(quantgen) 
+
+res_list = vector("list", length = length(leads)) 
+# n = 14 # Number of trailing days to use for training set
+verbose = TRUE # Print intermediate progress to console?
+
+# Loop over lead, forecast dates, build models, and record errors (warning: this
+# computation takes a while)
+for (i in 1:length(leads)) { 
+  lead = leads[i]; if (verbose) cat("***", lead, "***\n")
+  
+  # Create a data frame to store our results. Code below populates its rows in a
+  # way that breaks from typical dplyr operations, done for efficiency
+  res_list[[i]] = z %>% 
+    filter(between(time_value, as.Date(start_day) - min(lags) + lead, 
+                   as.Date(end_day) - lead)) %>%
+    select(geo_value, time_value) %>%
+    mutate(err0 = as.double(NA), err1 = as.double(NA), err2 = as.double(NA), 
+           #err3 = as.double(NA), err4 = as.double(NA),
+           lead = lead) 
+  valid_dates = unique(res_list[[i]]$time_value)
+  
+  for (j in 1:length(valid_dates)) {
+    date = valid_dates[j]; if (verbose) cat(format(date), "... ")
+    
+    # Filter down to training set and test set
+    z_tr = z %>% filter(between(time_value, date - lead - n, date - lead))
+    z_te = z %>% filter(time_value == date)
+    inds = which(res_list[[i]]$time_value == date)
+    
+    # Create training and test responses
+    y_tr = z_tr %>% pull(paste0("case+", lead))
+    y_te = z_te %>% pull(paste0("case+", lead))
+    
+    # Strawman model
+    if (verbose) cat("0")
+    y_hat = z_te %>% pull(case)
+    res_list[[i]][inds,]$err0 = abs(inv_trans(y_hat) - inv_trans(y_te))
+    
+    # Cases only model
+    if (verbose) cat("1")
+    x_tr_case = z_tr %>% select(starts_with("case") & !contains("+"))
+    x_te_case = z_te %>% select(starts_with("case") & !contains("+"))
+    x_tr = x_tr_case; x_te = x_te_case # For symmetry wrt what follows 
+    ok = complete.cases(x_tr, y_tr)
+    if (sum(ok) > 0) {
+      obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
+                           lambda = 0, stand = FALSE, lp_solver = "gurobi")
+      y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
+      res_list[[i]][inds,]$err1 = abs(inv_trans(y_hat) - inv_trans(y_te)) 
+    }
+    
+    # Cases and symptoms model
+    if (verbose) cat("2")
+    x_tr_anosmia = z_tr %>% select(starts_with("anosmia"))
+    x_te_anosmia = z_te %>% select(starts_with("anosmia"))
+    x_tr_ageusia = z_tr %>% select(starts_with("ageusia"))
+    x_te_ageusia = z_te %>% select(starts_with("ageusia"))
+    x_tr = cbind(x_tr_case, x_tr_anosmia, x_tr_ageusia)
+    x_te = cbind(x_te_case, x_te_anosmia, x_te_ageusia)
+    ok = complete.cases(x_tr, y_tr)
+    if (sum(ok) > 0) {
+      obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
+                           lambda = 0, stand = FALSE, lp_solver = "gurobi")
+      y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
+      err_vec = abs(inv_trans(y_hat) - inv_trans(y_te))
+      res_list[[i]][inds,]$err2 = err_vec
+    }
+  }
+}
+
+# Bind results over different leads into one big data frame
+res = do.call(rbind, res_list)
+
+# Calculate the median of the scaled errors for the various model: that is, the 
+# errors relative to the strawman's error
+res_med = res %>% mutate(err1 = err1 / err0, err2 = err2 / err0) %>%
+  select(-err0) %>% 
+  tidyr::pivot_longer(names_to = "model", values_to = "err", 
+                      cols = -c(geo_value, time_value, lead)) %>%
+  group_by(time_value, lead, model) %>% 
+  summarize(err = median(err, na.rm = TRUE)) %>%
+  ungroup() %>% 
+  mutate(lead = factor(lead, labels = paste(leads, "days ahead")),
+         model = factor(model, labels = c("Cases", "Cases + Symptoms")))
+
+saveRDS(res, 'res.RDS')
+saveRDS(res_med, 'res_med.RDS')
+
+ggplot(res_med, aes(x = time_value, y = err)) + 
+  geom_line(aes(color = model)) + 
+  geom_hline(yintercept = 1, linetype = 2, color = "gray") +
+  facet_wrap(vars(lead)) + 
+  labs(x = "Date", y = "Scaled error", title = "Id transform") +
+  theme_bw() + theme(legend.pos = "bottom", legend.title = element_blank())
 ```
