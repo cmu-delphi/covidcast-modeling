@@ -1,0 +1,349 @@
+---
+title: "Regression models: mobility, intervention, and potential confounders"
+author: "Kenneth Lee"
+date: "15/09/2020"
+output: 
+  html_document:
+    code_folding: hide
+    toc: true
+    toc_float:
+      collapsed: True
+      smooth_scroll: True
+---
+
+## Data Preprocessing
+
+```{r import packages, warning = FALSE, message = FALSE}
+library(ggplot2)
+library (readr)
+library(tidyverse)
+library(dplyr)
+library(covidcast)
+library(lubridate)
+library(ggpubr)
+library(reshape2)
+library(tidyr)
+library(viridis)
+library(gridExtra)
+library(zoo)
+library(cowplot)
+library(gplots)
+library(car)
+
+source("code/painter.r")
+source("code/load_all_data.r")
+source("code/shifter.r")
+```
+
+```{r define global variables}
+STARTDATE <- "2020-02-20"
+ENDDATE <- lubridate::today()
+GEO_TYPE = "state" # state-level
+GEO_VALUE = "*" # all states
+EXCLUDED_AREAS = c("as","gu", "mp","vi") # excluded areas due to small sample size
+```
+
+```{r import data, warning = FALSE, message=FALSE}
+data <- load_covidcast_data(STARTDATE, ENDDATE, GEO_TYPE, GEO_VALUE, EXCLUDED_AREAS)
+
+# Read government intervention data
+urlfile="https://raw.githubusercontent.com/COVID19StatePolicy/SocialDistancing/master/data/USstatesCov19distancingpolicy.csv"
+policy <- read_csv(url(urlfile))
+
+```
+
+```{r preprocess policy data}
+# Convert to lower case
+policy$StatePostal <- tolower(policy$StatePostal)
+# First we convert the date to a proper format
+policy[, c("DateIssued", "DateEnacted", "DateExpiry" ,"DateEased", "DateEnded", "DateReexpanded1", "DateReeased1")] <- data.frame(lapply(policy[, c("DateIssued", "DateEnacted", "DateExpiry" ,"DateEased", "DateEnded", "DateReexpanded1", "DateReeased1")], function(x) as.Date(as.character(x), "%Y%m%d")))
+
+# Get the dates between start and end date
+all.dates <- seq(as.Date(STARTDATE), as.Date(ENDDATE), by="days")
+time_value <- sort(rep(all.dates, length(unique(policy$StatePostal)) )) 
+
+# Generate geo_value
+geo_value <- rep(unique(policy$StatePostal), length(all.dates))
+policy_signal <- data.frame(time_value = time_value, geo_value = geo_value)
+
+# Create empty columns
+policy_signal[,unique(policy$StatePolicy)] <- 0
+
+# Fill in the count for each date
+  # Get the policy name and state to filer policy signal 
+for (row in (1:nrow(policy))){
+  current.policy <- policy[row,]$StatePolicy
+  current.state <- policy[row,]$StatePostal
+  if (is.na(policy[row,]$DateEnded)){
+    # Filter the rows of dataframe to be the current state and the time value that is after the policy is enacted.
+    policy_signal[policy_signal$geo_value == current.state & policy_signal$time_value > as.Date(policy[row,]$DateEnacted), current.policy] <- 1
+  }else{
+    # Get time range between Date Enacted and Date Ended
+    time.range <- seq(as.Date(policy[row,]$DateEnacted), as.Date(policy[row,]$DateEnded), by = "days")
+    
+    # Fill in the the rows that are in the current policy and fall between the time arrange to be 1
+    policy_signal[policy_signal$time_value %in% time.range & policy_signal$geo_value == current.state, current.policy] <- 1
+    }
+}
+
+# Compute the sum of the number of policies for every day in the state
+policy_signal$total.num.policy <- rowSums(policy_signal[unique(policy$StatePolicy)])
+
+# Compute the average on a 7day sliding window
+policy_signal <-policy_signal %>%
+    arrange(desc(geo_value)) %>% 
+    group_by(geo_value) %>% 
+    mutate(num.policy.7avg = rollmean(total.num.policy, k = 7, fill = NA))%>%
+    ungroup()
+
+# Finalize the covidcast-like signal for governemnt intervention
+covidcast.like.policy.signal <- policy_signal %>% transmute(
+  geo_value = geo_value,
+  signal = "policy_7dav_num",
+  time_value = time_value,
+  direction = NA,
+  issue = lubridate::today(),
+  lag = issue - time_value,
+  value = num.policy.7avg,
+  stderr = NA,
+  sample_size = NA,
+  data_source = 'University of Washington')
+```
+
+
+```{r create a unified dataframe with mobility-intervention-confounders}
+# We fist get all the signals
+ftime.mobility <- data$Full.Time.Mobility[c("time_value","geo_value","value")] #mobility
+
+case.count <- data$Avg.Confirmed.Case.Count[c("time_value","geo_value","value")]# case count
+
+cumulative.case.count <-data$Cum.Avg.Case.Count[c("time_value","geo_value","value")]# cumulative case count
+
+cumulative.case.count.prop <-data$Cum.Avg.Case.Count.Prop[c("time_value","geo_value","value")] # cumulative case count per 100,000
+
+avg.death.count <- data$Avg.Death.Case.Count[c("time_value","geo_value","value")] #death count
+
+cum.avg.death.count <- data$Cum.Avg.Death.Count[c("time_value","geo_value","value")] #cumulative death count
+
+doc.visit <- data$smoothed_cli[c("time_value","geo_value","value")] # doctor visit
+
+adj.doc.visit <- data$smoothed_adj_cli[c("time_value","geo_value","value")] # adjusted doctor visit
+
+# Change the column name
+colnames(ftime.mobility)[3]<-"full_time_work_prop"
+colnames(case.count)[3] <- "confirmed_7dav_incidence_num"
+colnames(cumulative.case.count)[3] <- "confirmed_7dav_cumulative"
+colnames(cumulative.case.count.prop)[3] <- "confirmed_7dav_cumulative_prop"
+colnames(avg.death.count)[3]<-"deaths_7dav_incidence_num"
+colnames(cum.avg.death.count)[3] <- "deaths_7dav_cumulative_num"
+colnames(doc.visit)[3] <- "smoothed_cli"
+colnames(adj.doc.visit)[3] <- "smoothed_adj_cli"
+
+# Create a list of confounders for left join with mobility
+confounders <- list(case.count, cumulative.case.count, cumulative.case.count.prop,
+     avg.death.count, cum.avg.death.count, doc.visit, adj.doc.visit)
+
+# Turn the polical signal to be factors
+factored.policy.signal <- cbind(policy_signal[1:2], lapply(policy_signal[3:17], as.factor),policy_signal[18:19])
+
+# Intervention left join mobility with policy signal
+intervention_mobility_case <- left_join(ftime.mobility,factored.policy.signal , by=c("time_value", "geo_value"))
+
+# Left join again with all other potential confounders
+for (confounder in confounders){
+  intervention_mobility_case <- left_join(intervention_mobility_case, confounder, by=c("time_value", "geo_value"))
+}
+# Filter state "pr" as it is not available in the intervention data
+factored_data <- intervention_mobility_case %>% filter(!(geo_value %in% c("pr")))
+
+```
+
+## Treatment effect of government interventions
+
+Moreover, we may be interested to know the following:
+
+* Is there a difference in the means of mobility signal across state?
+
+* Is there a difference in the means of mobility signal in terms of stay-at-home order?
+
+* Is there an interaction between the factor of states and the factor of the order?
+
+To answer these questions, assuming that the data are normally distributed and the variance across groups are homogeneous, we will use ANOVA (Analysis of Variance). We will check these assumptions in the model diagnostics. 
+
+
+### Main effect of States
+
+We can see that some states have a particularly higher range of the mean mobility signal. For example, Montana (MT) clearly stands out from the rest, whereas Hawaii (HI) has a much lower mean mobility signal from Feb. to Sep. in 2020.
+
+```{r check main effect, fig.width = 15, fig.height=10}
+# Plotting the main effect of geo_value
+plotmeans(full_time_work_prop~ geo_value,data=intervention_mobility_case, xlab="Geo_value", ylab="Mobility", main="Main effect (States)") 
+```
+
+### Interaction plots
+
+```{r interaction plots across states}
+for(i in 4:17){
+  interaction.plot(factored_data[,"geo_value"], factored_data[,names(factored_data)[i]], factored_data$full_time_work_prop, xlab="States", ylab= "Full time work prop", main=paste("Interaction plot between states and", names(factored_data)[i], "on mobility"))  
+}
+```
+
+### Boxplots of mobility across different levels of intervention
+
+```{r boxplots for categorical variables, fig.height= 10, fig.width = 10}
+# plot the boplots for categoical variables columns
+p <- list()
+counter <- 1
+# loop through all categorical variables for intervention
+for (i in 4:17){
+p[[counter]]<- ggplot(factored_data, aes_string(x=names(factored_data)[3], y=names(factored_data)[i])) + 
+    geom_boxplot() + 
+     stat_summary(fun = mean, geom = "errorbar", aes(xmax = ..x.., xmin = ..x..), color ="red", linetype = 2)+
+  labs(title=paste("Mobility by", names(factored_data)[i]), x="Mobility", y=names(factored_data)[i]) + theme(plot.title = element_text(size=9))
+
+counter <- counter + 1
+}
+# Plot all the ggplot
+do.call(grid.arrange,p)
+```
+
+### Distribution of mobility by various intervention across states
+
+```{r mobility signal by intervention}
+# grouped boxplot
+for (i in 4:17){
+  
+p <- ggplot(factored_data, aes_string(x=names(factored_data)[3], y=names(factored_data)[2], fill=names(factored_data)[i])) + 
+    geom_boxplot() +
+  labs(title=paste("Mobility by State and", names(factored_data)[i]),x="mobility", y="State")
+
+print(p)
+}
+
+```
+
+### Transformations of the Response Variable
+
+```{r visualize all histogram of reponse}
+par(mfrow=c(2,2))
+hist(factored_data$full_time_work_prop, main="Histogram of unchanged response", xlab="full_time_work_prop")
+hist(log(factored_data$full_time_work_prop), main="Histogram of log response", xlab="full_time_work_prop")
+hist(1/(factored_data$full_time_work_prop), main="Histogram of 1/response", xlab="full_time_work_prop")
+hist(sqrt(factored_data$full_time_work_prop), main="Histogram of squared root of response", xlab="full_time_work_prop")
+```
+
+### Histograms of all continuous variables
+
+```{r visualize the distributions of the continuous variables, fig.height= 10, fig.width = 10}
+par(mfrow=c(3,3))
+for (i in 19:ncol(factored_data)) 
+{
+  hist(factored_data[,names(factored_data)[i]], xlab=names(factored_data)[i], main=paste("Histogram of", names(factored_data)[i]))
+}
+par(mfrow=c(1,1))
+```
+
+### Linear regression models comparsion (Mobility, Intervention, Confounders)
+
+We modified the data so that the confounders are shifted n days forwarded in time based on our initial exploration. 
+
+```{r linear regression model}
+# select best lag number based on intial exploration
+case.shifted.days.spearman <- 26 # based spearman correlation
+doc.visit.shifted.days.spearman <- 33 # based spearman correlation for doctor visit
+cum.death.shifted.days.spearman <- 26
+death.shifted.days.spearman <- 100
+
+case.vec <- c("confirmed_7dav_incidence_num", "confirmed_7dav_cumulative", "confirmed_7dav_cumulative_prop")
+doc.vec <- c("smoothed_cli", "smoothed_adj_cli")
+cum.death.vec <- c("deaths_7dav_cumulative_num")
+death.vec <- c("deaths_7dav_incidence_num")
+
+for (state in unique(factored_data$geo_value)){
+  
+  # Filter dataframe by every state
+  selected.df <- factored_data %>% filter(geo_value==state)
+  
+  # Shift the case count column vector by the specified shift time
+  factored_data <- shiftDays(selected.df, factored_data, case.shifted.days.spearman, case.vec)
+  # Shift the  doctor column vector by the specified shift time
+  factored_data <-shiftDays(selected.df, factored_data, doc.visit.shifted.days.spearman, doc.vec)
+  
+  # Shift the death count column vector by the specified shift time
+  factored_data <-shiftDays(selected.df, factored_data, cum.death.shifted.days.spearman, cum.death.vec)
+  # Shift the cum death count column vector by the specified shift time
+  factored_data <-shiftDays(selected.df, factored_data, death.shifted.days.spearman, death.vec)
+}
+
+
+#Problematic: EmergDec, deaths_7dav_incidence_num
+
+# model 1 : y is mobility, x's are the confounders and intervention
+# Note: we dropped the geo and time value
+
+lm.fit.1 <- lm(full_time_work_prop ~ confirmed_7dav_incidence_num+
+                 confirmed_7dav_cumulative+
+                 confirmed_7dav_cumulative_prop+
+                 PublicMask+
+                 StayAtHome+
+                 SchoolClose+
+                 BarRestrict+
+                 RestaurantRestrict+
+                 Quarantine+
+                 NEBusinessClose+
+                 TravelRestrictIntra+
+                 TravelRestrictExit+
+                 TravelRestrictEntry+
+                 GathRecom+
+                 total.num.policy+
+                 num.policy.7avg+
+                deaths_7dav_cumulative_num+
+                 smoothed_cli+
+                 smoothed_adj_cli+
+                 CaseIsolation, data=factored_data[,-c(1,2,4,24)], na.action = na.exclude)
+
+summary(lm.fit.1)
+# Plot the normal qq plot, residuals vs. fitted values
+par(mfrow=c(2,2))
+plot(lm.fit.1)
+
+# model 1: include all two way interaction 
+lm.fit.2 <- lm(full_time_work_prop~.^2, data=factored_data[,-c(1,2,4,24)])
+summary(lm.fit.2)
+plot(lm.fit.2)
+par(mfrow=c(1,1))
+```
+
+
+### ANOVA
+
+### Interpret the result
+
+```{r ANOVA table}
+anova(lm.fit.1)
+
+anova(lm.fit.2)
+
+
+# Change the default setting for unbalanced ANOVA
+#options(contrasts = c("contr.sum", "contr.poly"))
+
+# ANOVA test for unbalanced designs.
+
+# print the ANOVA table for both models
+#Anova(lm.fit.0, type = "III")
+
+#Anova(lm.fit.1, singular.ok = T, type = "III") #set singular.ok = T to avoid error 
+```
+
+### Model selection
+
+```{r model validation}
+
+```
+  
+  
+
+
+
+

@@ -17,6 +17,7 @@ library(reshape2)
 library(tidyr)
 library(viridis)
 library(gridExtra)
+library(data.table)
 library(zoo)
 library(cowplot)
 library(CausalImpact)
@@ -26,20 +27,6 @@ source("code/load_all_data.r")
 ```
 
 ```{r define global variables, echo=FALSE}
-STARTDATE <- "2020-02-20"
-ENDDATE <- lubridate::today()
-GEO_TYPE = "state" # state-level
-GEO_VALUE = "*" # all states
-EXCLUDED_AREAS = c("as","gu", "mp","vi") # excluded areas due to small sample size
-DT_X = 7 # 	 Time shifts to consider for x
-```
-
-```{r import data, warning = FALSE, message=FALSE, echo=FALSE}
-library(data.table)
-library(dplyr)
-source("code/painter.r")
-source("code/load_all_data.r")
-
 STARTDATE <- "2019-01-01"
 ENDDATE <- lubridate::today()
 GEO_TYPE = "state" # state-level
@@ -47,8 +34,11 @@ GEO_VALUE = "ca" # all states
 #EXCLUDED_AREAS = c("as","gu", "mp","vi") # excluded areas due to small sample size
 DT_X = 7 # 	 Time shifts to consider for x
 
-ftime_mobility <- covidcast_signal(data_source = "safegraph", signal ="full_time_work_prop",start_day = STARTDATE, end_day = ENDDATE,geo_type = GEO_TYPE, geo_values = GEO_VALUE)
+```
 
+```{r import data, warning = FALSE, message=FALSE, echo=FALSE}
+# Get mobility signal
+ftime_mobility <- covidcast_signal(data_source = "safegraph", signal ="full_time_work_prop",start_day = STARTDATE, end_day = ENDDATE,geo_type = GEO_TYPE, geo_values = GEO_VALUE)
 
 # Create a dataframe with mobility and other potential covariates
 tbl <-list.files(path = "data/temperature",
@@ -56,6 +46,12 @@ tbl <-list.files(path = "data/temperature",
                full.names = T) %>% map_df(~read_csv(.)) 
 
 intervention <- load_policy_data(STARTDATE, ENDDATE)
+
+# US holidays
+ca.holidays <- c("2019-01-01", "2019-01-21", "2019-02-18", "2019-05-27", "2019-07-04", "2019-09-02", "2019-10-14", "2019-11-11", "2019-11-28", "2019-12-25", "2019-04-01", "2020-01-01", "2020-01-20", "2020-02-17", "2020-05-25", "2020-07-03", "2020-09-07", "2020-10-12", "2020-11-11", "2020-11-26", "2020-12-25")
+
+# Convert data type
+ca.holidays <-sapply(ca.holidays, as.Date)
 ```
 
 ## Introduction
@@ -94,6 +90,9 @@ lastdate <- tail(df$time_value, n=1)
 weekend <- ifelse(weekdays(seq(as.Date(STARTDATE), as.Date(lastdate), by="days")) %in% c("Saturday", "Sunday"), 1, 0)
 df$weekend <- weekend
 
+# create dummy variables for holidays
+holidays <- ifelse(seq(as.Date(STARTDATE), as.Date(lastdate), by="days") %in% ca.holidays, 1, 0)
+df$holiday <- holidays
 
 # get intervention data for only ca
 ca_policy <- intervention %>% filter(geo_value == "ca" & total.num.policy > 0)
@@ -118,7 +117,7 @@ We show that the causal estimate by counterfactual prediction (blue line) and ob
 
 ```{r build model}
 impact <- CausalImpact(data, pre.period, post.period)
-plot(impact)
+plot(impact) + labs(title="Causal estimate by bayesian structual time-series")
 ```
 
 ### Interpret the result 
