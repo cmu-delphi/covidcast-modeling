@@ -8,6 +8,15 @@ load_covidcast_data <- function(STARTDATE, ENDDATE, GEO_TYPE, GEO_VALUE, EXCLUDE
   
   ftime <- ftime %>%  filter(!(geo_value %in% EXCLUDED_AREAS))
   
+  ptime <- covidcast_signal(data_source = "safegraph", 
+                            signal ="part_time_work_prop",
+                            start_day = STARTDATE, 
+                            end_day = ENDDATE,
+                            geo_type = GEO_TYPE, 
+                            geo_values = GEO_VALUE)
+  
+  ptime <- ftime %>%  filter(!(geo_value %in% EXCLUDED_AREAS))
+  
   ############## New confirmed COVID19 cases ############
   
   # A composite signal from JHU and USA facts
@@ -63,6 +72,25 @@ load_covidcast_data <- function(STARTDATE, ENDDATE, GEO_TYPE, GEO_VALUE, EXCLUDE
                                      geo_values = GEO_VALUE)
   cum_death_case  <- cum_death_case  %>%  filter(!(geo_value %in% EXCLUDED_AREAS))
   
+  # doctor-visits with systematic day-of-week effects
+  smoothed_cli <-covidcast_signal(data_source = "doctor-visits",
+                                  signal ="smoothed_cli",
+                                  start_day = STARTDATE, 
+                                  end_day = ENDDATE,
+                                  geo_type = GEO_TYPE, 
+                                  geo_values = GEO_VALUE)
+  
+  smoothed_cli  <- smoothed_cli %>% filter(!(geo_value %in% EXCLUDED_AREAS))
+  
+  # with systematic day-of-week effects
+  smoothed_adj_cli <- covidcast_signal(data_source = "doctor-visits",
+                                    signal ="smoothed_adj_cli",
+                                    start_day = STARTDATE, 
+                                    end_day = ENDDATE,
+                                    geo_type = GEO_TYPE, 
+                                    geo_values = GEO_VALUE)
+  
+  
   # State-level restaurant data
   res <- read.csv("data/state_restaurants_visit_num.csv")
   # Change date type
@@ -85,7 +113,7 @@ load_covidcast_data <- function(STARTDATE, ENDDATE, GEO_TYPE, GEO_VALUE, EXCLUDE
     stderr = NA,
     sample_size = NA,
     data_source = 'Weekly Patterns')
-  return(list(Full.Time.Mobility=ftime, Avg.Confirmed.Case.Count=case_avg,  Cum.Avg.Case.Count=cum_case, Cum.Avg.Case.Count.Prop = cum_case_prop, Avg.Death.Case.Count = death_case, Cum.Avg.Death.Count = cum_death_case, Restaurant.Visit.Count = new_res))
+  return(list(Full.Time.Mobility=ftime, Part.Time.Mobility=ptime, Avg.Confirmed.Case.Count=case_avg,  Cum.Avg.Case.Count=cum_case, Cum.Avg.Case.Count.Prop = cum_case_prop, Avg.Death.Case.Count = death_case, Cum.Avg.Death.Count = cum_death_case, Restaurant.Visit.Count = new_res, smoothed_cli = smoothed_cli,   smoothed_adj_cli= smoothed_adj_cli))
 }
 
 
@@ -101,7 +129,7 @@ load_policy_data <- function(STARTDATE, ENDDATE){
   
   # Get the dates between start and end date
   all.dates <- seq(as.Date(STARTDATE), as.Date(ENDDATE), by="days")
-  time_value <- sort(rep(all.dates, length(unique(policy$StatePostal)) )) 
+  time_value <- sort(rep(all.dates, length(unique(policy$StatePostal)))) 
   
   # Generate geo_value
   geo_value <- rep(unique(policy$StatePostal), length(all.dates))
