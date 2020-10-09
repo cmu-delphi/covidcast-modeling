@@ -1128,11 +1128,14 @@ if (file.exists('res_gs_ght_5-20days.RDS')) {
 ```
 
 ```{r median error between cases only and alternative models by num days forecast ahead}
+res = readRDS('res_gs_ght_5-20days.RDS')
+
 # Compute and plot median errors as function of number of days ahead
 err_by_lead = res %>%
   drop_na() %>%                                       # Restrict to common time
   mutate(err1 = err1 / err0, err2 = err2 / err0,      # Compute relative error
-         err3 = err3 / err0, err4 = err4 / err0) %>%  # to strawman model
+         err3 = err3 / err0, err4 = err4 / err0
+         ) %>%  # to strawman model
   ungroup() %>%
   select(-err0) %>%
   pivot_longer(names_to = "model", values_to = "err",
