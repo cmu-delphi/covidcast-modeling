@@ -358,7 +358,7 @@ plt = (ggplot(ght_gs_df)
 plt
 ```
 
-Let's look into these low GS-high GHT points to see if we can figure out what's causing them. Data show below is raw GHT where GHT is not missing and GS *is* missing. 
+Let's look into these low GS-high GHT points to see if we can figure out what's causing them. Data show below is raw GHT where GS is missing. 
 
 ```{r compare_missing_gs_vs_ght_all_states, message=FALSE, warnings=FALSE}
 low_gs_high_raw_ght = ght_gs_df[is.na(ght_gs_df$raw_gs_anosmia_ageusia) & !is.na(ght_gs_df$raw_ght),] %>% 
@@ -375,7 +375,7 @@ plt = (ggplot(low_gs_high_raw_ght)
 plt
 ```
 
-Clearly, missing GS values occur in all or almost all states, with a large number of zeroes. Based on the previous plot, we consider any GHT value above approximately 100 to be "high" given the incidence of other GHT values that don't correspond to missing GS.
+Clearly, missing GS values occur in all or almost all states, with a large proportion corresponding to zeroes in GHT. Based on the previous plot, we consider any GHT value above approximately 100 to be "high" given the distribution of all GHT values.
 
 ```{r distribution_missing_gs_vs_ght}
 plt = (ggplot(low_gs_high_raw_ght,
@@ -395,7 +395,7 @@ plt
 summary(low_gs_high_raw_ght$raw_ght_where_gs_missing)
 ```
 
-Looking at the distribution and summary statistics, we can see that at least 75% of values equal 0. According to the IQR definition, any values not equal to 0 are considered outliers.
+Looking at the distribution and summary statistics, we can see that at least 75% of values equal 0. According to the IQR definition, any values not equal to 0 are outliers.
 
 ```{r compare_missing_gs_vs_ght_by_state}
 raw_ght_div100_gs_df_long = ght_gs_df %>%
@@ -413,8 +413,8 @@ low_gs_long = low_gs_high_raw_ght %>%
   tidyr::gather(signal, value, -time_value, -geo_value)
 
 
-for (start_index in 1:ceiling(length(states) / 9)) {
-# for (start_index in 1:2) {
+# for (start_index in 1:ceiling(length(states) / 9)) {
+for (start_index in 1:2) {
   local_state_subset = states[(9 * start_index - 8):(9 * start_index)] 
   plt = (ggplot(raw_ght_long[raw_ght_long$geo_value %in% local_state_subset, ])
        + geom_line(aes(x=time_value,
@@ -422,7 +422,7 @@ for (start_index in 1:ceiling(length(states) / 9)) {
                        group=signal,
                        color=signal),
                    size=0.2)
-       + ggtitle(paste('Missing GS and corresponding raw GHT'))
+       + ggtitle(paste('GS and raw GHT, highlighted where GS is missing, by state'))
        + facet_wrap(.~ geo_value)
        )
   plt_add = plt + geom_point(data = low_gs_long[low_gs_long$geo_value %in% local_state_subset, ], mapping = aes(x=time_value, y=value, group=geo_value, color=signal), size=0.7) + scale_color_manual(values = c("#619CFF", "#F8766D", "#00BA38"))
@@ -433,12 +433,13 @@ for (start_index in 1:ceiling(length(states) / 9)) {
 rm(raw_ght_div100_gs_df_long, low_gs_long, low_gs_high_raw_ght)
 ```
 
-As can be seen in the plots above, GHT corresponding to missing GS (presumed to be close to 0) is only much higher than baseline/background GHT and scaled GS in low-population states. These states are characterized by completely or partially-missing GS data and high variability in GHT (i.e. most values are near or equal to 0, but the signal jumps into the hundreds occasionally). This implies that high GHT values are caused by noise due to low sample size.
+GHT corresponding to missing GS is much higher than baseline/background GHT only in low-population states (AK, DE). These states are characterized by partially or completely-missing GS data and high variability in GHT, i.e. most values at or near 0, with the occasional huge increase into the hundreds.
 
-In large-population states, GHT values corresponding to missing GS are in line with GHT and GS trends.
+It seems likely that jumps in search popularity are due to each Google user in that region representing a large portion of activity. Take an extreme example: a region with only 2 people will, at any one time, be unlikely to search for rare search term *x*. When someone does search *x*, however, the search incidence will very briefly jump from 0 to 50%. A region with many more people will see a much lower but more consistent search incidence for the term.
 
-I'm not sure exactly how GHT scaling/signal creation works, but it seems likely that jumps in search popularity are caused by each Google user in that region representing a large number of people. For example, a region with only 5 people will, at any one time, not be likely to search for a rare search term *x*. When someone does search *x*, however, the search incidence will jump from 0 to 20%. A region with many more people will see a much lower but more consistent search incidence for term *x*.
+I'm not sure exactly how GHT scaling/signal creation works and documentation is lacking/unavailable. Does this sample-size hypothesis make sense given how GHT is constructed?
 
+In moderate-population states (AL, CT), GHT values corresponding to missing GS are in line with GHT and GS trends and historical values. Large-population states (FL, CA) don't have any missing GS values.
 
 
 ```{r plot_gs_vs_ght, message=FALSE, warnings=FALSE}
@@ -469,22 +470,6 @@ corr_by_state
 
 Correlation between GS A+A and GHT varies widely by state (over all time).
 
-```{r plot_gs_vs_ght_corr, message=FALSE, warnings=FALSE}
-plt = (ggplot(corr_by_state,
-              aes(x=1,
-                  y=corr))
-       + geom_violin(trim=TRUE)
-       + geom_boxplot(width=0.1)
-       + xlim(0, 2)
-       + ylim(0, 1)
-       + theme(axis.title.x=element_blank(),
-               axis.text.x=element_blank(),
-               axis.ticks.x=element_blank())
-       + ggtitle(paste('Distribution of by-state correlations of GS A+A vs smoothed GHT'))
-)
-plt
-```
-
 ```{r plot_gs_vs_ght_corr_state_labels, message=FALSE, warnings=FALSE}
 plt = (ggplot(corr_by_state,
               aes(x=1,
@@ -492,6 +477,7 @@ plt = (ggplot(corr_by_state,
                   label=toupper(geo_value)))
        + geom_violin(trim=TRUE)
        # + geom_dotplot(binaxis='y', stackdir='center', dotsize=0.4)
+       + geom_boxplot(width=0.1)
        + geom_jitter(position=position_jitter(0.05))
        + geom_text(check_overlap = TRUE, nudge_x = 0.2, size=2.5)
        + xlim(0, 2)
@@ -528,7 +514,7 @@ plt = (ggplot(corr_mean_signal)
                        y=value,
                        color=signal),
                    size=0.2)
-       + ggtitle(paste('Median orrelation between GHT / 100 and Google Symptoms A+A', 
+       + ggtitle(paste('Median correlation between GHT and GS A+A', 
                        'across all states'))
        )
 plt
@@ -821,17 +807,19 @@ ggplot(res_med, aes(x = time_value, y = err)) +
 
 It's not clear from this comparison if adding in GS anosmia and ageusia signals was helpful. We can see that during some time periods, median scaled error for the cases + symptoms model is lower than that for the cases-only model, but it is more variable. There's also a particularly bad error in mid-May.
 
+It appears that cases and cases + GHT models are very similar, and cases + symptoms and cases + symptoms + GHT models are very similar, especially for the 14 days ahead models. This implies that cases and GS contribute the most to predictive power, with GHT apparently not helping much. 
+
 ```{r compare_media_err_over_all_time_and_states}
 # Restrict to common period for all models, then calculate the scaled errors 
 # for each model, that is, the error relative to the strawman's error
 res_all = res %>%
   drop_na() %>%                                       # Restrict to common time
-  mutate(err1 = err1 / err0, err2 = err2 / err0      # Compute relative error
-         , err3 = err3 / err0, err4 = err4 / err0
-         ) %>%  # to strawman model
-  mutate(dif12 = err1 - err2    # Compute differences
-         , dif13 = err1 - err3, dif14 = err1 - err4
-         ) %>%                     # relative to cases model
+  mutate(err1 = err1 / err0, err2 = err2 / err0       # Compute relative error
+         , err3 = err3 / err0, err4 = err4 / err0     # to strawman model
+         ) %>%
+  mutate(dif12 = err1 - err2                          # Compute differences
+         , dif13 = err1 - err3, dif14 = err1 - err4   # relative to cases model
+         ) %>%
   ungroup() %>%
   select(-err0) 
          
@@ -845,7 +833,7 @@ res_err = res_all %>%
 
 knitr::kable(res_err %>%
                group_by(model, lead) %>%
-               summarize(err = median(err), n = length(unique(time_value))) %>% 
+               summarize(err = round(median(err), 3), n = length(unique(time_value))) %>% 
                arrange(lead) %>% ungroup() %>%
                rename("Model" = model, "Median scaled error" = err, 
                       "Target" = lead, "Test days" = n), 
@@ -854,7 +842,11 @@ knitr::kable(res_err %>%
              format = "html", table.attr = "style='width:70%;'")
 ```
 
-"Are these differences in median scaled errors significant? It’s hard to say [for certain given the spatial and temporal dependence of the data], but some basic hypothesis testing suggests that they probably are: below we conduct a sign test for whether the difference in the “Cases” model’s scaled error and each other model’s scaled error is centered at zero" ([source](https://delphi.cmu.edu/blog/2020/09/21/can-symptoms-surveys-improve-covid-19-forecasts/)).
+Calculating median scaled error over all dates and all states for a given model, we see again that cases and cases + GHT, and cases + symptoms and cases + symptoms + GHT models are very similar.
+
+Adding symptoms as a predictor reduces median scaled error by approximately 10 percentage points (and approximately 10%) compared to a cases-only model. On the other hand, adding GHT as a predictor reduces median scaled error by 1.5-2.5 percentage points compared to cases, but does nothing when added to a model already containing symptoms. Since GS and GHT are largely measuring the same thing and are moderately to strongly correlated, we wouldn't expect using both predictors to significantly improve a model - and indeed that's what we see.
+
+"Are these differences in median scaled errors significant? It’s hard to say [for certain, given the spatial and temporal dependence of the data], but some basic hypothesis testing suggests that they probably are: below we conduct a sign test for whether the difference in the “Cases” model’s scaled error and each other model’s scaled error is centered at zero" ([source](https://delphi.cmu.edu/blog/2020/09/21/can-symptoms-surveys-improve-covid-19-forecasts/)).
 
 ```{r is difference in scaled error between models centered at 0?}
 comparison_names = paste("Cases vs", model_names[2:4])
@@ -879,7 +871,7 @@ knitr::kable(res_dif %>%
              format = "html", table.attr = "style='width:50%;'")
 ```
 
-Differences in model fit are (very) significantly different, ignoring depedence structure at the moment. 
+Differences in model fit are (very) significantly different, ignoring dependence structure at the moment. 
 
 "To mitigate the dependence across time (which intuitively seems to matter more than that across space), we recomputed these tests in a stratified way, where for each day we run a sign test on the scaled errors between two models over all [geographic regions]. The results are plotted as histograms below", where one count corresponds to one prediction date ([source](https://delphi.cmu.edu/blog/2020/09/21/can-symptoms-surveys-improve-covid-19-forecasts/)).
 
@@ -901,7 +893,7 @@ ggplot(res_dif %>%
   theme_bw() + theme(legend.pos = "none")
 ```
 
-7-days ahead comparisons don't have so many low p-values. 14-days ahead comparisons look more significant across all alternative models. So it appears that these signals are useful for farther-future predictions, rather than near-future where number of cases is sufficient.
+If the differences between models were *not* significant, we'd expect the distribution of p-values to be uniform. That is distinctly not what we see here. Model differences at both 7 and 14 days ahead have elevated (compared to expected) numbers of low p-values, suggesting significance. However, 14-day ahead comparisons look *more* significant across all alternative models. So it appears that additional predictors, especially GS, are useful for farther-future predictions, rather than near-future where number of cases is largely sufficient.
 
 
 ```{r prediction_setup over days ahead, echo = TRUE, eval=FALSE}
@@ -1128,7 +1120,7 @@ if (file.exists('res_gs_ght_5-20days.RDS')) {
 ```
 
 ```{r median error between cases only and alternative models by num days forecast ahead}
-res = readRDS('res_gs_ght_5-20days.RDS')
+# res = readRDS('res_gs_ght_5-20days.RDS')
 
 # Compute and plot median errors as function of number of days ahead
 err_by_lead = res %>%
