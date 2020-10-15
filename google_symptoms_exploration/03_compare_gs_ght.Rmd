@@ -670,7 +670,8 @@ z = full_join(
 
 ##### Analysis #####
 
-model_names = c("Cases", "Cases + Symptoms")
+model_names = c("Cases", "Cases + Symptoms", "Cases + GHT", 
+                "Cases + Symptoms + GHT")
 
 res_list = vector("list", length = length(leads)) 
 n = 14 # Number of trailing days to use for training set
@@ -689,7 +690,7 @@ for (i in 1:length(leads)) {
                    as.Date(end_day) - lead)) %>%
     select(geo_value, time_value) %>%
     mutate(err0 = as.double(NA), err1 = as.double(NA), err2 = as.double(NA), 
-           # err3 = as.double(NA), err4 = as.double(NA),
+           err3 = as.double(NA), err4 = as.double(NA),
            lead = lead) 
   valid_dates = unique(res_list[[i]]$time_value)
   
@@ -740,35 +741,35 @@ for (i in 1:length(leads)) {
       res_list[[i]][inds,]$err2 = err_vec
     }
     
-    # 
-    # # Cases and ght model
-    # if (verbose) cat("3")
-    # x_tr_ght = z_tr %>% select(starts_with("ght"))
-    # x_te_ght = z_te %>% select(starts_with("ght"))
-    # x_tr = cbind(x_tr_case, x_tr_ght)
-    # x_te = cbind(x_te_case, x_te_ght)
-    # ok = complete.cases(x_tr, y_tr)
-    # if (sum(ok) > 0) {
-    #   obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
-    #                        lambda = 0, stand = FALSE, lp_solver = lp_solver)
-    #   y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
-    #   err_vec = abs(inv_trans(y_hat) - inv_trans(y_te))
-    #   res_list[[i]][inds,]$err3 = err_vec
-    # }
-    # 
-    # 
-    # # Cases, symptoms, and ght model
-    # if (verbose) cat("4")
-    # x_tr = cbind(x_tr_case, x_tr_anosmia, x_tr_ageusia, x_tr_ght)
-    # x_te = cbind(x_te_case, x_te_anosmia, x_te_ageusia, x_te_ght)
-    # ok = complete.cases(x_tr, y_tr)
-    # if (sum(ok) > 0) {
-    #   obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
-    #                        lambda = 0, stand = FALSE, lp_solver = lp_solver)
-    #   y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
-    #   err_vec = abs(inv_trans(y_hat) - inv_trans(y_te))
-    #   res_list[[i]][inds,]$err4 = err_vec
-    # }
+
+    # Cases and ght model
+    if (verbose) cat("3")
+    x_tr_ght = z_tr %>% select(starts_with("ght"))
+    x_te_ght = z_te %>% select(starts_with("ght"))
+    x_tr = cbind(x_tr_case, x_tr_ght)
+    x_te = cbind(x_te_case, x_te_ght)
+    ok = complete.cases(x_tr, y_tr)
+    if (sum(ok) > 0) {
+      obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
+                           lambda = 0, stand = FALSE, lp_solver = lp_solver)
+      y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
+      err_vec = abs(inv_trans(y_hat) - inv_trans(y_te))
+      res_list[[i]][inds,]$err3 = err_vec
+    }
+
+
+    # Cases, symptoms, and ght model
+    if (verbose) cat("4")
+    x_tr = cbind(x_tr_case, x_tr_anosmia, x_tr_ageusia, x_tr_ght)
+    x_te = cbind(x_te_case, x_te_anosmia, x_te_ageusia, x_te_ght)
+    ok = complete.cases(x_tr, y_tr)
+    if (sum(ok) > 0) {
+      obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
+                           lambda = 0, stand = FALSE, lp_solver = lp_solver)
+      y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
+      err_vec = abs(inv_trans(y_hat) - inv_trans(y_te))
+      res_list[[i]][inds,]$err4 = err_vec
+    }
   }
 }
 
@@ -777,7 +778,8 @@ res = do.call(rbind, res_list)
 
 # Calculate the median of the scaled errors for the various model: that is, the 
 # errors relative to the strawman's error
-res_med = res %>% mutate(err1 = err1 / err0, err2 = err2 / err0) %>%
+res_med = res %>% mutate(err1 = err1 / err0, err2 = err2 / err0,
+                         err3 = err3 / err0, err4 = err4 / err0) %>%
   select(-err0) %>% 
   tidyr::pivot_longer(names_to = "model", values_to = "err", 
                       cols = -c(geo_value, time_value, lead)) %>%
@@ -804,10 +806,11 @@ It appears that cases and cases + GHT models are very similar, and cases + sympt
 # for each model, that is, the error relative to the strawman's error
 res_all = res %>%
   drop_na() %>%                                       # Restrict to common time
-  mutate(err1 = err1 / err0, err2 = err2 / err0       # Compute relative error
-     # to strawman model
+  mutate(err1 = err1 / err0, err2 = err2 / err0,       # Compute relative error
+     err3 = err3 / err0, err4 = err4 / err0   # to strawman model
          ) %>%
-  mutate(dif12 = err1 - err2                          # Compute differences
+  mutate(dif12 = err1 - err2, dif13 = err1 - err3, 
+         dif14 = err1 - err4 # Compute differences
    # relative to cases model
          ) %>%
   ungroup() %>%
@@ -839,7 +842,7 @@ Adding symptoms as a predictor reduces median scaled error by approximately 10 p
 "Are these differences in median scaled errors significant? It’s hard to say [for certain, given the spatial and temporal dependence of the data], but some basic hypothesis testing suggests that they probably are: below we conduct a sign test for whether the difference in the “Cases” model’s scaled error and each other model’s scaled error is centered at zero" ([source](https://delphi.cmu.edu/blog/2020/09/21/can-symptoms-surveys-improve-covid-19-forecasts/)).
 
 ```{r is difference in scaled error between models centered at 0?}
-comparison_names = paste("Cases vs", model_names[2])
+comparison_names = paste("Cases vs", model_names[2:4])
 
 # Compute p-values using the sign test against a one-sided alternative, for
 # all models
@@ -850,7 +853,6 @@ res_dif = res_all %>%
   mutate(lead = factor(lead, labels = paste(leads, "days ahead")),
          model = factor(model, 
                         labels = comparison_names)) 
-
 
 knitr::kable(res_dif %>%
                group_by(model, lead) %>%
@@ -867,7 +869,7 @@ Differences in model fit are (very) significantly different, ignoring dependence
 
 
 ```{r calc p-values from sign test across all states for each date}
-# Red, blue (similar to ggplot defaults), then yellow
+# Red, blue (similar to ggplot defaults), then yellow.
 ggplot_colors = c("#FC4E07", "#00AFBB", "#E7B800")
 
 ggplot(res_dif %>% 
@@ -990,7 +992,8 @@ z = full_join(
   ght, by = c("geo_value", "time_value"))
 
 ##### Analysis #####
-model_names = c("Cases", "Cases + Symptoms")
+model_names = c("Cases", "Cases + Symptoms", "Cases + GHT", 
+                "Cases + Symptoms + GHT")
 
 res_list = vector("list", length = length(leads)) 
 n = 14 # Number of trailing days to use for training set
@@ -1009,7 +1012,7 @@ for (i in 1:length(leads)) {
                    as.Date(end_day) - lead)) %>%
     select(geo_value, time_value) %>%
     mutate(err0 = as.double(NA), err1 = as.double(NA), err2 = as.double(NA), 
-           # err3 = as.double(NA), err4 = as.double(NA),
+           err3 = as.double(NA), err4 = as.double(NA),
            lead = lead) 
   valid_dates = unique(res_list[[i]]$time_value)
   
@@ -1061,34 +1064,34 @@ for (i in 1:length(leads)) {
     }
     
     
-    # # Cases and ght model
-    # if (verbose) cat("3")
-    # x_tr_ght = z_tr %>% select(starts_with("ght"))
-    # x_te_ght = z_te %>% select(starts_with("ght"))
-    # x_tr = cbind(x_tr_case, x_tr_ght)
-    # x_te = cbind(x_te_case, x_te_ght)
-    # ok = complete.cases(x_tr, y_tr)
-    # if (sum(ok) > 0) {
-    #   obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
-    #                        lambda = 0, stand = FALSE, lp_solver = lp_solver)
-    #   y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
-    #   err_vec = abs(inv_trans(y_hat) - inv_trans(y_te))
-    #   res_list[[i]][inds,]$err3 = err_vec
-    # }
-    # 
-    # 
-    # # Cases, symptoms, and ght model
-    # if (verbose) cat("4")
-    # x_tr = cbind(x_tr_case, x_tr_anosmia, x_tr_ageusia, x_tr_ght)
-    # x_te = cbind(x_te_case, x_te_anosmia, x_te_ageusia, x_te_ght)
-    # ok = complete.cases(x_tr, y_tr)
-    # if (sum(ok) > 0) {
-    #   obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
-    #                        lambda = 0, stand = FALSE, lp_solver = lp_solver)
-    #   y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
-    #   err_vec = abs(inv_trans(y_hat) - inv_trans(y_te))
-    #   res_list[[i]][inds,]$err4 = err_vec
-    # }
+    # Cases and ght model
+    if (verbose) cat("3")
+    x_tr_ght = z_tr %>% select(starts_with("ght"))
+    x_te_ght = z_te %>% select(starts_with("ght"))
+    x_tr = cbind(x_tr_case, x_tr_ght)
+    x_te = cbind(x_te_case, x_te_ght)
+    ok = complete.cases(x_tr, y_tr)
+    if (sum(ok) > 0) {
+      obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
+                           lambda = 0, stand = FALSE, lp_solver = lp_solver)
+      y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
+      err_vec = abs(inv_trans(y_hat) - inv_trans(y_te))
+      res_list[[i]][inds,]$err3 = err_vec
+    }
+
+
+    # Cases, symptoms, and ght model
+    if (verbose) cat("4")
+    x_tr = cbind(x_tr_case, x_tr_anosmia, x_tr_ageusia, x_tr_ght)
+    x_te = cbind(x_te_case, x_te_anosmia, x_te_ageusia, x_te_ght)
+    ok = complete.cases(x_tr, y_tr)
+    if (sum(ok) > 0) {
+      obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
+                           lambda = 0, stand = FALSE, lp_solver = lp_solver)
+      y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
+      err_vec = abs(inv_trans(y_hat) - inv_trans(y_te))
+      res_list[[i]][inds,]$err4 = err_vec
+    }
   }
 }
 
@@ -1104,8 +1107,8 @@ res = do.call(rbind, res_list)
 # Compute and plot median errors as function of number of days ahead
 err_by_lead = res %>%
   drop_na() %>%                                       # Restrict to common time
-  mutate(err1 = err1 / err0, err2 = err2 / err0      # Compute relative error
-         ) %>%  # to strawman model
+  mutate(err1 = err1 / err0, err2 = err2 / err0,      # Compute relative error
+         err3 = err3 / err0, err4 = err4 / err0) %>%  # to strawman model
   ungroup() %>%
   select(-err0) %>%
   pivot_longer(names_to = "model", values_to = "err",
