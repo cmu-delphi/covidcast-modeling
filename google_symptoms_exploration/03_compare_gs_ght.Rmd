@@ -324,7 +324,7 @@ plt
 
 ```
 
-As expected, there is clearly a positive relationship between GS A+A and GHT -- the relationship is stronger using smoothed GHT than raw.
+As expected, there is clearly a positive relationship between GS A+A and GHT.
 
 ```{r plot_gs_vs_ght_all_states, message=FALSE, warnings=FALSE}
 plt = (ggplot(ght_gs_df)
@@ -380,7 +380,7 @@ plt = (ggplot(low_gs_high_raw_ght)
 plt
 ```
 
-Clearly, missing GS values occur in all or almost all states, with a large proportion corresponding to zeroes in GHT. Based on the previous plot, we consider any GHT value above approximately 100 to be "high" given the distribution of all GHT values.
+Clearly, missing GS values occur in the majority of states (36 of 51), with a large proportion corresponding to zeroes in GHT. Based on the previous plot, we consider any GHT value above approximately 100 to be "high" given the distribution of all GHT values.
 
 ```{r distribution_missing_gs_vs_ght}
 plt = (ggplot(low_gs_high_raw_ght,
@@ -831,9 +831,10 @@ knitr::kable(res_err %>%
                rename("Model" = model, "Median scaled error" = err, 
                       "Target" = lead, "Test days" = n), 
              caption = paste("Test period:", min(res_err$time_value), "to",
-                             max(res_err$time_value)),
+                             max(res_err$time_value), ", common time period"),
              format = "html", table.attr = "style='width:70%;'")
 ```
+
 
 Calculating median scaled error over all dates and all states for a given model, we see again that cases and cases + GHT, and cases + symptoms and cases + symptoms + GHT models are very similar.
 
@@ -1100,20 +1101,19 @@ res = do.call(rbind, res_list)
 
 ```
 
-```{r median error between cases only and alternative models by num days forecast ahead}
-## Already ran fit and saved data.
-# res = readRDS('res_gs_5-20days.RDS')
 
+
+```{r median error between cases only and cases + GS models by num days forecast ahead}
 # Compute and plot median errors as function of number of days ahead
 err_by_lead = res %>%
+  select(-err3, -err4) %>% 
   drop_na() %>%                                       # Restrict to common time
-  mutate(err1 = err1 / err0, err2 = err2 / err0,      # Compute relative error
-         err3 = err3 / err0, err4 = err4 / err0) %>%  # to strawman model
+  mutate(err1 = err1 / err0, err2 = err2 / err0) %>%  # Compute relative error to strawman model
   ungroup() %>%
   select(-err0) %>%
   pivot_longer(names_to = "model", values_to = "err",
                cols = -c(geo_value, time_value, lead)) %>%
-  mutate(model = factor(model, labels = model_names)) %>%
+  mutate(model = factor(model, labels = model_names[1:2])) %>%
   group_by(model, lead) %>%
   summarize(err = median(err)) %>% 
   ungroup()
@@ -1132,8 +1132,65 @@ ggplot(err_by_lead, aes(x = lead, y = err)) +
 ```
 
 
+```{r median error between cases only and cases + GHT models by num days forecast ahead}
+# Compute and plot median errors as function of number of days ahead
+err_by_lead = res %>%
+  select(-err2, -err4) %>% 
+  drop_na() %>%                                       # Restrict to common time
+  mutate(err1 = err1 / err0, err2 = err3 / err0) %>%  # Compute relative error to strawman model
+  ungroup() %>%
+  select(-err0, -err3) %>%
+  pivot_longer(names_to = "model", values_to = "err",
+               cols = -c(geo_value, time_value, lead)) %>%
+  mutate(model = factor(model, labels = model_names[c(1,3)])) %>%
+  group_by(model, lead) %>%
+  summarize(err = median(err)) %>% 
+  ungroup()
+
+ggplot(err_by_lead, aes(x = lead, y = err)) + 
+  geom_line(aes(color = model)) + 
+  geom_point(aes(color = model)) + 
+  scale_color_manual(values = c("black", ggplot_colors)) +
+  geom_hline(yintercept = err_by_lead %>% 
+               filter(lead %in% 7, model == "Cases") %>% pull(err),
+             linetype = 2, color = "gray") +
+  labs(title = "Forecasting errors by number of days ahead",
+       subtitle = sprintf("Over all states"),
+       x = "Number of days ahead", y = "Median scaled error") +
+  theme_bw() + theme(legend.pos = "bottom", legend.title = element_blank())
+```
 
 
+```{r median error between cases only and cases + GS + GHT models by num days forecast ahead}
+# Compute and plot median errors as function of number of days ahead
+err_by_lead = res %>%
+  select(-err2, -err3) %>% 
+  drop_na() %>%                                       # Restrict to common time
+  mutate(err1 = err1 / err0, err2 = err4 / err0) %>%  # Compute relative error to strawman model
+  ungroup() %>%
+  select(-err0, -err4) %>%
+  pivot_longer(names_to = "model", values_to = "err",
+               cols = -c(geo_value, time_value, lead)) %>%
+  mutate(model = factor(model, labels = model_names[c(1,4)])) %>%
+  group_by(model, lead) %>%
+  summarize(err = median(err)) %>% 
+  ungroup()
 
+ggplot(err_by_lead, aes(x = lead, y = err)) + 
+  geom_line(aes(color = model)) + 
+  geom_point(aes(color = model)) + 
+  scale_color_manual(values = c("black", ggplot_colors)) +
+  geom_hline(yintercept = err_by_lead %>% 
+               filter(lead %in% 7, model == "Cases") %>% pull(err),
+             linetype = 2, color = "gray") +
+  labs(title = "Forecasting errors by number of days ahead",
+       subtitle = sprintf("Over all states"),
+       x = "Number of days ahead", y = "Median scaled error") +
+  theme_bw() + theme(legend.pos = "bottom", legend.title = element_blank())
+```
 
+We can see that cases + GS is the only model that outperforms cases alone. (Each alternative model is plotted separately with cases-only since errors are calculated on a shared-time basis. With all models together, a lot of dates are dropped and it causes major shifts in some error values.)
 
+Oddly, the other alternative models, while not performing as well as cases + GS, outperformed the cases-only model according to the 7 and 14-day ahead median scaled errors above. There is some impact of calculating errors on different ranges of dates. Here dates shared between cases and cases + Symptoms + GHT, and cases and cases + GHT, cases-only error at 7 days ahead is 0.84 vs 0.92, or so.
+
+Is there a bug somewhere?
