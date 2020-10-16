@@ -562,8 +562,8 @@ start_day = "2020-04-11"
 end_day = "2020-09-01"
 
 # Set how far to forecast ahead.
+lags = 1:2 * -7 
 leads = 1:2 * 7
-lags = -1 * leads
 
 # Function to append shift values (lags or leads) to data frame
 append_shifts = function(df, shifts) {
@@ -592,7 +592,7 @@ append_shifts = function(df, shifts) {
 
 # Consider only states with at least min_case_num cumulative cases by Google's end
 geo_values = covidcast_signal("jhu-csse", "confirmed_cumulative_num",
-                              "2020-05-14", "2020-05-14", 
+                              "2020-09-14", "2020-09-14", 
                               geo_type = geo_type) %>%
   filter(value >= min_case_num) %>% pull(geo_value) 
 
@@ -910,13 +910,12 @@ end_day = "2020-09-01"
 
 # Set how far to forecast ahead.
 leads = 5:20
-lags = -1 * leads
-
+lags = 1:2 * -7
 
 
 # Consider only states with at least min_case_num cumulative cases by Google's end
 geo_values = covidcast_signal("jhu-csse", "confirmed_cumulative_num",
-                              "2020-05-14", "2020-05-14", 
+                              "2020-09-14", "2020-09-14", 
                               geo_type = geo_type) %>%
   filter(value >= min_case_num) %>% pull(geo_value) 
 
@@ -1103,8 +1102,40 @@ res = do.call(rbind, res_list)
 
 
 
+```{r median error between all models by num days forecast ahead}
+# Compute and plot median errors as function of number of days ahead.
+err_by_lead = res %>%
+  drop_na() %>%                                       # Restrict to common time
+  mutate(err1 = err1 / err0, err2 = err2 / err0, err3 = err3 / err0, err4 = err4 / err0) %>%  # Compute relative error to strawman model
+  ungroup() %>%
+  select(-err0) %>%
+  pivot_longer(names_to = "model", values_to = "err",
+               cols = -c(geo_value, time_value, lead)) %>%
+  mutate(model = factor(model, labels = model_names[1:4])) %>%
+  group_by(model, lead) %>%
+  summarize(err = median(err)) %>% 
+  ungroup()
+
+ggplot(err_by_lead, aes(x = lead, y = err)) + 
+  geom_line(aes(color = model)) + 
+  geom_point(aes(color = model)) + 
+  scale_color_manual(values = c("black", ggplot_colors)) +
+  geom_hline(yintercept = err_by_lead %>% 
+               filter(lead %in% 7, model == "Cases") %>% pull(err),
+             linetype = 2, color = "gray") +
+  labs(title = "Forecasting errors by number of days ahead",
+       subtitle = sprintf("Over all states"),
+       x = "Number of days ahead", y = "Median scaled error") +
+  theme_bw() + theme(legend.pos = "bottom", legend.title = element_blank())
+```
+
+
+We can see that models containing GS outperform cases-only. (Each alternative model is plotted separately with cases-only below since errors are calculated on a shared-time basis. With all models together, more dates are dropped and it causes shifts in some error values.)
+
+The cases + GHT model outperforms cases-only slightly, especially at farther-ahead forecasts, but doesn't appear to improve models that already contain the GS signal. In fact, it appears that the cases + GS + GHT model is slightly worse than the cases + GS model, especially at slightly-ahead forecasts. 
+
 ```{r median error between cases only and cases + GS models by num days forecast ahead}
-# Compute and plot median errors as function of number of days ahead
+# Compute and plot median errors as function of number of days ahead.
 err_by_lead = res %>%
   select(-err3, -err4) %>% 
   drop_na() %>%                                       # Restrict to common time
@@ -1133,7 +1164,7 @@ ggplot(err_by_lead, aes(x = lead, y = err)) +
 
 
 ```{r median error between cases only and cases + GHT models by num days forecast ahead}
-# Compute and plot median errors as function of number of days ahead
+# Compute and plot median errors as function of number of days ahead.
 err_by_lead = res %>%
   select(-err2, -err4) %>% 
   drop_na() %>%                                       # Restrict to common time
@@ -1162,7 +1193,7 @@ ggplot(err_by_lead, aes(x = lead, y = err)) +
 
 
 ```{r median error between cases only and cases + GS + GHT models by num days forecast ahead}
-# Compute and plot median errors as function of number of days ahead
+# Compute and plot median errors as function of number of days ahead.
 err_by_lead = res %>%
   select(-err2, -err3) %>% 
   drop_na() %>%                                       # Restrict to common time
@@ -1188,9 +1219,3 @@ ggplot(err_by_lead, aes(x = lead, y = err)) +
        x = "Number of days ahead", y = "Median scaled error") +
   theme_bw() + theme(legend.pos = "bottom", legend.title = element_blank())
 ```
-
-We can see that cases + GS is the only model that outperforms cases alone. (Each alternative model is plotted separately with cases-only since errors are calculated on a shared-time basis. With all models together, a lot of dates are dropped and it causes major shifts in some error values.)
-
-Oddly, the other alternative models, while not performing as well as cases + GS, outperformed the cases-only model according to the 7 and 14-day ahead median scaled errors above. There is some impact of calculating errors on different ranges of dates. Here dates shared between cases and cases + Symptoms + GHT, and cases and cases + GHT, cases-only error at 7 days ahead is 0.84 vs 0.92, or so.
-
-Is there a bug somewhere?
