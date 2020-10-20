@@ -10,12 +10,13 @@ This is the home for short term projects such as
 ## Usage
 
 To add a project, such as a DAP, to this repository, simply,
+- create a branch of the same name as your project such as `dv_correlation` for doctor visit correlation diagnosis, work on this branch until the review phase.
 - add a directory with a README containing: title, authors, abstract, conclusions, table of contents, reproducibility instructions
 - add code folder with makefile for reproduction
 - add notebook folder with jupyter/Rmd notebooks
 - add data folder with .gitignore
 - add your project to the TOC
-- when completed make a PR and assign a reviewer, think of this as the editing phase for a publication
+- when completed make a PR and assign a reviewer (typically a senior statistician), think of this as the review phase for a publication
 
 ## Table of Contents
 
