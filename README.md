@@ -2,7 +2,7 @@
 
 *Statistical analyses for Delphi COVID-19 Response Team*
 
-This is the home for short term projects that explore the data within Delphi.  See [the following document](https://docs.google.com/document/d/1a47TPdhvGPXWkD6hrX_16hhmcTaIMVUxIs57UZ5MOh4/edit?usp=sharing) for descriptions and recommendations for data analysis projects.  Each "chapter" in the [TOC](table_of_contents) below corresponds to a DAP and look at [usage](usage) for instructions.
+This is the home for short term projects that explore the data within Delphi.  See [the following document](https://docs.google.com/document/d/1a47TPdhvGPXWkD6hrX_16hhmcTaIMVUxIs57UZ5MOh4/edit?usp=sharing) for descriptions and recommendations for data analysis projects.  Each "chapter" in the [TOC](#table-of-contents) below corresponds to a DAP and look at [usage](#usage) for instructions.
 
 ## Usage
 
