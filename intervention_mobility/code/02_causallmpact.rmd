@@ -1,0 +1,131 @@
+---
+title: "Estimating Causal Effect of Government Intervention to Mobility"
+author: "Kenneth Lee"
+date: "23/09/2020"
+output: html_document
+---
+
+```{r import packages, echo=FALSE, warning = FALSE, message = FALSE}
+library(ggplot2)
+library (readr)
+library(tidyverse)
+library(dplyr)
+library(covidcast)
+library(lubridate)
+library(ggpubr)
+library(reshape2)
+library(tidyr)
+library(viridis)
+library(gridExtra)
+library(data.table)
+library(zoo)
+library(cowplot)
+library(CausalImpact)
+
+source("code/painter.r")
+source("code/load_all_data.r")
+```
+
+```{r define global variables, echo=FALSE}
+STARTDATE <- "2019-01-01"
+ENDDATE <- lubridate::today()
+GEO_TYPE = "state" # state-level
+GEO_VALUE = "ca" # all states
+#EXCLUDED_AREAS = c("as","gu", "mp","vi") # excluded areas due to small sample size
+DT_X = 7 # 	 Time shifts to consider for x
+
+```
+
+```{r import data, warning = FALSE, message=FALSE, echo=FALSE}
+# Get mobility signal
+ftime_mobility <- covidcast_signal(data_source = "safegraph", signal ="full_time_work_prop",start_day = STARTDATE, end_day = ENDDATE,geo_type = GEO_TYPE, geo_values = GEO_VALUE)
+
+# Create a dataframe with mobility and other potential covariates
+tbl <-list.files(path = "data/temperature",
+               pattern = "*.csv", 
+               full.names = T) %>% map_df(~read_csv(.)) 
+
+intervention <- load_policy_data(STARTDATE, ENDDATE)
+
+# US holidays
+ca.holidays <- c("2019-01-01", "2019-01-21", "2019-02-18", "2019-05-27", "2019-07-04", "2019-09-02", "2019-10-14", "2019-11-11", "2019-11-28", "2019-12-25", "2019-04-01", "2020-01-01", "2020-01-20", "2020-02-17", "2020-05-25", "2020-07-03", "2020-09-07", "2020-10-12", "2020-11-11", "2020-11-26", "2020-12-25")
+
+# Convert data type
+ca.holidays <-sapply(ca.holidays, as.Date)
+```
+
+## Introduction
+
+We would like to estimate the causal effect of governement intervention, collected from University of Washington, on the mobility signal, produced by covidcast signal by using Baysiean structural time-series model. The question we want to answer is: how the mobility signal was increased/decreased by various state policies? 
+
+Particularly, we will use the R package called [`CausalImpact`](https://google.github.io/CausalImpact/CausalImpact.html). This package constructs a Bayesian structural time-series model by using a given response time series (e.g. mobility signal) and a set of control time-series (e.g. mobility signal in state that doesn't have the policy). We use this package because 1.) our data is not a randomized experiement 2.) 
+
+## Model assumption
+
+* We assume that there is a set control time series that were themselves not affected by the intervention. 
+
+* The model also assumes that the relationship between covariates and treated time series, as established during the pre-period, remains stable throughout the post-period.
+
+## Implementation
+
+* We will use the full-time mobility signal as the treated time series. We then select the following as our control time-series: average temperature, holiday (binary), weekend indicator (binary).
+
+```{r preprocess, echo=FALSE}
+
+# Get the average temperature
+avg.temp <- tbl %>%
+  group_by(DATE) %>%
+  summarize(avg.temp = mean(TAVG, na.rm=TRUE))
+colnames(avg.temp)[1] <- "time_value"
+
+# Get mobility data
+mobility <- ftime_mobility[c("time_value", "value")]
+
+# full outer join 
+df <- full_join(mobility,avg.temp, by="time_value")
+
+# Get the last time stamp available in data
+lastdate <- tail(df$time_value, n=1)
+# Create dummy indicators 
+weekend <- ifelse(weekdays(seq(as.Date(STARTDATE), as.Date(lastdate), by="days")) %in% c("Saturday", "Sunday"), 1, 0)
+df$weekend <- weekend
+
+# create dummy variables for holidays
+holidays <- ifelse(seq(as.Date(STARTDATE), as.Date(lastdate), by="days") %in% ca.holidays, 1, 0)
+df$holiday <- holidays
+
+# get intervention data for only ca
+ca_policy <- intervention %>% filter(geo_value == "ca" & total.num.policy > 0)
+
+# get the first date of the intervention
+interventio.first.day <- ca_policy$time_value[1]
+
+# Create pre and post period for the causal impact package
+pre.period <- as.Date(c(STARTDATE, as.character(interventio.first.day-1)))
+post.period <- as.Date(c(interventio.first.day, ENDDATE))
+
+
+data <- zoo(cbind(df$value, df$avg.temp, df$weekend), df$time_value)
+
+# plot the see how mobility may correlate with average temperature of CA
+matplot(cbind(log(df$value), log(df$avg.temp), df$weekend), type = "l")
+```
+
+### Visualize the causal estimate 
+
+We show that the causal estimate by counterfactual prediction (blue line) and observations (black line)
+
+```{r build model}
+impact <- CausalImpact(data, pre.period, post.period)
+plot(impact) + labs(title="Causal estimate by bayesian structual time-series")
+```
+
+### Interpret the result 
+```{r generate_report, echo=FALSE}
+summary(impact)
+summary(impact, "report")
+```
+### Reference
+
+* “CausalImpact 1.2.1, Brodersen et al., Annals of Applied Statistics (2015). http://google.github.io/CausalImpact/”
+

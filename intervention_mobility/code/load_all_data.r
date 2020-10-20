@@ -152,11 +152,14 @@ load_policy_data <- function(STARTDATE, ENDDATE){
       }else{
       
       # Get time range between Date Enacted and Date Ended
+      if(policy[row,]$DateEnacted > as.Date(policy[row,]$DateEnded)){
+        next
+      }else{
       time.range <- seq(as.Date(policy[row,]$DateEnacted), as.Date(policy[row,]$DateEnded), by = "days")
       
       # Fill in the the rows that are in the current policy and fall between the time arrange to be 1
       policy_signal[policy_signal$time_value %in% time.range & policy_signal$geo_value == current.state, current.policy] <- 1
-    }
+    }}
   }
   
   # Compute the sum of the number of policies for every day in the state

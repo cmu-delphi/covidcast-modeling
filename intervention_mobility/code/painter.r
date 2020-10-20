@@ -1,3 +1,9 @@
+library(ggplot2)
+library (readr)
+library(tidyverse)
+library(dplyr)
+library(covidcast)
+
 # A function to compute the corrlation by various number of shifts
 getCorrByShift <- function(num_shift, signal_1, signal_2, corr_method, by){
   # num_shift: specify how many days to forward signal_1
