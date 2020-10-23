@@ -21,7 +21,7 @@ Mobility trends: Historically, did mobility patterns change as a result of gover
   
   * Regression discontinuity design
 
-  * Bayesian time-series structural model named (Causallmpact)[http://google.github.io/CausalImpact/CausalImpact.html] from Google (synthetic control method)
+  * Bayesian time-series structural model named [Causallmpact](http://google.github.io/CausalImpact/CausalImpact.html) from Google (synthetic control method)
 
 * Blog post coupled with R Shiny interactive plots
 
@@ -65,7 +65,7 @@ Mobility trends: Historically, did mobility patterns change as a result of gover
   
   * [US County-level COVID19 summaries](https://github.com/JieYingWu/COVID-19_US_County-level_Summaries/tree/master/raw_data/national)
 
-### Potential Counders
+### Potential Confounders
 
   * [Delphi's COVIDcast](https://cmu-delphi.github.io/delphi-epidata/api/covidcast_signals.html)
 
