@@ -26,7 +26,6 @@ library(gridExtra)
 library(data.table)
 library(zoo)
 library(cowplot)
-library(CausalImpact)
 
 source("code/painter.r")
 source("code/load_all_data.r")
@@ -193,7 +192,20 @@ factored_data%>%
 ```{r plot the regression, echo=FALSE, warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
 # Create a new dataframe
 factored_data.lm <- factored_data%>% 
-  mutate(EmergDec.duration = cumsum(EmergDec)) 
+  mutate(EmergDec.duration = cumsum(EmergDec),
+         StayAtHomeDuration = cumsum(StayAtHome),
+         PublicMaskDuration = cumsum(PublicMask),
+         SchoolCloseDuration = cumsum(SchoolClose),
+         GathRestrictDuration = cumsum(GathRestrict),
+         TravelRestrictExitDuration = cumsum(TravelRestrictExit),
+         TravelRestrictEntryDuration = cumsum(TravelRestrictEntry),
+         TravelRestrictIntraDuration = cumsum(TravelRestrictIntra),
+         BarRestrictDuration = cumsum(BarRestrict),
+         NEBusinessCloseDuration = cumsum(NEBusinessClose),
+         QuarantineDuration = cumsum(Quarantine),
+         RestaurantRestrictDuration = cumsum(RestaurantRestrict),
+         CaseIsolationDuration = cumsum(CaseIsolation)
+         ) 
 
 # Fit a linear regression model
 lm.fit <- lm(full_time_work_prop ~ EmergDec.duration + smoothed_cli+smoothed_adj_cli, data =factored_data.lm)  
@@ -251,8 +263,8 @@ p
 
 ```{r plot the regression line for the data WITH shift after dropping weekends, echo=FALSE, warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
 # Get lm summary to compare
-factored_data.without.weekend <- factored_data%>% 
-  mutate(EmergDec.duration = cumsum(EmergDec), EmergDeclaration = as.factor(EmergDec), weekday= weekdays(as.Date(time_value)))%>% 
+factored_data.without.weekend <- factored_data.lm%>% 
+  mutate(EmergDeclaration = as.factor(EmergDec), weekday= weekdays(as.Date(time_value)))%>% 
   filter(!weekday %in% c("Saturday", "Sunday")) 
 
 # Check the lm.fit
@@ -273,6 +285,7 @@ factored_data.without.weekend %>%
   geom_point() + 
   geom_line(aes(y = predlm, colour="fitted value"), size = 1) +
    labs(title = "Covariates selected WITH most correlated number of shift (weekends dropped)")
+
 ```
 
 
@@ -305,3 +318,60 @@ noshift.without.weekends %>%
   geom_line(aes(y = predlm, colour="fitted value"), size = 1)+
   labs(title = "Covariates selected WITHOUT most correlated number of shift (weekends dropped)")
 ```
+
+### What will happen if we add more covidcast signals as covariates?
+
+#### Adding covidcast signals
+
+```{r more covariates to without weekend models,echo=FALSE, warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
+# Add more confounders to the regression model
+# Check the lm.fit
+factored_data.without.weekend %$%
+  lm(full_time_work_prop ~ EmergDec.duration + smoothed_cli+smoothed_adj_cli+confirmed_7dav_incidence_num+confirmed_7dav_cumulative+confirmed_7dav_cumulative_prop+deaths_7dav_incidence_num+deaths_7dav_cumulative_num) %>% 
+  summary()
+
+# Get all the fitted values
+shifted.predlm <- factored_data.without.weekend%$%
+  lm(full_time_work_prop ~ EmergDec.duration + smoothed_cli+smoothed_adj_cli+confirmed_7dav_incidence_num+confirmed_7dav_cumulative+confirmed_7dav_cumulative_prop+deaths_7dav_incidence_num+deaths_7dav_cumulative_num) %>%
+  predict()
+
+# Pad the fitted values with NA 
+factored_data.without.weekend$predlm <- c(rep(NA, nrow(factored_data.without.weekend) - length(shifted.predlm)), shifted.predlm)
+
+factored_data.without.weekend %>%
+  ggplot(aes(x = time_value, y = full_time_work_prop, color = EmergDeclaration)) +
+  geom_point() + 
+  geom_line(aes(y = predlm, colour="fitted value"), size = 1) +
+   labs(title = "All covariates selected WITH most correlated number of shift (weekends dropped)")
+
+```
+
+#### Adding other policy duration
+
+```{r add more other policy duration,warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
+# Try to add other intervention covariates
+
+factored_data.without.weekend %$%  
+  lm(full_time_work_prop ~EmergDec.duration +StayAtHomeDuration+PublicMaskDuration+SchoolCloseDuration+GathRestrictDuration+BarRestrictDuration+NEBusinessCloseDuration+ RestaurantRestrictDuration+  smoothed_cli+smoothed_adj_cli+confirmed_7dav_incidence_num+confirmed_7dav_cumulative+confirmed_7dav_cumulative_prop+deaths_7dav_incidence_num+deaths_7dav_cumulative_num+ SchoolCloseDuration) %>% 
+  summary()
+
+# Predict the mobility
+new.pred <- factored_data.without.weekend %$%  
+  lm(full_time_work_prop ~EmergDec.duration +StayAtHomeDuration+PublicMaskDuration+SchoolCloseDuration+GathRestrictDuration+BarRestrictDuration+NEBusinessCloseDuration+ RestaurantRestrictDuration+  smoothed_cli+smoothed_adj_cli+confirmed_7dav_incidence_num+confirmed_7dav_cumulative+confirmed_7dav_cumulative_prop+deaths_7dav_incidence_num+deaths_7dav_cumulative_num+ SchoolCloseDuration)%>%
+  predict()
+
+# Pad the fitted values with NA 
+factored_data.without.weekend$predlm <- c(rep(NA, nrow(factored_data.without.weekend) - length(new.pred)), new.pred)
+
+# Plot the graph
+factored_data.without.weekend %>%
+  ggplot(aes(x = time_value, y = full_time_work_prop, color = EmergDeclaration)) +
+  geom_point() + 
+  geom_line(aes(y = predlm, colour="fitted value"), size = 1) +
+   labs(title = "All covariates selected WITH most correlated number of shift (weekends dropped)")
+
+```
+
+
+
+
