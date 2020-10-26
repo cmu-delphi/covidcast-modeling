@@ -21,5 +21,5 @@ To add a project, such as a DAP, to this repository, simply,
 2. [Doctor visits correlation diagnosis](dv_correlation)
 3. Indicator dashboards
 4. [Invervention mobility analysis](intervention_mobility)
-5. [Google symptoms exploration](ght_symptom_exploration)
+5. [Google symptoms exploration](google_symptoms_exploration)
 
