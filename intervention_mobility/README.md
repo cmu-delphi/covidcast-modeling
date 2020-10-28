@@ -19,9 +19,9 @@ Mobility trends: Historically, did mobility patterns change as a result of gover
 
 * Potential causal models to compare the causal effects of interventions with other confounding variables on mobility.
   
-  * Regression discontinuity design
+  * Regression discontinuity design [See Reference #1](#reference)
 
-  * Bayesian time-series structural model named [Causallmpact](http://google.github.io/CausalImpact/CausalImpact.html) from Google (synthetic control method)
+  * Bayesian time-series structural model named [Causallmpact](http://google.github.io/CausalImpact/CausalImpact.html) from Google (synthetic control method) [See Reference #2](#reference)
 
 * Blog post coupled with R Shiny interactive plots
 
@@ -41,6 +41,16 @@ Mobility trends: Historically, did mobility patterns change as a result of gover
 
 ### Interventions 
 
+  * [State-level social distancing policies in response to COVID-19](https://github.com/COVID19StatePolicy/SocialDistancing)
+
+    * [Data attributes at a glance](https://github.com/COVID19StatePolicy/SocialDistancing/tree/master/codebooks)
+
+### Potential Confounders
+
+  * [Delphi's COVIDcast](https://cmu-delphi.github.io/delphi-epidata/api/covidcast_signals.html)
+
+### Other potential interventions data sources
+
 * Country-level:
 
   * [Oxford COVID19 policy tracker](https://github.com/OxCGRT/covid-policy-tracker)
@@ -48,8 +58,6 @@ Mobility trends: Historically, did mobility patterns change as a result of gover
   * [ACAPS COVID-19: Government Measures Dataset](https://data.humdata.org/dataset/acaps-covid19-government-measures-dataset)
   
 * State-level:
-
-  * [State-level social distancing policies in response to COVID-19](https://github.com/COVID19StatePolicy/SocialDistancing)
   
   * [US_interventions_from_Wikipedia](https://docs.google.com/spreadsheets/d/1k1ENKntZILmXGOTvjjoJMAEb3WQOYqp_pHJHzpZojGo/edit#gid=0)
   
@@ -65,8 +73,10 @@ Mobility trends: Historically, did mobility patterns change as a result of gover
   
   * [US County-level COVID19 summaries](https://github.com/JieYingWu/COVID-19_US_County-level_Summaries/tree/master/raw_data/national)
 
-### Potential Confounders
+### Reference
 
-  * [Delphi's COVIDcast](https://cmu-delphi.github.io/delphi-epidata/api/covidcast_signals.html)
+1. [Regression discontinuity designs: A guide to practice](https://www.sciencedirect.com/science/article/pii/S0304407607001091)
+
+2. [Inferring causal impact using Bayesian structural time-series models](https://research.google/pubs/pub41854/)
 
 

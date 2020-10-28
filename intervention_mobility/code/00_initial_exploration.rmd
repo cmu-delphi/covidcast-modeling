@@ -38,9 +38,9 @@ In this notebook, we will explore the [mobility signal](https://cmu-delphi.githu
   
 * Correlation between number of policies and mobility
 
-* Correlation in Space between number of policies and future mobility
+* Correlation in space between number of policies and future mobility
 
-* Distribution of mobility by various intervention across states
+* Distribution of mobility signals by various intervention across states
 
 
 ```{r import packages, warning = FALSE, message = FALSE, }
@@ -59,7 +59,6 @@ library(gplots)
 library(car)
 library(reshape2)
 
-
 source("code/painter.r")
 source("code/load_all_data.r")
 ```
@@ -75,7 +74,6 @@ DT_X = 7 # 	 Time shifts to consider for x
 
 ```{r import data, warning = FALSE, message=FALSE}
 data <- load_covidcast_data(STARTDATE, ENDDATE, GEO_TYPE, GEO_VALUE, EXCLUDED_AREAS)
-
 
 # The fraction of mobile devices that spent more than 6 hours at a 
 # location other than their home during the daytime 
@@ -138,9 +136,9 @@ p
 
 ### Pearson correlation (line chart)
 
-We might be intersted in knowing how case count in the present correlate with mobility signal in the future. We will use [`full_time_work_prop`](https://cmu-delphi.github.io/delphi-epidata/api/covidcast-signals/safegraph.html) as the response variable from now on.
+We might be intersted in knowing how case count in the present 7-day average case count signal correlate with mobility signal in the future. We will use [`full_time_work_prop`](https://cmu-delphi.github.io/delphi-epidata/api/covidcast-signals/safegraph.html) as the response variable from now on.
 
-Using the `dt_x` argument in the function [`covidcast_cor()`](https://cmu-delphi.github.io/covidcast/covidcastR/reference/covidcast_cor.html), we can shift the signal by 7 days forward in time, before calculating correlations. We would like to compare a week forward and 2 weeks forward in time with the present correlation.
+Using the `dt_x` argument in the function [`covidcast_cor()`](https://cmu-delphi.github.io/covidcast/covidcastR/reference/covidcast_cor.html), we can shift the mobility signal by 7 days forward in time, before calculating correlations. We would like to compare a week forward and 2 weeks forward in time with the present correlation. We will plot both the pearson correlation and rank correlation.
 
 We can see that the overall pattern of the correlations are very similar. However, we can see that the correlation increases when the shift is increased. 
 
@@ -168,6 +166,8 @@ p
 
 ### Spearman correlation (line chart)
 
+We can also look at Spearman (rank) correlation, which is a more robust measure of correlation: it's invariant to monotone transformations, and doesn't rely on any particular functional form for the dependence between two variables.
+
 ```{r spearman correlation by time, warning=FALSE, message=FALSE}
 scor1 <- covidcast_cor(case_avg, ftime, by = "time_value",  method = "spearman")
 scor2 <- covidcast_cor(case_avg, ftime,  by = "time_value", dt_x = DT_X,  method = "spearman")
@@ -188,29 +188,25 @@ p <- ggplot(all_scor, aes(x = time_value, y = value)) +
 p
 ```
 
-### Pearson correlation on a map (10-days mobility signal forwarded in time)
-
-```{r pearson correlation plot in space}
-# Set a bunch of fields so that the data frame knows how to plot itself
-cor3_by_geo <- covidcast_cor(case_avg, ftime,  by = "geo_value", dt_x = 10)
-
-cor3_by_geo$time_value = STARTDATE
-cor3_by_geo$issue = STARTDATE
-attributes(cor3_by_geo)$geo_type = "state"
-class(cor3_by_geo) = c("covidcast_signal", "data.frame")
-
-# Plot choropleth maps, using the covidcast plotting functionality
-plot(cor3_by_geo, title = "Correlations between 10-day shifted cases and mobility signal",
-     range = c(-1, 1), choro_col = c("orange","lightblue", "purple"))
-```
-
 ## Lag analysis on covidcast signals
 
-What lag mobility is most correlated with the other signals? We would like to find out this information for selecting the most correlated lag for model building later on. 
+* Next, we can move the signals with various lags to see at what lag one signal is most correlated with the other. 
+
+* In the case of slicing by state, we take the correlation of two times series in each state, one time series is based on mobility signal, another one is based on other covidcast signals (e.g. 7days average case count signal). The mobility time-series will be shifted to n days forward when we compute the correlation. Then, we will take the median of all the correlations we calculated from all the states to plot the graph.
+
+* In the case of slicing by time, let's say for a 30 days shift and we have the data starting from 1/1, then we take mobility signal on 1/31 from each state and the other signal on 1/1 from each state to compute the correlation. Then, we will take mobility signal on 2/1 from each state and the other signal on 1/2 from each state to compute another correlation. We repeat this process to compute the correlation for each day until we don't have data to shift. Then, we take the median of that to plot the graph.
 
 ### Other signals correlate with future mobility
 
 #### Pearson Correlation (slicing by state)
+
+In terms of slicing by state with pearson correlation, we see that
+
+* Cumulative 7-day average case count, per 100,000 and Cumulative 7-day average case count have almost exact same pattern of correlation with the future mobility, these signals are most correlated with 37-day-forwarded mobility signal.
+
+* The adjusted doctor visit signal is most correlated with 78-day-forwarded mobility signal, whereas the unadjusted doctor visit signal is most correlated with 50-day-forwarded mobility signal
+
+* The 7-day average death case count signal is most correlated with 30-day-forwarded mobility signal and 100-day-forwarded mobility signal.
 
 ```{r other signals-future mobility-Pearson (slicing by state), warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
 SHIFTDAY <- 100
@@ -240,6 +236,8 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
 
 ####  Pearson Correlation (slicing by time)
 
+When we change our perspective to slicing by time, the other signals have very weak negative Pearson correlation with the future mobility signals. 
+
 ```{r other signals - future mobility-Pearson (slicing by time), warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
 title <- "Median Pearson correlation between other signals and future mobility (slicing by time)"
 by_method <- "time_value"
@@ -257,6 +255,16 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
 
 #### Rank correlation (slicing by state)
 
+We can also compute the rank correlation to see there is any difference in terms of the number of shift as we compare it with pearson correlation. 
+
+We note the following:
+
+* Still, cumulative 7-day average case count, per 100,000 and Cumulative 7-day average case count are most correlated with 37-day-forwarded mobility signal.
+
+* Now, the adjusted doctor visit signal is most correlated with 50-day-forwarded mobility signal instead of 78-day-forwarded mobility signal.
+
+* Also, the 7-day average death case count is most correlated with 100-day-forwarded mobility signal. 
+
 ```{r other signals - future mobility-Rank (slicing by state), warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
 title <- "Median Spearman correlation between other signals and future mobility (slicing by state)"
 by_method <- "geo_value"
@@ -272,7 +280,11 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
                               by_method)
 ```
 
-#### Other signals correlate with future mobility (slicing by time)
+#### Rank correlation (slicing by time)
+
+In terms of slicing by time with rank correlation, we see that
+
+* The correlation is moving from negative to zero as we increase the number of shifts. 
 
 ```{r other signals - future mobility-Rank (slicing by time), warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
 title <- "Median Spearman correlation between other signals and future mobility (slicing by time)"
@@ -291,11 +303,38 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
 ```
 
 
+### Rank correlation on a map (37-day-forwarded mobility signal)
+
+As we learn from the rank correlation slicing by state, we may be curious to know if there are any states that are less correlated with the future mobility even when we set the number of shifts to the number that produce the highest rank correlation.
+
+From the plot below, we pick on cumulative 7-day averaged confirmed case count per 100,000, we can see that the signal is highly correlated with the 37-day-forwarded mobility signal across states consistently.
+
+```{r pearson correlation plot in space}
+# Set a bunch of fields so that the data frame knows how to plot itself
+cor3_by_geo <- covidcast_cor(cum_case_prop, ftime,  by = "geo_value", dt_x = 37,method = "spearman")
+
+cor3_by_geo$time_value = STARTDATE
+cor3_by_geo$issue = STARTDATE
+attributes(cor3_by_geo)$geo_type = "state"
+class(cor3_by_geo) = c("covidcast_signal", "data.frame")
+
+# Plot choropleth maps, using the covidcast plotting functionality
+plot(cor3_by_geo, title = "Correlations between 37-day shifted cases and mobility signal",
+     range = c(-1, 1), choro_col = c("orange","lightblue", "purple"))
+```
+
+
 ### Other signals correlate with future restaurant visit
 
-What will happen if we change the mobility signal from staying away from home to restaurant visit?
+What will happen if we constrain ourselves to look at the mobility signal from staying away from home to restaurant visit?
 
 #### Pearson correlation (slicing by state)
+
+Observations:
+
+* Similar to the situation where the full-time away home signal is used as mobility signal, we see that the cumulative 7-day averaged confirmed case count per 100,000 and the cumulative 7-day averaged death case count are most correlated with 25-day forwarded restaurant visit signal. 
+
+* There is one clear difference when we switch from away home signal to restuarant visit, we see that 7-day averaged death case is most correlated with 50-day forwarded restaurant visit. 
 
 ```{r other signals correlate with future restaurant visit-Pearson (slicing by state), warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
 SHIFTDAY <- 100
@@ -316,6 +355,8 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
 
 #### Pearson correlation (slicing by time)
 
+From the plot below, we see that the Pearson correlations between other signals and future resturant visits tend to go to zero as the number of shifts increases.
+
 ```{r other signals - future restaurant visit - Pearson (slicing by time), warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
 by_method <- "time_value"
 title <- "Median Pearson correlation between other signals and future restaurant visit signal (slicing by time)"
@@ -333,6 +374,9 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
 
 #### Rank correlation (slicing by state)
 
+In comparison with the Pearson correlation slicing by state, we see that the cumulative 7-day averaged confirmed case count per 100,000 becomes more correlated with 25-day-forwarded restaurant visit.
+
+To continue the comparison, we see that the adjusted docotor visit, unadjusted doctor visit, and the 7-day averaged confirmed case are now more correlated with the future restaurant visit with fewer days forwarded in time. 
 
 ```{r other signals - future restaurant visit-Rank (slicing by state), warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
 
@@ -352,6 +396,11 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
 
 #### Rank correlation (slicing by time)
 
+Interesting, when we look at the rank correlation slicing by time, we see that 
+
+* The other signals (cumulative 7-day averaged confirmed case count, cumulative 7-day averaged death case count, 7-day averaged death case count, 7-day averaged confirmed case count) are correlated with future restaurant visit with rank correlation around 0.6 consistently even when we change the number of shifts.
+
+* Meanwhile, the cumulative 7-day averaged confirmed case count per 100,000 remain close to 0 rank correlation with the future restaurant visit even when we change the number of shifts.
 
 ```{r other signals - future restaurant visit-Rank (slicing by time), warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
 
@@ -371,7 +420,7 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
 ```{r preprocess_intervention data, warning= FALSE, message=FALSE, echo=FALSE}
 # Read government intervention data
 urlfile="https://raw.githubusercontent.com/COVID19StatePolicy/SocialDistancing/master/data/USstatesCov19distancingpolicy.csv"
-policy <- read_csv(url(urlfile))
+policy <- read.csv(url(urlfile))
 
 # Convert to lower case
 policy$StatePostal <- tolower(policy$StatePostal)
@@ -383,6 +432,10 @@ state.policy <- policy %>% filter(StateWide == 1)
 ```
 
 ## Variability of policy across states
+
+We also want to explore the policy data from University of Washington's [State-level social distancing policies](https://github.com/COVID19StatePolicy/SocialDistancing) as we will use it in model building. For the definition of the policy, please refer to the [codebooks](https://github.com/COVID19StatePolicy/SocialDistancing/tree/master/codebooks)
+
+The plot below shows the number of policies falling into different categories. Most of the policies across states are related to gathering restriction.
 
 ```{r Count of all policies}
 # Plot for non-distinct count and mandate distribution
@@ -399,12 +452,14 @@ colnames(new_counts.df)[2] <- "Mandate?"
 p <- ggplot(new_counts.df,aes(x= reorder(Var1,Freq),Freq)) +
   geom_bar(stat ="identity")+
   coord_flip()+
-  labs(title = "Count of State-wide Policy Across States", y="Distinct Count", x="Policy")
+  labs(title = "Count of State-wide Policy Across States", y="Count", x="Policy")
 p
 
 ```
 
 ### Filtered by mandatory policy
+
+We can further filter the data by looking at how many policies are mandatory. 
 
 ```{r filtered by mandate}
 # Show the difference by Mandate?
@@ -417,7 +472,9 @@ p
 ```
 
 ### Distinct Count of State-wide policy across states
-  
+
+By filtering the data by distinct count, we can see what kind of policies that most states will enforce.
+
 ```{r count unique state policy by state}
 # Filter the dataframe by distrinct rows
 unique.policy.by.state <- distinct(state.policy[,c("StateName","StatePolicy")])
@@ -438,48 +495,16 @@ p <- ggplot(counts.df,aes(x= reorder(Var1,Freq),Freq, fill=Freq))+
 
 p
 ```
+
 ## Lag analysis on number of policies and mobility
 
-### Correlation between number of policies and mobility by number of shifts across states
+### Correlation between 7-day averaged number of policies and mobility by number of shifts across states
 
 We may want to construct a simple signal to represent state-wide government intervention over time. To do so, we count the number of policies that has been enacted in a day and take the rolling average number within 7 days as an intervention signal.
 
 ```{r construct government intervention signal, warning = FALSE, message=FALSE}
-
-# Get the dates between start and end date
-all.dates <- seq(as.Date(STARTDATE), as.Date(ENDDATE), by="days")
-time_value <- sort(rep(all.dates, length(unique(policy$StatePostal)) )) 
-
-# Generate geo_value
-geo_value <- rep(unique(policy$StatePostal), length(all.dates))
-policy_signal <- data.frame(time_value = time_value, geo_value = geo_value)
-
-# Create empty columns
-policy_signal[,unique(policy$StatePolicy)] <- 0
-
-# Fill in the count for each date
-  # Get the policy name and state to filer policy signal 
-for (row in (1:nrow(policy))){
-  current.policy <- policy[row,]$StatePolicy
-  current.state <- policy[row,]$StatePostal
+policy_signal <- load_policy_data(STARTDATE, ENDDATE)
   
-  if (is.na(policy[row,]$DateEnded)){
-    
-    # Filter the rows of dataframe to be the current state and the time value that is after the policy is enacted.
-    policy_signal[policy_signal$geo_value == current.state & policy_signal$time_value > as.Date(policy[row,]$DateEnacted), current.policy] <- 1
-    
-  }else{
-    # Get time range between Date Enacted and Date Ended
-    time.range <- seq(as.Date(policy[row,]$DateEnacted), as.Date(policy[row,]$DateEnded), by = "days")
-    
-    # Fill in the the rows that are in the current policy and fall between the time arrange to be 1
-    policy_signal[policy_signal$time_value %in% time.range & policy_signal$geo_value == current.state, current.policy] <- 1
-    }
-}
-
-# Compute the sum of the number of policies for every day in the state
-policy_signal$total.num.policy <- rowSums(policy_signal[unique(policy$StatePolicy)])
-
 # Compute the average on a 7day sliding window
 policy_signal <-policy_signal %>%
     arrange(desc(geo_value)) %>% 
@@ -521,7 +546,9 @@ s<- ggplot(spearman_policy_med, aes(x = dt, y = median)) + geom_line() + geom_po
 s
 ```
 
-### Correlation in Space between number of policies and future mobility
+### Rank correlation in Space between number of policies and future mobility
+
+We can also see the correlation in a map. The number of policies become more correlated with n-day forwarded mobility as n increases. 
 
 ```{r correlation based on different lags on multiple maps, warning = FALSE, message=FALSE}
 # Set a bunch of fields so that the data frame knows how to plot itself
