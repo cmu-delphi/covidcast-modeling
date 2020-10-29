@@ -1,8 +1,8 @@
 ---
-Stakeholder: 
-Advisor: 
-Analyst: 
-assignees: 
+Stakeholder: <name>
+Advisor: <name>
+Analyst: <name(s)>
+assignees: <name(s)>
 ---
 
 DAP Deliverable:
