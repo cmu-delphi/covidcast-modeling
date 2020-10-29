@@ -2,7 +2,6 @@
 Stakeholder: <name>
 Advisor: <name>
 Analyst: <name(s)>
-assignees: <name(s)>
 ---
 
 DAP Deliverable:
@@ -16,6 +15,8 @@ The timeline to adhere to in terms of completing the DAP, ideally with one or mo
 
 
 <!-- relevant for most work -->
+High Level Checklist
 
-- [ ] Task 1
-- [ ] Task 2
+- [ ] Confirm Advisor
+- [ ] Confirm Deliverables
+- [ ] Other tasks
