@@ -1,0 +1,48 @@
+---
+title: "Indicator Heterogeneity I: Introduction"
+author: "Addison"
+output:
+  html_document
+---
+```{r import_statements, echo = FALSE, message = FALSE}
+library(tidyverse)
+```
+
+In this notebook, we reproduce the main findings from Aaron's
+[DV sensorization analysis](https://delphi-org.slack.com/archives/C011EU72MU2/p1599862022069500).
+To recap, Aaron noticed that the correlation between DV and case rate had been
+deteriorating over time.  He hypothesized that this was because different
+locations had different relationships between DV and case rate.
+Simultaneously, the regions most heavily impacted by COVID-19 shifted over
+time, from regions with high DV base rates to regions with low DV base rates.
+These twin phenomena had the effect of reducing the correlation as the pandemic
+spread through the United States.  Aaron proposed a simple fix, called
+_sensorization_, producing an adjusted DV indicator which enjoys correlation
+with case rate that doesn't deteriorate; rather, it improved with time.
+
+**The sensorization approach.**  We create a DV _sensor_ of case rate
+("sensorize" DV) by regression case rate against DV, taking the fitted values
+as our DV sensor / adjusted DV / corrected DV.  This approach has historically
+been used account for heterogeneity in a wide range of data sources for
+forecasting influenza (Farrow; Jahja et al).
+
+The goal of this DAP is to repeat the sensorization approach for all of
+Delphi's "core indicators", including Facebook %CLI; Facebook
+%CLI-in-Community; Hospital Admissions; Google Health Trends; Google
+Symptoms.  Particularly, we are interested in:
+
+* How does accounting for spatial heterogeneity (by sensorizing per location 
+  affect our ability to forecast case rate; perform correlation analysis
+  against case rate)?
+* How prevalent is temporal heterogeneity, i.e., _nonstationarity_?  This 
+  will be investigated by adjusting the window size of past data for creating 
+  sensors at each location; as well as by judging the variability of fitted
+  coefficients in the models used to sensorize.
+
+Finally, particular attention will be dealt to ensuring that the data
+used to create the sensor at each time t is faithful to the data that was
+_available_ at time t.  To the uninitiated, this means being especially
+cautious about lag in data availability as well as backfill.  Our treatment
+of this problem will be through the `issue_date` feature of our API; and,
+failing that, adjusting the right endpoint of our data window.
+
