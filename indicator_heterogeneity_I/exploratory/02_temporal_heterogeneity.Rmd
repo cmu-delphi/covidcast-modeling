@@ -9,6 +9,16 @@ library(tidyverse)
 library(covidcast)
 ```
 
+```{r setup_multidplyr, echo = TRUE}
+PARCOMPUTE = FALSE
+N_CORE = 12
+if (PARCOMPUTE) {
+  cluster = multidplyr::new_cluster(N_CORE)
+} else {
+  cluster = NULL
+}
+```
+
 # Background
 
 This notebook builds off `01_introduction.Rmd`, which introduced and motivated
@@ -129,15 +139,29 @@ joiner_df = bind_rows(joiner_df_list)
 
 dv_sensorized_lm_fname = 'cached_data/02_dv_sensorized_lm.RDS'
 if (!file.exists(dv_sensorized_lm_fname)) {
-  dv_sensorized_lm =  dv_cases %>% full_join(
-        joiner_df,
-        on='time_value',
-      ) %>%  group_by (
-        geo_value,
-        sensorize_date,
-      ) %>% group_modify (
-        ~ broom::tidy(lm(cases_value ~ indicator_value, data = .x))
-      ) %>% ungroup
+  if (!PARCOMPUTE) {
+    dv_sensorized_lm =  dv_cases %>% full_join(
+          joiner_df,
+          on='time_value',
+        ) %>%  group_by (
+          geo_value,
+          sensorize_date,
+        ) %>% group_modify (
+          ~ broom::tidy(lm(cases_value ~ indicator_value, data = .x))
+        ) %>% ungroup
+  } else {
+    dv_sensorized_lm =  dv_cases %>% full_join(
+          joiner_df,
+          on='time_value',
+        ) %>%  group_by (
+          geo_value,
+          sensorize_date,
+        ) %>% multidplyr::partition (
+          cluster
+        ) %>% group_modify (
+          ~ broom::tidy(lm(cases_value ~ indicator_value, data = .x))
+        ) %>% ungroup %>% multidplyr::collect
+  }
   saveRDS(dv_sensorized_lm, dv_sensorized_lm_fname)
 } else {
   dv_sensorized_lm = readRDS(dv_sensorized_lm_fname)
@@ -251,15 +275,29 @@ for (outer_idx in 4:length(sensorize_time_ranges)) {
   }
   joiner_df = bind_rows(joiner_df_list)
 
-  dv_sensorized_lm =  dv_cases %>% full_join(
-        joiner_df,
-        on='time_value',
-      ) %>%  group_by (
-        geo_value,
-        sensorize_date,
-      ) %>% group_modify (
-        ~ broom::tidy(lm(cases_value ~ indicator_value, data = .x))
-      ) %>% ungroup
+  if (!PARCOMPUTE) {
+    dv_sensorized_lm =  dv_cases %>% full_join(
+          joiner_df,
+          on='time_value',
+        ) %>%  group_by (
+          geo_value,
+          sensorize_date,
+        ) %>% group_modify (
+          ~ broom::tidy(lm(cases_value ~ indicator_value, data = .x))
+        ) %>% ungroup
+  } else {
+    dv_sensorized_lm =  dv_cases %>% full_join(
+          joiner_df,
+          on='time_value',
+        ) %>%  group_by (
+          geo_value,
+          sensorize_date,
+        ) %>% multidplyr::partition (
+          cluster
+        ) %>% group_modify (
+          ~ broom::tidy(lm(cases_value ~ indicator_value, data = .x))
+        ) %>% ungroup %>% multidplyr::collect
+  }
   dv_sensorized_wide = dv_sensorized_lm %>% select(
         geo_value,
         sensorize_date,

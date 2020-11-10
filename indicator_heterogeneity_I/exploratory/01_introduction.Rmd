@@ -191,7 +191,7 @@ scaling / null distribution to make statements about "how much"
 heterogeneity there is (though comparing the correlation of the original
 DV signal to the sensorized DV signal can also give an indication of this).
 
-```{r restricted_14_chloropeth, echo = TRUE}
+```{r restricted_14_choropleth, echo = TRUE}
 df_global_lm = dv_global_lm %>% filter (
       term == 'indicator_value',
     ) %>% transmute (
@@ -207,6 +207,7 @@ df_global_lm = dv_global_lm %>% filter (
       data_source='linear_sensorization',
     )
 attributes(df_global_lm)$geo_type = 'county'
+attributes(df_global_lm)$metadata$geo_type = 'county'
 class(df_global_lm) = c("covidcast_signal", "data.frame")
 # Determined using the previous histogram
 print(plot(df_global_lm,
