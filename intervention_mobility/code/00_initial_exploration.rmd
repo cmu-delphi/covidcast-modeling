@@ -60,7 +60,8 @@ library(car)
 library(reshape2)
 
 source("code/painter.r")
-source("code/load_all_data.r")
+source("code/loader.r")
+source("code/parser.r")
 ```
 
 ```{r define global variables}
@@ -419,13 +420,7 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
 
 ```{r preprocess_intervention data, warning= FALSE, message=FALSE, echo=FALSE}
 # Read government intervention data
-urlfile="https://raw.githubusercontent.com/COVID19StatePolicy/SocialDistancing/master/data/USstatesCov19distancingpolicy.csv"
-policy <- read.csv(url(urlfile))
-
-# Convert to lower case
-policy$StatePostal <- tolower(policy$StatePostal)
-# First we convert the date to a proper format
-policy[, c("DateIssued", "DateEnacted", "DateExpiry" ,"DateEased", "DateEnded", "DateReexpanded1", "DateReeased1")] <- data.frame(lapply(policy[, c("DateIssued", "DateEnacted", "DateExpiry" ,"DateEased", "DateEnded", "DateReexpanded1", "DateReeased1")], function(x) as.Date(as.character(x), "%Y%m%d")))
+policy <- load_policy()
 
 # How many unique policy per state for each policy?
 state.policy <- policy %>% filter(StateWide == 1)
@@ -439,9 +434,12 @@ The plot below shows the number of policies falling into different categories. M
 
 ```{r Count of all policies}
 # Plot for non-distinct count and mandate distribution
-policy.by.state <- state.policy[,c("StateName","StatePolicy", "Mandate")]
+policy.by.state <- state.policy[,c("StateName",
+                                   "StatePolicy", 
+                                   "Mandate")]
 # Get the count
-new_counts <- table(policy.by.state$StatePolicy, policy.by.state$Mandate)
+new_counts <- table(policy.by.state$StatePolicy,
+                    policy.by.state$Mandate)
 
 # Convert to data frame
 new_counts.df <- as.data.frame(new_counts)
@@ -468,6 +466,7 @@ p <- ggplot(new_counts.df,aes(x= reorder(Var1,Freq),Freq, fill = `Mandate?`)) +
   coord_flip()+
   labs(title = "Count of State-wide Policy Across States", y="Distinct Count", x="Policy")+
    guides(fill=guide_legend(title="Mandate?"))
+
 p
 ```
 
@@ -483,9 +482,6 @@ counts <- table(unique.policy.by.state$StatePolicy)
 
 # Convert to data frame
 counts.df <- as.data.frame(counts) 
-
-# Rename the policy for better readibility
-counts.df[,"Var1"] <- c("Bar restrictions", "Case-based isolation orders", "Emergency declarations", "Gathering Recommendations", "Gathering Restriction", "Non-essential business closures", "Other Business closures", "Public mask", "Travel-based quarantine order", "Restaurant restrictions", "School closures", "Stay-at-home order", "TravelRestrictEntry", "TravelRestrictExit", "TravelRestrictWithinState")
 
 # Plot the graph for ditinct count
 p <- ggplot(counts.df,aes(x= reorder(Var1,Freq),Freq, fill=Freq))+
@@ -503,27 +499,10 @@ p
 We may want to construct a simple signal to represent state-wide government intervention over time. To do so, we count the number of policies that has been enacted in a day and take the rolling average number within 7 days as an intervention signal.
 
 ```{r construct government intervention signal, warning = FALSE, message=FALSE}
-policy_signal <- load_policy_data(STARTDATE, ENDDATE)
-  
-# Compute the average on a 7day sliding window
-policy_signal <-policy_signal %>%
-    arrange(desc(geo_value)) %>% 
-    group_by(geo_value) %>% 
-    mutate(num.policy.7avg = rollmean(total.num.policy, k = 7, fill = NA))%>%
-    ungroup()
 
-# Finalize the covidcast-like signal for governemnt intervention
-covidcast.like.policy.signal <- policy_signal %>% transmute(
-  geo_value = geo_value,
-  signal = "policy_7dav_num",
-  time_value = time_value,
-  direction = NA,
-  issue = lubridate::today(),
-  lag = issue - time_value,
-  value = num.policy.7avg,
-  stderr = NA,
-  sample_size = NA,
-  data_source = 'University of Washington')
+policy_signal <- getSumOfPolicy(policy, STARTDATE, ENDDATE)
+
+covidcast.like.policy.signal <- get7daysRowSumPolicy(policy_signal)
 
 # Pearson correlation between the number of policies and mobility across states
 pearson_policy <- getCorrByShift(150, covidcast.like.policy.signal, data$Full.Time.Mobility, "pearson", "geo_value")
@@ -531,7 +510,7 @@ pearson_policy <- getCorrByShift(150, covidcast.like.policy.signal, data$Full.Ti
 pearson_policy_med <-  getMedian(pearson_policy)
 
 # plot the graph
-p <- ggplot(pearson_policy_med , aes(x = dt, y = median)) + geom_line() + geom_point() + labs(title = "Median Pearson correlation between the number of policies and mobility", x = "Shift", y = "Correlation") +
+p <- ggplot(pearson_policy_med , aes(x = dt, y = median)) + geom_line() + geom_point() + labs(title = "Median Pearson correlation between the 7-day rolling average of policies and future mobility", x = "Shift", y = "Correlation") +
   theme(legend.title = element_blank())
 
 p
@@ -541,7 +520,7 @@ spearman_policy <- getCorrByShift(150, covidcast.like.policy.signal,data$Full.Ti
 
 spearman_policy_med <-  getMedian(spearman_policy)
 
-s<- ggplot(spearman_policy_med, aes(x = dt, y = median)) + geom_line() + geom_point() + labs(title = "Median spearman correlation between the number of policies and mobility", x = "Shift", y = "Correlation") +
+s<- ggplot(spearman_policy_med, aes(x = dt, y = median)) + geom_line() + geom_point() + labs(title = "Median rank correlation between the 7-day rolling average of policies and mobility", x = "Shift", y = "Correlation") +
   theme(legend.title = element_blank())
 s
 ```
@@ -555,6 +534,7 @@ We can also see the correlation in a map. The number of policies become more cor
 ls = list()
 idx <- seq(50,125,25)
 count <- 1
+
 for (i in idx){
   policy.mobility.cor <- covidcast_cor(covidcast.like.policy.signal, data$Full.Time.Mobility, by = "geo_value", dt_x= i, method = "spearman")
 

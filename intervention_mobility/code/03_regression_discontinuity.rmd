@@ -28,8 +28,8 @@ library(zoo)
 library(cowplot)
 
 source("code/painter.r")
-source("code/load_all_data.r")
-source("code/shifter.r")
+source("code/loader.r")
+source("code/parser.r")
 ```
 
 ```{r define global variables, echo=FALSE}
@@ -38,41 +38,77 @@ ENDDATE <- lubridate::today()
 GEO_TYPE = "state" # state-level
 GEO_VALUE = "ca" # all states
 EXCLUDED_AREAS = c("as","gu", "mp","vi") # excluded areas due to small sample size
-DT_X = 7 # 	 Time shifts to consider for x
+
+# Pick one of the following to specify mobility signal from delphi API
+# "Full.Time.Mobility"       "Part.Time.Mobility"      
+# "completely_home_prop"     "median_home_dwell_time"  
+
+MOBILITY <- "Full.Time.Mobility"
+
+
+# Pick one of the following to specify policy
+# Please refer to data source code book for details
+
+# "EmergDec"            "SchoolClose"        
+# "GathRestrict"        "BarRestrict"        
+# "OtherBusinessClose"  "RestaurantRestrict" 
+# "CaseIsolation"       "StayAtHome"         
+# "PublicMask"          "Quarantine"         
+# "NEBusinessClose"     "TravelRestrictIntra"
+# "TravelRestrictEntry" "SchoolMask"         
+# "TravelRestrictExit"  "BusinessMask"   
+
+POLICY <- "EmergDec"
 
 ```
 
 ```{r import data, warning = FALSE, message=FALSE, echo=FALSE}
 # Get the covidcast data accordingly
-data <- load_covidcast_data(STARTDATE, ENDDATE, GEO_TYPE, GEO_VALUE, EXCLUDED_AREAS)
+data <- load_covidcast_data(STARTDATE, 
+                            ENDDATE, 
+                            GEO_TYPE, 
+                            GEO_VALUE, 
+                            EXCLUDED_AREAS)
 
-intervention <- load_policy_data(STARTDATE, ENDDATE)
-
-# Filter to only specified one state
-all.ca.policy <- intervention %>% filter(geo_value == GEO_VALUE)
-
-# We fist get all the signals
-ftime.mobility <- data$Full.Time.Mobility[c("time_value","value")] #mobility
-
-case.count <- data$Avg.Confirmed.Case.Count[c("time_value","value")]# case count
-
-cumulative.case.count <-data$Cum.Avg.Case.Count[c("time_value","value")]# cumulative case count
-
-cumulative.case.count.prop <-data$Cum.Avg.Case.Count.Prop[c("time_value","value")] # cumulative case count per 100,000
-
-avg.death.count <- data$Avg.Death.Case.Count[c("time_value","value")] #death count
-
-cum.avg.death.count <- data$Cum.Avg.Death.Count[c("time_value","value")] #cumulative death count
-
-doc.visit <- data$smoothed_cli[c("time_value","value")] # doctor visit
-
-adj.doc.visit <- data$smoothed_adj_cli[c("time_value","value")] # adjusted doctor visit
+intervention <- getCovidcastLikePolicySignal(STARTDATE, 
+                                 ENDDATE)
 ```
 
+# Full-time away home signal
 
 ```{r preprocess, echo=FALSE, warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
-# Change the column name
-colnames(ftime.mobility)[2]<-"full_time_work_prop"
+
+# Filter to only specified one state
+all.policies <- intervention %>%
+  filter(geo_value == GEO_VALUE)
+
+# We fist get all the signals
+mobility <- data[[MOBILITY]][c("time_value",
+                                            "value")] #mobility
+
+case.count <- data$Avg.Confirmed.Case.Count[c("time_value",
+                                              "value")]# case count
+
+cumulative.case.count <-data$Cum.Avg.Case.Count[c("time_value",
+                                                  "value")]# cumulative case count
+
+cumulative.case.count.prop <-data$Cum.Avg.Case.Count.Prop[c("time_value",
+                                                            "value")] # cumulative case count per 100,000
+
+avg.death.count <- data$Avg.Death.Case.Count[c("time_value",
+                                               "value")] #death count
+
+cum.avg.death.count <- data$Cum.Avg.Death.Count[c("time_value",
+                                                  "value")] #cumulative death count
+
+doc.visit <- data$smoothed_cli[c("time_value",
+                                 "value")] # doctor visit
+
+adj.doc.visit <- data$smoothed_adj_cli[c("time_value",
+                                         "value")] # adjusted doctor visit
+
+# Instead of calling "value", we distingush the value by its original name
+colnames(mobility)[2]<-"full_time_work_prop"
 colnames(case.count)[2] <- "confirmed_7dav_incidence_num"
 colnames(cumulative.case.count)[2] <- "confirmed_7dav_cumulative"
 colnames(cumulative.case.count.prop)[2] <- "confirmed_7dav_cumulative_prop"
@@ -82,30 +118,28 @@ colnames(doc.visit)[2] <- "smoothed_cli"
 colnames(adj.doc.visit)[2] <- "smoothed_adj_cli"
 
 # Create a list of confounders for left join with mobility
-confounders <- list(case.count, cumulative.case.count, cumulative.case.count.prop,
-     avg.death.count, cum.avg.death.count, doc.visit, adj.doc.visit)
+confounders <- list(case.count, 
+                    cumulative.case.count, 
+                    cumulative.case.count.prop,
+                    avg.death.count, 
+                    cum.avg.death.count, 
+                    doc.visit, 
+                    adj.doc.visit)
 
-# Intervention left join mobility with policy signal
-intervention_mobility_case <- left_join(ftime.mobility, all.ca.policy, by=c("time_value"))
+# Left join mobility dataframe with policy dataframe in CA
+intervention_mobility_case <- joinMobilityAndPolicy(mobility,
+                                                    all.policies,
+                                                    confounders)
 
-# Left join again with all other potential confounders
-for (confounder in confounders){
-  intervention_mobility_case <- left_join(intervention_mobility_case, confounder, by=c("time_value"))
-}
-
-
-# get intervention data for only ca
-ca_policy.valid.time <- intervention %>% filter(geo_value == "ca" & total.num.policy > 0)
-
-# get the first date of the intervention
-intervention.first.day <- ca_policy.valid.time$time_value[1]
+# Get the first time stamp of the intervention in the specified state
+intervention.first.day <- getFirstDayOfIntervention(intervention, GEO_VALUE, POLICY)
 
 # Plot the time-series: mobility signal as y, time as x 
-intervention_mobility_case %>%
-ggplot(aes(x = time_value, y = full_time_work_prop)) + 
-  geom_point() +
-  geom_vline(xintercept = intervention.first.day) + 
-  labs(y = "Full time away home signal", x = "time-value")
+plotInterventionTime(intervention_mobility_case, 
+                                mobility.name="full_time_work_prop",
+                                intervention.first.day,
+                                ylab="Full time away home signal",
+                                xlab="time-value")
 ```
 
 ## Lag analysis at a state-level
@@ -118,7 +152,13 @@ by_method <- "geo_value"
 title <- "Median Rank correlation between other signals and future mobility (slicing by state)"
 
 covidcastlike.signals <- list(
-  data$Avg.Confirmed.Case.Count, data$Cum.Avg.Case.Count, data$Cum.Avg.Case.Count.Prop, data$Avg.Death.Case.Count, data$Cum.Avg.Death.Count, data$smoothed_cli, data$smoothed_adj_cli)
+  data$Avg.Confirmed.Case.Count, 
+  data$Cum.Avg.Case.Count, 
+  data$Cum.Avg.Case.Count.Prop, 
+  data$Avg.Death.Case.Count, 
+  data$Cum.Avg.Death.Count, 
+  data$smoothed_cli, 
+  data$smoothed_adj_cli)
 
 names <- list("7-day avg. confirmed case", 
              "Cum 7day avg. confirmed case",
@@ -187,6 +227,29 @@ factored_data%>%
   summary()
 ```
 
+## Model with time only (weekends included)
+
+```{r time-only regression-weekends-included, echo=FALSE, warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
+
+# Fit a linear regression model
+lm.fit <- lm(full_time_work_prop ~ time_value, data =factored_data)
+
+# Pad the fitted values with NA 
+pred.y <- predict(lm.fit)
+
+# Plot the graph
+p <- factored_data %>% 
+  mutate(EmergDeclaration = as.factor(EmergDec)) %>% 
+  ggplot(aes(x = time_value, y = full_time_work_prop, color = EmergDeclaration )) +
+  geom_point() + 
+  geom_line(aes(x = time_value, 
+                y = pred.y, 
+                colour="fitted value"), 
+            size = 1) +
+   labs(title = "Full-time away home signal regressing on time (weekends included)")
+p
+```
+
 ## Model with shifting the covariates (weekends included)
 
 ```{r plot the regression, echo=FALSE, warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
@@ -220,7 +283,6 @@ p <- factored_data.lm %>%
   geom_point() + 
   geom_line(aes(x = time_value, y = predlm, colour="fitted value"), size = 1) +
    labs(title = "Covariates selected WITH most correlated number of shift")
-  #geom_smooth(method = "lm")
 p
 
 ```
@@ -259,13 +321,36 @@ p
 
 ## Re-plot the regression line after dropping weekends
 
-### Covariates shifted
+## Regressing on time only
 
-```{r plot the regression line for the data WITH shift after dropping weekends, echo=FALSE, warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
+```{r time-only-regression-weekends-excluded, echo=FALSE, warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
 # Get lm summary to compare
 factored_data.without.weekend <- factored_data.lm%>% 
   mutate(EmergDeclaration = as.factor(EmergDec), weekday= weekdays(as.Date(time_value)))%>% 
   filter(!weekday %in% c("Saturday", "Sunday")) 
+
+# Fit a linear regression model
+lm.fit <- lm(full_time_work_prop ~ time_value, data =factored_data.without.weekend)
+
+# Pad the fitted values with NA 
+pred.y <- predict(lm.fit)
+
+# Plot the graph
+p <- factored_data.without.weekend %>% 
+  mutate(EmergDeclaration = as.factor(EmergDec)) %>% 
+  ggplot(aes(x = time_value, y = full_time_work_prop, color = EmergDeclaration )) +
+  geom_point() + 
+  geom_line(aes(x = time_value, 
+                y = pred.y, 
+                colour="fitted value"), 
+            size = 1) +
+   labs(title = "Full-time away home signal regressing on time (weekends excluded)")
+p
+```
+
+### Covariates shifted
+
+```{r plot the regression line for the data WITH shift after dropping weekends, echo=FALSE, warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
 
 # Check the lm.fit
 factored_data.without.weekend %$%
@@ -371,7 +456,4 @@ factored_data.without.weekend %>%
    labs(title = "All covariates selected WITH most correlated number of shift (weekends dropped)")
 
 ```
-
-
-
 

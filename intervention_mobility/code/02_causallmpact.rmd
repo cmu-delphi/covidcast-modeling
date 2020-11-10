@@ -23,7 +23,7 @@ library(cowplot)
 library(CausalImpact)
 
 source("code/painter.r")
-source("code/load_all_data.r")
+source("code/loader.r")
 ```
 
 ```{r define global variables, echo=FALSE}
