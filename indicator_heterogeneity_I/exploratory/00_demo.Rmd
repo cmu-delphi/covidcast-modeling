@@ -63,7 +63,7 @@ geo_level = "county"
 
 start_day = "2020-04-15"
 end_day = NULL
-cache_fname = 'cached_data/00_introduction.RDS'
+cache_fname = 'cached_data/00_demo.RDS'
 
 if (!file.exists(cache_fname)) {
   df_signals = vector("list", length(signals))
@@ -87,7 +87,6 @@ if (!file.exists(cache_fname)) {
                                 max(df_cases$time_value))) %>%
     filter(value >= case_num) %>% pull(geo_value)
   saveRDS(list(df_signals, df_cases), cache_fname)
-  # TODO: Cache data
 } else {
   cached_data = readRDS(cache_fname)
   df_signals = cached_data[[1]]
