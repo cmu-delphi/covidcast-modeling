@@ -253,7 +253,7 @@ df_cor_sensorized_dv = covidcast_cor(df_global_sensorized, df_cases,
                                      by='time_value', method='spearman')
 df_cor = rbind(df_cor_base_dv, df_cor_sensorized_dv)
 df_cor$Indicator = as.factor(c(rep('Raw', nrow(df_cor_base_dv)),
-                               rep('Sensorized', nrow(df_cor_sensorized_dv))))
+                               rep('Sensorized (Spatial)', nrow(df_cor_sensorized_dv))))
 plt = ggplot(df_cor, aes(x = time_value, y = value)) +
   geom_line(aes(color = Indicator)) +
   labs(title = sprintf("Correlation between %s and cases", "DV"),
@@ -261,6 +261,7 @@ plt = ggplot(df_cor, aes(x = time_value, y = value)) +
        x = "Date", y = "Correlation") +
   theme(legend.position = "bottom")
 plt
+saveRDS(df_cor, 'results/01_df_cor.RDS')
 ```
 
 We see that with just a spatial correction, we improve the correlation of DV

@@ -216,3 +216,105 @@ plt = ggplot(df_cor, aes(x = time_value, y = value)) +
 plt
 ```
 
+This is, in a sense, nearly the "best case" for temporal sensorization: we use
+all the data up until the day before sensorization (we might be able to improve
+further by tuning how far in the past we look).  In practice, data often arrives
+"late" and is backfilled.  We deal with an idealized form of the former problem
+by only allowing ourselves to use DV data up until 5 days in the past in the
+following exercise.  We treat the backfill issue in a later notebook by using
+the `as_of` argument.
+
+```{r train_correlations, echo = TRUE}
+sensorize_time_ranges = list(
+      c(-14, -1),
+      c(-14, -5),
+      c(-21, -1),
+      c(-21, -5))
+sensorize_cors = vector('list', length(sensorize_time_ranges))
+sensorize_cors[[1]] = df_cor_sensorized_dv %>% mutate(Indicator='Sensorized (TS, -14:-1)')
+
+for (outer_idx in 4:length(sensorize_time_ranges)) {
+  sensorize_llim = sensorize_time_ranges[[outer_idx]][1]
+  sensorize_ulim = sensorize_time_ranges[[outer_idx]][2]
+
+  min_sensorize_date = lubridate::ymd(start_day) - sensorize_llim
+  max_sensorize_date = max(dv_cases$time_value)
+  sensorize_date_offsets = 0:(max_sensorize_date-min_sensorize_date)
+
+  joiner_df_list = vector('list', length(sensorize_date_offsets))
+  for (idx in 1:length(sensorize_date_offsets)) {
+    dt = sensorize_date_offsets[idx]
+    sensorize_date = min_sensorize_date + dt
+    joiner_df_list[[idx]] = tibble(
+                      sensorize_date = sensorize_date,
+                      time_value = sensorize_date + sensorize_llim:sensorize_ulim)
+  }
+  joiner_df = bind_rows(joiner_df_list)
+
+  dv_sensorized_lm =  dv_cases %>% full_join(
+        joiner_df,
+        on='time_value',
+      ) %>%  group_by (
+        geo_value,
+        sensorize_date,
+      ) %>% group_modify (
+        ~ broom::tidy(lm(cases_value ~ indicator_value, data = .x))
+      ) %>% ungroup
+  dv_sensorized_wide = dv_sensorized_lm %>% select(
+        geo_value,
+        sensorize_date,
+        term,
+        estimate,
+      ) %>% mutate (
+        term = sapply(term, function(x) {ifelse(x=='(Intercept)',
+                                                'intercept',
+                                                'slope')}),
+      ) %>% pivot_wider (
+        id_cols = c(geo_value, sensorize_date),
+        names_from=term,
+        values_from=estimate,
+      )
+  dv_cases_sensorized = dv_cases %>% inner_join (
+        dv_sensorized_wide,
+        by=c('time_value'='sensorize_date',
+             'geo_value'),
+      ) %>% mutate (
+        sensorized_value = intercept + indicator_value * slope,
+      )
+  df_sensorized = dv_cases_sensorized %>% transmute (
+        geo_value=geo_value,
+        signal='dv_sensorized',
+        time_value=time_value,
+        direction=NA,
+        issue=lubridate::ymd('2020-11-01'),
+        lag=NA,
+        value=sensorized_value,
+        stderr=NA,
+        sample_size=NA,
+        data_source='linear_sensorization',
+      )
+  attributes(df_sensorized)$geo_type = 'county'
+  class(df_sensorized) = c("covidcast_signal", "data.frame")
+
+  df_cor_sensorized_dv = covidcast_cor(df_sensorized, df_cases,
+                                       by='time_value', method='spearman')
+  df_cor_sensorized_dv$Indicator = sprintf('Sensorized (TS, %d:%d)',
+                                           sensorize_llim,
+                                           sensorize_ulim)
+  sensorize_cors[[outer_idx]] = df_cor_sensorized_dv
+}
+
+saveRDS(sensorize_cors, 'results/02_sensorize_cors.RDS')
+
+df_cor = readRDS('results/01_df_cor.RDS')
+df_cor = bind_rows(df_cor, sensorize_cors)
+plt = ggplot(df_cor, aes(x = time_value, y = value)) +
+  geom_line(aes(color = Indicator)) +
+  labs(title = sprintf("Correlation between %s and cases", "DV"),
+       subtitle = "Per day",
+       x = "Date", y = "Correlation") +
+  theme(legend.position = "bottom")
+plt
+
+```
+
