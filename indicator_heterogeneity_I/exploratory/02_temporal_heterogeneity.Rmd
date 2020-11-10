@@ -6,7 +6,6 @@ output:
 ---
 ```{r import_statements, echo = FALSE, message = FALSE}
 library(tidyverse)
-library(slider)
 library(covidcast)
 ```
 
@@ -102,10 +101,6 @@ understand spatial heterogeneity.  It will also help us develop a code
 skeleton/framework for fancier analyses.
 
 ```{r temporal_spatial_sensorize, echo = TRUE}
-# Group by location, regress cases on DV (ignoring time component?), and then
-# (1) extract coefficients per location, and
-# (2) extract fitted values for each DV sensor value
-
 sensorize_llim = -14
 sensorize_ulim = -1
 
@@ -118,23 +113,11 @@ dv_cases = inner_join(dv, cases, by=c('geo_value', 'time_value')) %>% select (
       cases_value=value.y,
     )
 
-samp_cases = dv_cases %>% head
-samp_joiner = tribble(
-      ~time_value,                    ~sensorize_date,
-      lubridate::ymd('2020-04-15'),   lubridate::ymd('2020-04-17'), 
-      lubridate::ymd('2020-04-15'),   lubridate::ymd('2020-04-18'), 
-      lubridate::ymd('2020-04-15'),   lubridate::ymd('2020-04-19'), 
-    )
-full_join(samp_cases,
-          samp_joiner,
-          on='time_value')
-
 min_sensorize_date = lubridate::ymd(start_day) - sensorize_llim
-sensorize_date_offsets = x # TODO: make list of dates where we want to produce sensorized quantities
-# ^ above necessary because R color operator is incapable of iterating
-# over dates
+max_sensorize_date = max(dv_cases$time_value)
+sensorize_date_offsets = 0:(max_sensorize_date-min_sensorize_date)
 
-joiner_df_list = vector('list', length(sensorize_dates))
+joiner_df_list = vector('list', length(sensorize_date_offsets))
 for (idx in 1:length(sensorize_date_offsets)) {
   dt = sensorize_date_offsets[idx]
   sensorize_date = min_sensorize_date + dt
@@ -144,124 +127,67 @@ for (idx in 1:length(sensorize_date_offsets)) {
 }
 joiner_df = bind_rows(joiner_df_list)
 
-dv_global_lm =  dv_cases %>% group_by (
+dv_sensorized_lm_fname = 'cached_data/02_dv_sensorized_lm.RDS'
+if (!file.exists(dv_sensorized_lm_fname)) {
+  dv_sensorized_lm =  dv_cases %>% full_join(
+        joiner_df,
+        on='time_value',
+      ) %>%  group_by (
+        geo_value,
+        sensorize_date,
+      ) %>% group_modify (
+        ~ broom::tidy(lm(cases_value ~ indicator_value, data = .x))
+      ) %>% ungroup
+  saveRDS(dv_sensorized_lm, dv_sensorized_lm_fname)
+} else {
+  dv_sensorized_lm = readRDS(dv_sensorized_lm_fname)
+}
+dv_sensorized_wide = dv_sensorized_lm %>% select(
       geo_value,
-    ) %>% group_modify (
-      ~ broom::tidy(lm(cases_value ~ indicator_value, data = .x))
-    ) %>% ungroup
-dv_global_sensorized =  dv_cases %>% group_by (
-      geo_value,
-    ) %>% group_modify ( ~ {
-      # TODO: abstract this such that we can use any sensorization
-      # e.g., convolution for Part II
-      fit = lm(cases_value ~ indicator_value, data =.x);
-      tibble(time_value=.x$time_value,
-             indicator_value=.x$indicator_value,
-             cases_value=.x$cases_value,
-             sensorized_value=fit$fitted.values)
-    }) %>% ungroup
-# Separate dataframes will not be necessary in the future, because future
-# fits will have a separate set of coefficients for each date.
-# 
-
+      sensorize_date,
+      term,
+      estimate,
+    ) %>% mutate (
+      term = sapply(term, function(x) {ifelse(x=='(Intercept)',
+                                              'intercept',
+                                              'slope')}),
+    ) %>% pivot_wider (
+      id_cols = c(geo_value, sensorize_date),
+      names_from=term,
+      values_from=estimate,
+    )
+dv_cases_sensorized = dv_cases %>% inner_join (
+      dv_sensorized_wide,
+      by=c('time_value'='sensorize_date',
+           'geo_value'),
+    ) %>% mutate (
+      sensorized_value = intercept + indicator_value * slope,
+    )
 ```
 
-We require each county to have at least 14 days of data to ensure that their
-fits are not too unstable.  In this case, no counties get filtered (though
-counties may get filtered for other indicators.  We may also fine tune 
-this threshold as we continue the DAP.
-
-```{r restrict_sensorized_14, echo = TRUE}
-dv_global_sensorized = dv_cases %>% group_by (
-      geo_value,
-    ) %>% summarize (
-      ndays=n(),
-    ) %>% inner_join (
-      dv_global_sensorized,
-      on='geo_value',
-    ) %>% filter (
-      ndays >= 14,
+```{r sensorized_histogram, echo = TRUE}
+plot_lim =  100
+outliers = dv_cases_sensorized %>% filter(
+      abs(slope) > plot_lim,
     )
-
-dv_global_lm = dv_cases %>% group_by (
-      geo_value,
-    ) %>% summarize (
-      ndays=n(),
-    ) %>% inner_join (
-      dv_global_lm,
-      on='geo_value',
-    ) %>% filter (
-      ndays >= 14,
-    )
-
-```
-
-```{r restricted_14_histogram, echo = TRUE}
-plot_lim = 140
-dv_global_lm %>% filter(
-      term == 'indicator_value',
-    ) %>% ggplot (
+print(outliers)
+plt = (ggplot (
+      dv_cases_sensorized
     ) + geom_histogram (
-      aes(estimate),
+      aes(slope),
       bins=200,
     ) + xlim (
       -plot_lim, plot_lim
     ) + ggtitle (
-      'One outlier not plotted'
-    )
-dv_global_lm %>% filter(
-      term == 'indicator_value',
-      abs(estimate) > plot_lim,
-    )
+      sprintf('%d outliers not plotted', nrow(outliers))
+    ))
+plt
 ```
 
-The slopes certainly concentrate, but we need some kind of standarization /
-scaling / null distribution to make statements about "how much"
-heterogeneity there is (though comparing the correlation of the original
-DV signal to the sensorized DV signal can also give an indication of this).
+Surprisingly, there are quite a few negative slopes.  Noise?
 
-```{r restricted_14_chloropeth, echo = TRUE}
-df_global_lm = dv_global_lm %>% filter (
-      term == 'indicator_value',
-    ) %>% transmute (
-      geo_value=geo_value,
-      signal='global_slope',
-      time_value=lubridate::ymd('2020-11-01'),
-      direction=NA,
-      issue='2020-11-01',
-      lag=NA,
-      value=estimate,
-      stderr=NA,
-      sample_size=ndays,
-      data_source='linear_sensorization',
-    )
-attributes(df_global_lm)$geo_type = 'county'
-class(df_global_lm) = c("covidcast_signal", "data.frame")
-# Determined using the previous histogram
-print(plot(df_global_lm,
-     range = c(-1, 25),
-     title='Fitted slopes for DV'
-))
-```
-
-The chloropeth plots seem to lend more evidence to Aaron's analysis that
-unsensorized DV performed well initially and then degraded because the
-relationship between DV and cases differs geographically (and the distribution
-of cases shifted over time).
-
-We can see that the slope in the linear relationship is milder in the
-Northeast, where the pandemic originally concentrated, whereas
-the slopes are larger in the South, Midwest, Plains, and Mountain states.
-Interestingly, the slopes are particularly large in eastern Wisconsin,
-along Lake Michigan.
-
-If we have reason to believe that the relationship, although spatially
-heterogeneous, is still smooth, we may be able to model it using spatial
-estimation tools (and also throw in a time component if we discover
-temporal nonstationarity).
-
-```{r restricted_14_correlation, echo = TRUE}
-df_global_sensorized = dv_global_sensorized %>% transmute (
+```{r sensorized_correlation, echo = TRUE}
+df_sensorized = dv_cases_sensorized %>% transmute (
       geo_value=geo_value,
       signal='dv_sensorized',
       time_value=time_value,
@@ -270,19 +196,17 @@ df_global_sensorized = dv_global_sensorized %>% transmute (
       lag=NA,
       value=sensorized_value,
       stderr=NA,
-      sample_size=ndays,
+      sample_size=NA,
       data_source='linear_sensorization',
     )
-attributes(df_global_sensorized)$geo_type = 'county'
-class(df_global_sensorized) = c("covidcast_signal", "data.frame")
+attributes(df_sensorized)$geo_type = 'county'
+class(df_sensorized) = c("covidcast_signal", "data.frame")
 
-df_cor_base_dv = covidcast_cor(df_signals[[1]], df_cases,
-                               by='time_value', method='spearman')
-df_cor_sensorized_dv = covidcast_cor(df_global_sensorized, df_cases,
+df_cor_sensorized_dv = covidcast_cor(df_sensorized, df_cases,
                                      by='time_value', method='spearman')
-df_cor = rbind(df_cor_base_dv, df_cor_sensorized_dv)
-df_cor$Indicator = as.factor(c(rep('Raw', nrow(df_cor_base_dv)),
-                               rep('Sensorized', nrow(df_cor_sensorized_dv))))
+df_cor = readRDS('results/01_df_cor.RDS')
+df_cor_sensorized_dv$Indicator = 'Sensorized (Temporal+Spatial)'
+df_cor = bind_rows(df_cor, df_cor_sensorized_dv)
 plt = ggplot(df_cor, aes(x = time_value, y = value)) +
   geom_line(aes(color = Indicator)) +
   labs(title = sprintf("Correlation between %s and cases", "DV"),
@@ -292,6 +216,3 @@ plt = ggplot(df_cor, aes(x = time_value, y = value)) +
 plt
 ```
 
-We see that with just a spatial correction, we improve the correlation of DV
-against cases considerably.  Moreover, we no longer witness the decline of correlation
-in midsummer.
