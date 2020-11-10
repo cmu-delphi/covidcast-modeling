@@ -6,7 +6,10 @@ output:
 ---
 ```{r import_statements, echo = FALSE, message = FALSE}
 library(tidyverse)
+library(covidcast)
 ```
+
+# Background
 
 In this notebook, we reproduce the main findings from Aaron's
 [DV sensorization analysis](https://delphi-org.slack.com/archives/C011EU72MU2/p1599862022069500).
@@ -46,3 +49,393 @@ cautious about lag in data availability as well as backfill.  Our treatment
 of this problem will be through the `issue_date` feature of our API; and,
 failing that, adjusting the right endpoint of our data window.
 
+# Data setup
+
+```{r data_ingestion_county, echo = TRUE, cache=TRUE}
+# Fetch the following sources and signals from the API 
+sources = c("doctor-visits", "fb-survey", "fb-survey", "hospital-admissions", 
+            "indicator-combination")
+signals = c("smoothed_adj_cli", "smoothed_cli", "smoothed_hh_cmnty_cli", 
+            "smoothed_adj_covid19")
+names = c("Doctor visits", "Facebook CLI", "Facebook CLI-in-community", 
+          "Hospitalizations")
+geo_level = "county"
+
+start_day = "2020-04-15"
+end_day = NULL
+cache_fname = 'cached_data/00_introduction.RDS'
+
+if (!file.exists(cache_fname)) {
+  df_signals = vector("list", length(signals))
+  for (i in 1:length(signals)) {
+    df_signals[[i]] = suppressWarnings(
+                        covidcast_signal(sources[i], signals[i],
+                                         start_day, end_day,
+                                         geo_type=geo_level))
+  }
+
+  # Fetch USAFacts confirmed case incidence proportion (smoothed with 7-day 
+  # trailing average)
+  df_cases = suppressWarnings(
+              covidcast_signal("usa-facts", "confirmed_7dav_incidence_prop",
+                              start_day, end_day,
+                              geo_type=geo_level))
+
+  case_num = 500
+  geo_values = suppressWarnings(covidcast_signal("usa-facts", "confirmed_cumulative_num",
+                                max(df_cases$time_value), 
+                                max(df_cases$time_value))) %>%
+    filter(value >= case_num) %>% pull(geo_value)
+  saveRDS(list(df_signals, df_cases), cache_fname)
+  # TODO: Cache data
+} else {
+  cached_data = readRDS(cache_fname)
+  df_signals = cached_data[[1]]
+  df_cases = cached_data[[2]]
+}
+```
+
+## Warmup: global correction
+
+A global correction is easy to compute as a warmup.  Although it is not as
+useful for understanding temporal nonstationarity, it can help us start to
+understand spatial heterogeneity.  It will also help us develop a code
+skeleton/framework for fancier analyses.
+
+```{r global_sensorize, echo = TRUE}
+# Group by location, regress cases on DV (ignoring time component?), and then
+# (1) extract coefficients per location, and
+# (2) extract fitted values for each DV sensor value
+
+dv = tibble(df_signals[[i]])
+cases = tibble(df_cases)
+dv_cases = inner_join(dv, cases, by=c('geo_value', 'time_value')) %>% select (
+      geo_value=geo_value,
+      time_value=time_value,
+      indicator_value=value.x,
+      cases_value=value.y,
+    )
+dv_global_lm =  dv_cases %>% group_by (
+      geo_value,
+    ) %>% group_modify (
+      ~ broom::tidy(lm(cases_value ~ indicator_value, data = .x))
+    ) %>% ungroup
+dv_global_sensorized =  dv_cases %>% group_by (
+      geo_value,
+    ) %>% group_modify ( ~ {
+      fit = lm(cases_value ~ indicator_value, data =.x);
+      tibble(time_value=.x$time_value,
+             indicator_value=.x$indicator_value,
+             cases_value=.x$cases_value,
+             sensorized_value=fit$fitted.values)
+    }) %>% ungroup
+# Separate dataframes will not be necessary in the future, because future
+# fits will have a separate set of coefficients for each date.
+# 
+
+```
+
+```{r global_sensorize_plot, echo=TRUE}
+dv_global_sensorized %>% filter (
+      geo_value == '36061',
+    ) %>% select (
+      -geo_value,
+      -time_value,
+    ) %>% pivot_longer (
+      !indicator_value,
+      names_to='response',
+      values_to='value',
+    ) %>% ggplot (
+    ) + geom_point(
+      aes(
+        x=indicator_value,
+        y=value,
+        color=response,
+      ),
+      alpha=0.5,
+    ) + ggtitle (
+      'County: 36061'
+    )
+```
+
+The least squares model is doing exactly what we expect.
+
+
+TODO: compare fitted coefficients across counties - maybe create a
+map of values?
+
+```{r global_sensorize_histogram, echo = TRUE}
+dv_global_lm %>% filter(
+      term == 'indicator_value',
+    ) %>% select (
+      estimate,
+    ) %>% arrange (
+      estimate,
+    )
+dv_global_lm %>% filter(
+      term == 'indicator_value',
+    ) %>% select (
+      estimate,
+    ) %>% arrange (
+      -estimate,
+    )
+```
+
+There are two counties with outlying slope values: 55029 with
+a fitted slope of -7943, and 04001 with a fitted slope of 1135.
+
+```{r global_sensorize_histogram, echo = TRUE}
+dv_global_lm %>% filter(
+      term == 'indicator_value',
+    ) %>% ggplot (
+    ) + geom_histogram (
+      aes(estimate),
+      bins=200,
+    ) + xlim(
+      -140, 140
+    )
+```
+
+```{r identify_pathological_counties, echo = TRUE}
+global_lm_slopes = dv_global_lm %>% filter (
+      term == 'indicator_value',
+    ) %>% pull (
+      estimate
+    )
+global_slope_summary = summary(global_lm_slopes)
+global_slope_iqr = global_slope_summary[[5]] - global_slope_summary[[2]]
+dv_global_slope_outliers = dv_global_lm %>% filter (
+      term == 'indicator_value',
+      (estimate < global_slope_summary[[2]] - 1.5*global_slope_iqr) |
+      (estimate > global_slope_summary[[5]] + 1.5*global_slope_iqr)
+    )
+nrow(dv_global_slope_outliers)
+nrow(dv_global_lm %>% filter(term=='indicator_value'))
+
+# Approximately 1 / 10 are outliers.  Let's look at their sample sizes...
+# Remember that outliers may occur naturally; we really just want to 
+# avoid pathologies
+
+global_outlier_counties = dv_global_slope_outliers %>% pull (geo_value)
+global_df = dv_cases %>% group_by (
+      geo_value,
+    ) %>% summarize (
+      ndays=n()
+    ) %>% inner_join(
+      dv_global_slope_outliers,
+      by='geo_value',
+    ) %>% arrange(
+      ndays
+    )
+global_outlier_df = global_df %>% filter (
+      geo_value %in% global_outlier_counties,
+    )
+global_outlier_df %>% mutate(
+      abs_slope = abs(estimate),
+    ) %>% arrange (
+      -abs_slope,
+    )
+
+# Two days of data is obviously not enough... let's look at the distribution
+# of data available for the outliers versus for general counties
+
+# TODO: Make dataframe with columns: group {all, outliers}, ndays {numeric}
+day_count_df = bind_rows(
+      tibble(group='outliers', ndays=global_outlier_df$ndays),
+      tibble(group='all', ndays=dv_cases %>% group_by(
+                        geo_value
+                      ) %>% summarize (
+                        ndays=n(),
+                      ) %>% pull (ndays)))
+
+plt = (ggplot(day_count_df, aes(ndays, fill=group))
+       + geom_histogram(position='dodge')
+      )
+# Although most of the counties with outlying values have relatively few 
+# days of data, it is still possible to have an "outlying" slope with many 
+# days of data; and it is possible to have relatively few days of data
+# yet _not_ have an "outlying" slope
+
+# Let's just establish a rule of thumb that we require 14 days of data 
+
+
+```
+
+```{r restrict_sensorized_14, echo = TRUE}
+dv_global_sensorized = dv_cases %>% group_by (
+      geo_value,
+    ) %>% summarize (
+      ndays=n(),
+    ) %>% inner_join (
+      dv_global_sensorized,
+      on='geo_value',
+    ) %>% filter (
+      ndays >= 14,
+    )
+
+dv_global_lm = dv_cases %>% group_by (
+      geo_value,
+    ) %>% summarize (
+      ndays=n(),
+    ) %>% inner_join (
+      dv_global_lm,
+      on='geo_value',
+    ) %>% filter (
+      ndays >= 14,
+    )
+
+```
+
+```{r restricted_14_chloropeth, echo = TRUE}
+# TODO
+df_global_lm = dv_global_lm %>% filter (
+      term == 'indicator_value',
+    ) %>% transmute (
+      geo_value=geo_value,
+      signal='global_slope',
+      time_value=lubridate::ymd('2020-11-01'),
+      direction=NA,
+      issue='2020-11-01',
+      lag=NA,
+      value=estimate,
+      stderr=NA,
+      sample_size=ndays,
+      data_source='linear_sensorization',
+    )
+attributes(df_global_lm)$geo_type = 'county'
+class(df_global_lm) = c("covidcast_signal", "data.frame")
+print(plot(df_global_lm))
+print(plot(df_global_lm,
+     range = c(-1, 10)
+     #,choro_col = c("orange","lightblue", "purple")
+))
+```
+
+The chloropeth plots seem to lend more evidence to Aaron's analysis that
+unsensorized DV performed well initially and then degraded because the
+relationship between DV and cases differs geographically (and the distribution
+of cases shifted over time).
+
+We can see that the slope in the linear relationship is milder in the
+New York / Tri-City region, where the pandemic originally concentrated,
+before spreading south and west (and eventually to the northern plains
+and mountain states, which unfortunately aren't represented here.  I think
+this is mostly due to lack of data coverage).
+
+```{r restricted_14_histogram, echo = TRUE}
+dv_global_lm %>% filter(
+      term == 'indicator_value',
+    ) %>% ggplot (
+    ) + geom_histogram (
+      aes(estimate),
+      bins=200,
+    )
+```
+
+The slopes certainly concentrate, but we need some kind of standarization /
+scaling / null distribution to make statements about "how much"
+heterogeneity there is (though comparing the correlation of the original
+DV signal to the sensorized DV signal can also give an indication of this).
+
+```{r restricted_14_correlation, echo = TRUE}
+df_global_sensorized = dv_global_sensorized %>% transmute (
+      geo_value=geo_value,
+      signal='dv_sensorized',
+      time_value=time_value,
+      direction=NA,
+      issue=lubridate::ymd('2020-11-01'),
+      lag=NA,
+      value=sensorized_value,
+      stderr=NA,
+      sample_size=ndays,
+      data_source='linear_sensorization',
+    )
+attributes(df_global_sensorized)$geo_type = 'county'
+class(df_global_sensorized) = c("covidcast_signal", "data.frame")
+
+df_cor_base_dv = covidcast_cor(df_signals[[1]], df_cases,
+                               by='time_value', method='spearman')
+df_cor_sensorized_dv = covidcast_cor(df_global_sensorized, df_cases,
+                                     by='time_value', method='spearman')
+df_cor = rbind(df_cor_base_dv, df_cor_sensorized_dv)
+df_cor$Indicator = as.factor(c(rep('Raw', nrow(df_cor_base_dv)),
+                               rep('Sensorized', nrow(df_cor_sensorized_dv))))
+plt = ggplot(df_cor, aes(x = time_value, y = value)) +
+  geom_line(aes(color = Indicator)) +
+  labs(title = sprintf("Correlation between %s and cases", "DV"),
+       subtitle = "Per day",
+       x = "Date", y = "Correlation") +
+  theme(legend.position = "bottom")
+plt
+
+# TODO
+```
+
+TODO
+
+Using the restricted fits:
+
+* [X] Histogram of fitted slopes
+* [X] Chloropeth of fitted slopes
+* [ ] Correlations using sensorized values
+
+
+November 9, 2020 Summary
+
+* Sensorization per county, we have integrated out the time component
+* Code is working... 
+* We do identify two counties where the estimated slope coefficients are 
+  whack (large magnitudes)
+
+November 9, 2020 TODO
+
+* Identify why slope values are so large in those two counties.  May need 
+  to impose an ad hoc rule on the number of observations before we are allowed
+  to sensorize
+* Flesh out section on county-level sensorization:
+  * Histogram
+  * Correlation
+  * Defer "elementary prediction problem" to later - perhaps more mature 
+    results
+* Sensorize per-county, using moving blocks of time.  Last 2-3 weeks, but also
+  make sure to only allow data up to, e.g., 5 days in the past to account 
+  for lagged availability.  Repeat the above analysis.
+* Same as above, but rather than only going up to 5 days in the past, retrieve
+  all the availabile data `as_of` the day to be estimated
+* At this point, we have analyzed the temporal and spatial variability of 
+  the relationship between cases and a single indicator.  Now, we repeat the
+  analysis for every one of our "core indicators".
+* By repeating the analysis, we are able to judge the variability of each 
+  of these relationships.  But in order to judge the relative variability 
+  of each of these relationships (as well as simply place the measured 
+  heterogeneity of a single indicator in context) we must perform a kind of
+  _standardization_ for each indicator.  Ideally this would also come with 
+  a kind of test statistic (though if can set up a permutation test, I'd
+  be nearly as happy).
+
+
+
+## Demo: `as_of` option
+By default, the API returns the latest issued data for each indicator.
+
+```{r demo_issue_date, echo = TRUE}
+dv = df_signals[[1]]
+
+dv_20200601 = covidcast_signal(sources[1], signals[1],
+                               start_day, end_day,
+                               as_of='2020-06-01')
+
+dv_20201001 = covidcast_signal(sources[1], signals[1],
+                               start_day, end_day,
+                               as_of='2020-10-01')
+table(dv_20201001$issue)
+```
+
+Need to understand when is "safe" to start using `issue_date`
+
+TODO:
+
+* [ ] Download "all" data for DV, Cases, and perform a global sensorization, 
+  compare sensorized DV to original DV (correlation, forecasting)
+* [ ] Download "all" data for DV, Cases, and then perform a "windowed" 
+  sensorization, compare sensorized DV to original DV.
