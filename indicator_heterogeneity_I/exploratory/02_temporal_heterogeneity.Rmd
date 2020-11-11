@@ -256,7 +256,7 @@ sensorize_time_ranges = list(
 sensorize_cors = vector('list', length(sensorize_time_ranges))
 sensorize_cors[[1]] = df_cor_sensorized_dv %>% mutate(Indicator='Sensorized (TS, -14:-1)')
 
-for (outer_idx in 4:length(sensorize_time_ranges)) {
+for (outer_idx in 2:length(sensorize_time_ranges)) {
   sensorize_llim = sensorize_time_ranges[[outer_idx]][1]
   sensorize_ulim = sensorize_time_ranges[[outer_idx]][2]
 
