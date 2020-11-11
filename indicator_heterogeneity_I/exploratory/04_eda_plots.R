@@ -112,11 +112,9 @@ for (ind_idx in 1:length(signal_names)) {
   n_random_counties = 5
   n_other_plots = 1
 
-  #ind_idx = 1
-
   plot_list = vector('list', n_random_counties+n_other_plots)
 
-  ind = tibble(df_signals[[1]])
+  ind = tibble(df_signals[[ind_idx]])
   if (target_names[ind_idx] == 'Cases') {
     targets = tibble(df_cases)
   } else if (target_names[ind_idx] == 'Deaths') {
