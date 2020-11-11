@@ -23,6 +23,7 @@ for all of our core indicators.
 
 ```{r data_ingestion_county, echo = TRUE, cache=TRUE}
 # Fetch the following sources and signals from the API 
+# TODO: Add Google Symptoms "eventually"
 source_names = c("doctor-visits", "fb-survey", "fb-survey", "hospital-admissions")
 signal_names = c("smoothed_adj_cli", "smoothed_cli", "smoothed_hh_cmnty_cli", 
             "smoothed_adj_covid19")
@@ -74,10 +75,11 @@ if (!file.exists(cache_fname)) {
 
 ```{r train_correlations, echo = TRUE}
 sensorize_time_ranges = list(
-      c(-14, -1),
-      c(-14, -5),
-      c(-21, -1),
-      c(-21, -5))
+      c(-7, 0),
+      c(-10, 0),
+      c(-14, 0),
+      c(-21, 0),
+      c())
 
 # TODO: Add more "core indicators"
 
