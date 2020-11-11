@@ -66,32 +66,46 @@ dv_cases = inner_join(dv, cases, by=c('geo_value', 'time_value')) %>% select (
       indicator_value=value.x,
       cases_value=value.y,
     )
-# TODO: Get County names
-# TODO: Sample counties and plot
-# TODO: Hand pick some counties and plot
-
-nr=4
-nc=8
-rand_fips = sample(unique(dv_cases$geo_value), nr*nc)
 
 
-dv_cases %>% filter (
-      geo_value == '36061',
-    ) %>% select (
-      -geo_value,
-    ) %>% ggplot (
-    ) + geom_point(
-      aes(
-        x=indicator_value,
-        y=cases_value,
-        color=time_value,
-      ),
-      alpha=0.5,
-    ) + scale_colour_viridis_c(
-      trans='date',
-    ) + ggtitle (
-      'County: 36061'
+county_tibble = covidcast::county_geo %>% transmute (
+      geo_value = FIPS,
+      county_name=COUNTYNAME,
+      state=STATE,
+      county_name_fips = sprintf('%s, %s\nFIPS: %s',
+                                 county_name, state, geo_value),
     )
 
+dv_cases = dv_cases %>% inner_join(
+      county_tibble,
+      on='geo_value',
+    )
+```
+```{r random_counties, echo = TRUE}
+nplot = 5
+nr=4
+nc=8
+rand_fips = sample(unique(dv_cases$geo_value), nr*nc*5)
+for (idx in 1:nplot) {
+  plt = dv_cases %>% filter (
+        geo_value %in% rand_fips[(nr*nc*(idx-1)+1):(nr*nc*idx)],
+      ) %>% ggplot (
+      ) + geom_point(
+        aes(
+          x=indicator_value,
+          y=cases_value,
+          color=time_value,
+        ),
+        alpha=0.5,
+      ) + scale_colour_viridis_c(
+        trans='date',
+      ) + facet_wrap (
+        vars(county_name_fips),
+        nrow=nr,
+        scales='free',
+      )
+  print(plt)
+}
+# export as pdf instead
 ```
 
