@@ -72,6 +72,9 @@ sensorize_time_ranges = list(
       c(-21, -1),
       c(-21, -5))
 
+# TODO: Add more "core indicators"
+# TODO: Switch between case rate and death rate (latter for hosp)
+
 for (ind_idx in 1:length(source_names)) {
   ind_df = tibble(df_signals[[ind_idx]])
   cases = tibble(df_cases)
