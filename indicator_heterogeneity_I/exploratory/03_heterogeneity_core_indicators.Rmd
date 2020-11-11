@@ -83,7 +83,16 @@ for (ind_idx in 1:length(source_names)) {
         cases_value=value.y,
       )
   # TODO: Recompute these, but for all indicators too
-  df_cor = readRDS('results/01_df_cor.RDS')
+	ind_global_sensorized =  ind_cases %>% group_by (
+				geo_value,
+			) %>% group_modify ( ~ {
+				fit = lm(cases_value ~ indicator_value, data =.x);
+				tibble(time_value=.x$time_value,
+							 indicator_value=.x$indicator_value,
+							 cases_value=.x$cases_value,
+							 sensorized_value=fit$fitted.values)
+			}) %>% ungroup
+
   for (outer_idx in 1:length(sensorize_time_ranges)) {
     sensorize_llim = sensorize_time_ranges[[outer_idx]][1]
     sensorize_ulim = sensorize_time_ranges[[outer_idx]][2]
