@@ -71,10 +71,8 @@ sensorize_time_ranges = list(
       c(-14, -5),
       c(-21, -1),
       c(-21, -5))
-sensorize_cors = vector('list', length(sensorize_time_ranges))
 
 for (ind_idx in 1:length(source_names)) {
-  cat(sprintf("%s...", pretty_names[ind_idx]))
   ind_df = tibble(df_signals[[ind_idx]])
   cases = tibble(df_cases)
   ind_cases = inner_join(ind_df, cases, by=c('geo_value', 'time_value')) %>% select (
@@ -118,96 +116,102 @@ for (ind_idx in 1:length(source_names)) {
                                           nrow(df_cor_sensorized_ind))))
 
 
-  for (outer_idx in 1:length(sensorize_time_ranges)) {
-    sensorize_llim = sensorize_time_ranges[[outer_idx]][1]
-    sensorize_ulim = sensorize_time_ranges[[outer_idx]][2]
+  sensorize_fname = sprintf('results/03_sensorize_cors_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+  if (!file.exists(sensorize_fname)) {
+    sensorize_cors = vector('list', length(sensorize_time_ranges))
+    for (outer_idx in 1:length(sensorize_time_ranges)) {
+      sensorize_llim = sensorize_time_ranges[[outer_idx]][1]
+      sensorize_ulim = sensorize_time_ranges[[outer_idx]][2]
 
-    min_sensorize_date = lubridate::ymd(start_day) - sensorize_llim
-    max_sensorize_date = max(ind_cases$time_value)
-    sensorize_date_offsets = 0:(max_sensorize_date-min_sensorize_date)
+      min_sensorize_date = lubridate::ymd(start_day) - sensorize_llim
+      max_sensorize_date = max(ind_cases$time_value)
+      sensorize_date_offsets = 0:(max_sensorize_date-min_sensorize_date)
 
-    joiner_df_list = vector('list', length(sensorize_date_offsets))
-    for (idx in 1:length(sensorize_date_offsets)) {
-      dt = sensorize_date_offsets[idx]
-      sensorize_date = min_sensorize_date + dt
-      joiner_df_list[[idx]] = tibble(
-                        sensorize_date = sensorize_date,
-                        time_value = sensorize_date + sensorize_llim:sensorize_ulim)
-    }
-    joiner_df = bind_rows(joiner_df_list)
+      joiner_df_list = vector('list', length(sensorize_date_offsets))
+      for (idx in 1:length(sensorize_date_offsets)) {
+        dt = sensorize_date_offsets[idx]
+        sensorize_date = min_sensorize_date + dt
+        joiner_df_list[[idx]] = tibble(
+                          sensorize_date = sensorize_date,
+                          time_value = sensorize_date + sensorize_llim:sensorize_ulim)
+      }
+      joiner_df = bind_rows(joiner_df_list)
 
-    if (!PARCOMPUTE) {
-      ind_sensorized_lm =  ind_cases %>% full_join(
-            joiner_df,
-            on='time_value',
-          ) %>%  group_by (
+      if (!PARCOMPUTE) {
+        ind_sensorized_lm =  ind_cases %>% full_join(
+              joiner_df,
+              on='time_value',
+            ) %>%  group_by (
+              geo_value,
+              sensorize_date,
+            ) %>% group_modify (
+              ~ broom::tidy(lm(cases_value ~ indicator_value, data = .x))
+            ) %>% ungroup
+      } else {
+        ind_grouped_list =   ind_cases %>% full_join(
+              joiner_df,
+              on='time_value',
+            ) %>%  group_by (
+              geo_value,
+              sensorize_date,
+            ) %>% group_split
+        ind_sensorized_lm = parallel::mclapply(ind_grouped_list, function(df) {
+            broom::tidy(
+              lm(cases_value ~ indicator_value, data = df)
+            ) %>% mutate (
+              geo_value = unique(df$geo_value),
+              sensorize_date = unique(df$sensorize_date),
+            )}, mc.cores = N_CORE) %>% bind_rows
+      }
+      ind_sensorized_wide = ind_sensorized_lm %>% select(
             geo_value,
             sensorize_date,
-          ) %>% group_modify (
-            ~ broom::tidy(lm(cases_value ~ indicator_value, data = .x))
-          ) %>% ungroup
-    } else {
-      ind_grouped_list =   ind_cases %>% full_join(
-            joiner_df,
-            on='time_value',
-          ) %>%  group_by (
-            geo_value,
-            sensorize_date,
-          ) %>% group_split
-      ind_sensorized_lm = parallel::mclapply(ind_grouped_list, function(df) {
-          broom::tidy(
-            lm(cases_value ~ indicator_value, data = df)
+            term,
+            estimate,
           ) %>% mutate (
-            geo_value = unique(df$geo_value),
-            sensorize_date = unique(df$sensorize_date),
-          )}, mc.cores = N_CORE) %>% bind_rows
+            term = sapply(term, function(x) {ifelse(x=='(Intercept)',
+                                                    'intercept',
+                                                    'slope')}),
+          ) %>% pivot_wider (
+            id_cols = c(geo_value, sensorize_date),
+            names_from=term,
+            values_from=estimate,
+          )
+      ind_cases_sensorized = ind_cases %>% inner_join (
+            ind_sensorized_wide,
+            by=c('time_value'='sensorize_date',
+                 'geo_value'),
+          ) %>% mutate (
+            sensorized_value = intercept + indicator_value * slope,
+          )
+      df_sensorized = ind_cases_sensorized %>% transmute (
+            geo_value=geo_value,
+            signal='ind_sensorized',
+            time_value=time_value,
+            direction=NA,
+            issue=lubridate::ymd('2020-11-01'),
+            lag=NA,
+            value=sensorized_value,
+            stderr=NA,
+            sample_size=NA,
+            data_source='linear_sensorization',
+          )
+      attributes(df_sensorized)$geo_type = 'county'
+      class(df_sensorized) = c("covidcast_signal", "data.frame")
+
+      df_cor_sensorized_ind = covidcast_cor(df_sensorized, df_cases,
+                                           by='time_value', method='spearman')
+      df_cor_sensorized_ind$Indicator = sprintf('Sensorized (TS, %d:%d)',
+                                               sensorize_llim,
+                                               sensorize_ulim)
+      sensorize_cors[[outer_idx]] = df_cor_sensorized_ind
     }
-    ind_sensorized_wide = ind_sensorized_lm %>% select(
-          geo_value,
-          sensorize_date,
-          term,
-          estimate,
-        ) %>% mutate (
-          term = sapply(term, function(x) {ifelse(x=='(Intercept)',
-                                                  'intercept',
-                                                  'slope')}),
-        ) %>% pivot_wider (
-          id_cols = c(geo_value, sensorize_date),
-          names_from=term,
-          values_from=estimate,
-        )
-    ind_cases_sensorized = ind_cases %>% inner_join (
-          ind_sensorized_wide,
-          by=c('time_value'='sensorize_date',
-               'geo_value'),
-        ) %>% mutate (
-          sensorized_value = intercept + indicator_value * slope,
-        )
-    df_sensorized = ind_cases_sensorized %>% transmute (
-          geo_value=geo_value,
-          signal='ind_sensorized',
-          time_value=time_value,
-          direction=NA,
-          issue=lubridate::ymd('2020-11-01'),
-          lag=NA,
-          value=sensorized_value,
-          stderr=NA,
-          sample_size=NA,
-          data_source='linear_sensorization',
-        )
-    attributes(df_sensorized)$geo_type = 'county'
-    class(df_sensorized) = c("covidcast_signal", "data.frame")
 
-    df_cor_sensorized_ind = covidcast_cor(df_sensorized, df_cases,
-                                         by='time_value', method='spearman')
-    df_cor_sensorized_ind$Indicator = sprintf('Sensorized (TS, %d:%d)',
-                                             sensorize_llim,
-                                             sensorize_ulim)
-    sensorize_cors[[outer_idx]] = df_cor_sensorized_ind
+    saveRDS(sensorize_cors, sensorize_fname)
+  } else {
+    sensorize_cors = readRDS(sensorize_fname)
   }
-
-  saveRDS(sensorize_cors, sprintf('results/03_sensorize_cors_%s_%s.RDS',
-                                  source_names[ind_idx], signal_names[ind_idx]))
 
   df_cor = bind_rows(df_cor_base, sensorize_cors)
   plt = ggplot(df_cor, aes(x = time_value, y = value)) +
