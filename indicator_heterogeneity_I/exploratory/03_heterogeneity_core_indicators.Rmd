@@ -74,7 +74,7 @@ sensorize_time_ranges = list(
 sensorize_cors = vector('list', length(sensorize_time_ranges))
 
 for (ind_idx in 1:length(source_names)) {
-  cat(sprintf("%s...", fancy_names[ind_idx]))
+  cat(sprintf("%s...", pretty_names[ind_idx]))
   ind_df = tibble(df_signals[[ind_idx]])
   cases = tibble(df_cases)
   ind_cases = inner_join(ind_df, cases, by=c('geo_value', 'time_value')) %>% select (
@@ -101,7 +101,7 @@ for (ind_idx in 1:length(source_names)) {
 				lag=NA,
 				value=sensorized_value,
 				stderr=NA,
-				sample_size=ndays,
+				sample_size=NA,
 				data_source='linear_sensorization',
 			)
 	attributes(df_global_sensorized)$geo_type = 'county'
@@ -213,7 +213,7 @@ for (ind_idx in 1:length(source_names)) {
   plt = ggplot(df_cor, aes(x = time_value, y = value)) +
     geom_line(aes(color = Indicator)) +
     labs(title = sprintf("Correlation between %s and cases",
-                         fancy_names[ind_idx]),
+                         pretty_names[ind_idx]),
          subtitle = "Per day",
          x = "Date", y = "Correlation") +
     theme(legend.position = "bottom")
