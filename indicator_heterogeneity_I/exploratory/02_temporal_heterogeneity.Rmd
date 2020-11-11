@@ -11,12 +11,7 @@ library(covidcast)
 
 ```{r setup_multidplyr, echo = TRUE}
 PARCOMPUTE = FALSE
-N_CORE = 12
-if (PARCOMPUTE) {
-  cluster = multidplyr::new_cluster(N_CORE)
-} else {
-  cluster = NULL
-}
+N_CORE = parallel::detect_cores()
 ```
 
 # Background
@@ -150,17 +145,20 @@ if (!file.exists(dv_sensorized_lm_fname)) {
           ~ broom::tidy(lm(cases_value ~ indicator_value, data = .x))
         ) %>% ungroup
   } else {
-    dv_sensorized_lm =  dv_cases %>% full_join(
+    dv_grouped_list =   dv_cases %>% full_join(
           joiner_df,
           on='time_value',
         ) %>%  group_by (
           geo_value,
           sensorize_date,
-        ) %>% multidplyr::partition (
-          cluster
-        ) %>% group_modify (
-          ~ broom::tidy(lm(cases_value ~ indicator_value, data = .x))
-        ) %>% ungroup %>% multidplyr::collect
+        ) %>% group_split
+    dv_sensorized_lm = parallel::mclapply(dv_grouped_list, function(df) {
+        ~ broom::tidy(
+          lm(cases_value ~ indicator_value, data = .x)
+        ) %>% mutate (
+          geo_value = unique(geo_value),
+          sensorize_date = unique(sensorize_date),
+        )}, mc.cores = N_CORE) %>% bind_rows
   }
   saveRDS(dv_sensorized_lm, dv_sensorized_lm_fname)
 } else {
@@ -286,17 +284,20 @@ for (outer_idx in 4:length(sensorize_time_ranges)) {
           ~ broom::tidy(lm(cases_value ~ indicator_value, data = .x))
         ) %>% ungroup
   } else {
-    dv_sensorized_lm =  dv_cases %>% full_join(
+    dv_grouped_list =   dv_cases %>% full_join(
           joiner_df,
           on='time_value',
         ) %>%  group_by (
           geo_value,
           sensorize_date,
-        ) %>% multidplyr::partition (
-          cluster
-        ) %>% group_modify (
-          ~ broom::tidy(lm(cases_value ~ indicator_value, data = .x))
-        ) %>% ungroup %>% multidplyr::collect
+        ) %>% group_split
+    dv_sensorized_lm = parallel::mclapply(dv_grouped_list, function(df) {
+        ~ broom::tidy(
+          lm(cases_value ~ indicator_value, data = .x)
+        ) %>% mutate (
+          geo_value = unique(geo_value),
+          sensorize_date = unique(sensorize_date),
+        )}, mc.cores = N_CORE) %>% bind_rows
   }
   dv_sensorized_wide = dv_sensorized_lm %>% select(
         geo_value,
