@@ -37,10 +37,10 @@ end_day = NULL
 cache_fname = 'cached_data/03_heterogeneity_core_indicators.RDS'
 
 if (!file.exists(cache_fname)) {
-  df_signals = vector("list", length(signals))
-  for (i in 1:length(signals)) {
+  df_signals = vector("list", length(signal_names))
+  for (i in 1:length(signal_names)) {
     df_signals[[i]] = suppressWarnings(
-                        covidcast_signal(sources[i], signals[i],
+                        covidcast_signal(source_names[i], signal_names[i],
                                          start_day, end_day,
                                          geo_type=geo_level))
   }
