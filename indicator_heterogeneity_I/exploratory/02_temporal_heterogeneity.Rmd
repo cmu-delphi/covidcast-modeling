@@ -10,8 +10,8 @@ library(covidcast)
 ```
 
 ```{r setup_multidplyr, echo = TRUE}
-PARCOMPUTE = FALSE
-N_CORE = parallel::detect_cores()
+PARCOMPUTE = TRUE
+N_CORE = parallel::detectCores()
 ```
 
 # Background
@@ -152,13 +152,14 @@ if (!file.exists(dv_sensorized_lm_fname)) {
           geo_value,
           sensorize_date,
         ) %>% group_split
-    dv_sensorized_lm = parallel::mclapply(dv_grouped_list, function(df) {
+    dv_sensorized_lm_list = parallel::mclapply(dv_grouped_list, function(df) {
         ~ broom::tidy(
           lm(cases_value ~ indicator_value, data = .x)
         ) %>% mutate (
           geo_value = unique(geo_value),
           sensorize_date = unique(sensorize_date),
-        )}, mc.cores = N_CORE) %>% bind_rows
+        )}, mc.cores = N_CORE)
+    dv_sensorized_lm = bind_rows(dv_sensorized_lm_list)
   }
   saveRDS(dv_sensorized_lm, dv_sensorized_lm_fname)
 } else {
