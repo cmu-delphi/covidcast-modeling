@@ -59,10 +59,10 @@ if (!file.exists(cache_fname)) {
 
   case_num = 500
   geo_values = suppressWarnings(covidcast_signal("usa-facts", "confirmed_cumulative_num",
-                                max(df_target$time_value), 
-                                max(df_target$time_value))) %>%
+                                max(df_cases$time_value), 
+                                max(df_cases$time_value))) %>%
     filter(value >= case_num) %>% pull(geo_value)
-  saveRDS(list(df_signals, df_target, df_deaths), cache_fname)
+  saveRDS(list(df_signals, df_cases, df_deaths), cache_fname)
 } else {
   cached_data = readRDS(cache_fname)
   df_signals = cached_data[[1]]
