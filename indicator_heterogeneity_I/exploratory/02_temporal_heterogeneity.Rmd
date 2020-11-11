@@ -153,11 +153,11 @@ if (!file.exists(dv_sensorized_lm_fname)) {
           sensorize_date,
         ) %>% group_split
     dv_sensorized_lm_list = parallel::mclapply(dv_grouped_list, function(df) {
-        ~ broom::tidy(
-          lm(cases_value ~ indicator_value, data = .x)
+        broom::tidy(
+          lm(cases_value ~ indicator_value, data = df)
         ) %>% mutate (
-          geo_value = unique(geo_value),
-          sensorize_date = unique(sensorize_date),
+          geo_value = unique(df$geo_value),
+          sensorize_date = unique(df$sensorize_date),
         )}, mc.cores = N_CORE)
     dv_sensorized_lm = bind_rows(dv_sensorized_lm_list)
   }
@@ -293,11 +293,11 @@ for (outer_idx in 4:length(sensorize_time_ranges)) {
           sensorize_date,
         ) %>% group_split
     dv_sensorized_lm = parallel::mclapply(dv_grouped_list, function(df) {
-        ~ broom::tidy(
-          lm(cases_value ~ indicator_value, data = .x)
+        broom::tidy(
+          lm(cases_value ~ indicator_value, data = df)
         ) %>% mutate (
-          geo_value = unique(geo_value),
-          sensorize_date = unique(sensorize_date),
+          geo_value = unique(df$geo_value),
+          sensorize_date = unique(df$sensorize_date),
         )}, mc.cores = N_CORE) %>% bind_rows
   }
   dv_sensorized_wide = dv_sensorized_lm %>% select(
