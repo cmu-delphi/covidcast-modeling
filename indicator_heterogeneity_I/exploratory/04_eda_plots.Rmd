@@ -1,0 +1,97 @@
+---
+title: "Indicator Heterogeneity I: Temporal Heterogeneity"
+author: "Addison"
+output:
+  html_document
+---
+```{r import_statements, echo = FALSE, message = FALSE}
+library(tidyverse)
+library(covidcast)
+```
+
+# Background
+
+This notebook contains some visual exploratory data analysis.
+
+# Data setup
+
+```{r data_ingestion_county, echo = TRUE, cache=TRUE}
+# Fetch the following sources and signals from the API 
+sources = c("doctor-visits", "fb-survey", "fb-survey", "hospital-admissions")
+signals = c("smoothed_adj_cli", "smoothed_cli", "smoothed_hh_cmnty_cli", 
+            "smoothed_adj_covid19")
+names = c("Doctor visits", "Facebook CLI", "Facebook CLI-in-community", 
+          "Hospitalizations")
+geo_level = "county"
+
+start_day = "2020-04-15"
+end_day = NULL
+cache_fname = 'cached_data/02_temporal_heterogeneity.RDS'
+
+if (!file.exists(cache_fname)) {
+  df_signals = vector("list", length(signals))
+  for (i in 1:length(signals)) {
+    df_signals[[i]] = suppressWarnings(
+                        covidcast_signal(sources[i], signals[i],
+                                         start_day, end_day,
+                                         geo_type=geo_level))
+  }
+
+  # Fetch USAFacts confirmed case incidence proportion (smoothed with 7-day 
+  # trailing average)
+  df_cases = suppressWarnings(
+              covidcast_signal("usa-facts", "confirmed_7dav_incidence_prop",
+                              start_day, end_day,
+                              geo_type=geo_level))
+
+  case_num = 500
+  geo_values = suppressWarnings(covidcast_signal("usa-facts", "confirmed_cumulative_num",
+                                max(df_cases$time_value), 
+                                max(df_cases$time_value))) %>%
+    filter(value >= case_num) %>% pull(geo_value)
+  saveRDS(list(df_signals, df_cases), cache_fname)
+} else {
+  cached_data = readRDS(cache_fname)
+  df_signals = cached_data[[1]]
+  df_cases = cached_data[[2]]
+}
+```
+
+```{r temporal_spatial_sensorize, echo = TRUE}
+dv = tibble(df_signals[[1]])
+cases = tibble(df_cases)
+dv_cases = inner_join(dv, cases, by=c('geo_value', 'time_value')) %>% select (
+      geo_value=geo_value,
+      time_value=time_value,
+      indicator_value=value.x,
+      cases_value=value.y,
+    )
+# TODO: Get County names
+# TODO: Sample counties and plot
+# TODO: Hand pick some counties and plot
+
+nr=4
+nc=8
+rand_fips = sample(unique(dv_cases$geo_value), nr*nc)
+
+
+dv_cases %>% filter (
+      geo_value == '36061',
+    ) %>% select (
+      -geo_value,
+    ) %>% ggplot (
+    ) + geom_point(
+      aes(
+        x=indicator_value,
+        y=cases_value,
+        color=time_value,
+      ),
+      alpha=0.5,
+    ) + scale_colour_viridis_c(
+      trans='date',
+    ) + ggtitle (
+      'County: 36061'
+    )
+
+```
+
