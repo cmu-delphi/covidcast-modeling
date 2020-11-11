@@ -1,24 +1,10 @@
----
-title: "Indicator Heterogeneity I: Temporal Heterogeneity"
-author: "Addison"
-output:
-  html_document
----
-```{r import_statements, echo = FALSE, message = FALSE}
 library(tidyverse)
 library(covidcast)
-ALPHA=0.8
-```
 
-# Background
-
-This notebook contains some visual exploratory data analysis.
-
-# Data setup
-
-```{r data_ingestion_county, echo = TRUE, cache=TRUE}
+## INGEST DATA
 # Fetch the following sources and signals from the API 
 # TODO: Add Google Symptoms "eventually"
+
 source_names = c("doctor-visits", "fb-survey", "fb-survey", "hospital-admissions")
 signal_names = c("smoothed_adj_cli", "smoothed_cli", "smoothed_hh_cmnty_cli", 
             "smoothed_adj_covid19")
@@ -64,19 +50,26 @@ if (!file.exists(cache_fname)) {
   df_cases = cached_data[[2]]
   df_deaths = cached_data[[3]]
 }
-```
 
-```{r temporal_spatial_sensorize, echo = TRUE}
-dv = tibble(df_signals[[1]])
-cases = tibble(df_cases)
-dv_cases = inner_join(dv, cases, by=c('geo_value', 'time_value')) %>% select (
-      geo_value=geo_value,
-      time_value=time_value,
-      indicator_value=value.x,
-      cases_value=value.y,
-    )
+## HELPER FUNCTION
+plot_points = function(plt) {
+  plt + geom_point(
+    aes(
+      x=indicator_value,
+      y=target_value,
+      color=time_value,
+    ),
+    alpha=ALPHA,
+  ) + scale_colour_viridis_c(
+    trans='date',
+  ) + facet_wrap (
+    vars(county_name_fips),
+    nrow=nr,
+    scales='free',
+  )
+}
 
-
+## PROCESS THE STUFF
 pop_tibble = covidcast::county_census %>% filter (
       COUNTY != 0,
     ) %>% select (
@@ -99,44 +92,11 @@ county_tibble = covidcast::county_geo %>% transmute (
       on='geo_value',
     )
 
-dv_cases = dv_cases %>% inner_join(
-      county_tibble,
-      on='geo_value',
-    )
-```
 
-```{r plot_setup, echo = TRUE}
-set.seed(20201111)
-nplot = 5
+
+ALPHA=0.8
 nr=4
 nc=8
-```
-
-```{r demo_random_counties, echo = TRUE}
-rand_fips = sample(unique(dv_cases$geo_value), nr*nc*5)
-idx = 1
-plt = dv_cases %>% filter (
-      geo_value %in% rand_fips[(nr*nc*(idx-1)+1):(nr*nc*idx)],
-    ) %>% ggplot (
-    ) + geom_point(
-      aes(
-        x=indicator_value,
-        y=cases_value,
-        color=time_value,
-      ),
-      alpha=ALPHA,
-    ) + scale_colour_viridis_c(
-      trans='date',
-    ) + facet_wrap (
-      vars(county_name_fips),
-      nrow=nr,
-      scales='free',
-    )
-print(plt)
-# export as pdf instead
-```
-
-```{r demo_top_counties, echo = TRUE}
 top_counties = pop_tibble %>% arrange(
       -population,
     ) %>% head (
@@ -145,53 +105,83 @@ top_counties = pop_tibble %>% arrange(
       geo_value,
     )
 
-plt = dv_cases %>% filter (
-      geo_value %in% top_counties,
-    ) %>% ggplot (
-    ) + geom_point(
-      aes(
-        x=indicator_value,
-        y=cases_value,
-        color=time_value,
-      ),
-      alpha=ALPHA,
-    ) + scale_colour_viridis_c(
-      trans='date',
-    ) + facet_wrap (
-      vars(county_name_fips),
-      nrow=nr,
-      scales='free',
-    )
-print(plt)
-# export as pdf instead
-```
 
+for (ind_idx in 1:length(signal_names)) {
+  ## DO THE PLOTTING
+  set.seed(20201111)
+  n_random_counties = 5
+  n_other_plots = 1
 
-```{r random_counties, echo = TRUE}
-nplot = 5
-nr=4
-nc=8
-rand_fips = sample(unique(dv_cases$geo_value), nr*nc*5)
-for (idx in 1:nplot) {
-  plt = dv_cases %>% filter (
-        geo_value %in% rand_fips[(nr*nc*(idx-1)+1):(nr*nc*idx)],
-      ) %>% ggplot (
-      ) + geom_point(
-        aes(
-          x=indicator_value,
-          y=cases_value,
-          color=time_value,
-        ),
-        alpha=ALPHA,
-      ) + scale_colour_viridis_c(
-        trans='date',
-      ) + facet_wrap (
-        vars(county_name_fips),
-        nrow=nr,
-        scales='free',
+  #ind_idx = 1
+
+  plot_list = vector('list', n_random_counties+n_other_plots)
+
+  ind = tibble(df_signals[[1]])
+  if (target_names[ind_idx] == 'Cases') {
+    targets = tibble(df_cases)
+  } else if (target_names[ind_idx] == 'Deaths') {
+    targets = tibble(df_deaths)
+  } else {
+    stop(sprintf('No corresponding df for %s', target_names[ind_idx]))
+  }
+  ind_targets = inner_join(ind, targets, by=c('geo_value', 'time_value')) %>% select (
+        geo_value=geo_value,
+        time_value=time_value,
+        indicator_value=value.x,
+        target_value=value.y,
+      ) %>% inner_join(
+        county_tibble,
+        on='geo_value',
       )
-  print(plt)
-}
-# export as pdf instead
-```
 
+
+
+  ## TOP COUNTIES
+  plt = ind_targets %>% filter (
+        geo_value %in% top_counties,
+      ) %>% ggplot (
+      ) %>% plot_points (
+      ) + ggtitle (
+        sprintf("%s: Top 32 Counties", pretty_names[ind_idx])
+        ) + ylab (
+          sprintf("%s Rate", target_names[ind_idx])
+      )
+  plot_list[[1]] = plt
+
+
+  ## RANDOM COUNTIES
+  rand_fips = sample(unique(ind_targets$geo_value), nr*nc*5)
+  for (idx in 1:n_random_counties) {
+
+    plt = ind_targets %>% filter (
+          geo_value %in% rand_fips[(nr*nc*(idx-1)+1):(nr*nc*idx)],
+        ) %>% ggplot (
+        ) + geom_point(
+          aes(
+            x=indicator_value,
+            y=target_value,
+            color=time_value,
+          ),
+          alpha=ALPHA,
+        ) + scale_colour_viridis_c(
+          trans='date',
+        ) + facet_wrap (
+          vars(county_name_fips),
+          nrow=nr,
+          scales='free',
+        ) + ggtitle (
+          sprintf("%s: Random Counties, Set %d",
+                  pretty_names[ind_idx],
+                  idx)
+        ) + ylab (
+          sprintf("%s Rate", target_names[ind_idx])
+        )
+    plot_list[[n_other_plots+idx]] = plt
+  }
+
+
+  ggsave(sprintf('fig/county_plots_%s_%s.pdf',
+                 source_names[ind_idx], signal_names[ind_idx]),
+         plot=gridExtra::marrangeGrob(plot_list, nrow=1, ncol=1),
+         width=15, height=8)
+}
