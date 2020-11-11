@@ -78,8 +78,7 @@ sensorize_time_ranges = list(
       c(-7, 0),
       c(-10, 0),
       c(-14, 0),
-      c(-21, 0),
-      c())
+      c(-21, 0))
 
 # TODO: Add more "core indicators"
 
