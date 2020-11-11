@@ -28,11 +28,12 @@ signal_names = c("smoothed_adj_cli", "smoothed_cli", "smoothed_hh_cmnty_cli",
             "smoothed_adj_covid19")
 pretty_names = c("Doctor visits", "Facebook CLI", "Facebook CLI-in-community", 
           "Hospitalizations")
+target_names = c("Cases", "Cases", "Cases", "Deaths")
 geo_level = "county"
 
 start_day = "2020-04-15"
 end_day = NULL
-cache_fname = 'cached_data/02_temporal_heterogeneity.RDS'
+cache_fname = 'cached_data/04_heterogeneity_core_indicators.RDS'
 
 if (!file.exists(cache_fname)) {
   df_signals = vector("list", length(signals))
@@ -45,21 +46,27 @@ if (!file.exists(cache_fname)) {
 
   # Fetch USAFacts confirmed case incidence proportion (smoothed with 7-day 
   # trailing average)
-  df_cases = suppressWarnings(
+  df_target = suppressWarnings(
               covidcast_signal("usa-facts", "confirmed_7dav_incidence_prop",
+                              start_day, end_day,
+                              geo_type=geo_level))
+
+  df_deaths = suppressWarnings(
+              covidcast_signal("usa-facts", "deaths_7dav_incidence_prop",
                               start_day, end_day,
                               geo_type=geo_level))
 
   case_num = 500
   geo_values = suppressWarnings(covidcast_signal("usa-facts", "confirmed_cumulative_num",
-                                max(df_cases$time_value), 
-                                max(df_cases$time_value))) %>%
+                                max(df_target$time_value), 
+                                max(df_target$time_value))) %>%
     filter(value >= case_num) %>% pull(geo_value)
-  saveRDS(list(df_signals, df_cases), cache_fname)
+  saveRDS(list(df_signals, df_target, df_deaths), cache_fname)
 } else {
   cached_data = readRDS(cache_fname)
   df_signals = cached_data[[1]]
-  df_cases = cached_data[[2]]
+  df_target = cached_data[[2]]
+  df_deaths = cached_data[[3]]
 }
 ```
 
@@ -73,24 +80,30 @@ sensorize_time_ranges = list(
       c(-21, -5))
 
 # TODO: Add more "core indicators"
-# TODO: Switch between case rate and death rate (latter for hosp)
 
 for (ind_idx in 1:length(source_names)) {
+  if (target_names[ind_idx] == 'Cases') {
+    df_target = df_cases
+  } else if (target_names[ind_idx] == 'Deaths') {
+    df_target = df_deaths
+  } else {
+    stop(sprintf("No matching dataframe for target %s.", target_names[ind_idx]))
+  }
   ind_df = tibble(df_signals[[ind_idx]])
-  cases = tibble(df_cases)
-  ind_cases = inner_join(ind_df, cases, by=c('geo_value', 'time_value')) %>% select (
+  ind_target = inner_join(ind_df, tibble(df_target),
+                          by=c('geo_value', 'time_value')) %>% select (
         geo_value=geo_value,
         time_value=time_value,
         indicator_value=value.x,
-        cases_value=value.y,
+        target_value=value.y,
       )
-	ind_global_sensorized =  ind_cases %>% group_by (
+	ind_global_sensorized =  ind_target %>% group_by (
 				geo_value,
 			) %>% group_modify ( ~ {
-				fit = lm(cases_value ~ indicator_value, data =.x);
+				fit = lm(target_value ~ indicator_value, data =.x);
 				tibble(time_value=.x$time_value,
 							 indicator_value=.x$indicator_value,
-							 cases_value=.x$cases_value,
+							 target_value=.x$target_value,
 							 sensorized_value=fit$fitted.values)
 			}) %>% ungroup
 	df_global_sensorized = ind_global_sensorized %>% transmute (
@@ -109,9 +122,9 @@ for (ind_idx in 1:length(source_names)) {
 	attributes(df_global_sensorized)$metadata$geo_type = 'county'
 	class(df_global_sensorized) = c("covidcast_signal", "data.frame")
 
-	df_cor_base_ind = covidcast_cor(df_signals[[ind_idx]], df_cases,
+	df_cor_base_ind = covidcast_cor(df_signals[[ind_idx]], df_target,
 																 by='time_value', method='spearman')
-	df_cor_sensorized_ind = covidcast_cor(df_global_sensorized, df_cases,
+	df_cor_sensorized_ind = covidcast_cor(df_global_sensorized, df_target,
 																			 by='time_value', method='spearman')
 	df_cor_base = rbind(df_cor_base_ind, df_cor_sensorized_ind)
 	df_cor_base$Indicator = as.factor(c(rep('Raw', nrow(df_cor_base_ind)),
@@ -128,7 +141,7 @@ for (ind_idx in 1:length(source_names)) {
       sensorize_ulim = sensorize_time_ranges[[outer_idx]][2]
 
       min_sensorize_date = lubridate::ymd(start_day) - sensorize_llim
-      max_sensorize_date = max(ind_cases$time_value)
+      max_sensorize_date = max(ind_target$time_value)
       sensorize_date_offsets = 0:(max_sensorize_date-min_sensorize_date)
 
       joiner_df_list = vector('list', length(sensorize_date_offsets))
@@ -142,17 +155,17 @@ for (ind_idx in 1:length(source_names)) {
       joiner_df = bind_rows(joiner_df_list)
 
       if (!PARCOMPUTE) {
-        ind_sensorized_lm =  ind_cases %>% full_join(
+        ind_sensorized_lm =  ind_target %>% full_join(
               joiner_df,
               on='time_value',
             ) %>%  group_by (
               geo_value,
               sensorize_date,
             ) %>% group_modify (
-              ~ broom::tidy(lm(cases_value ~ indicator_value, data = .x))
+              ~ broom::tidy(lm(target_value ~ indicator_value, data = .x))
             ) %>% ungroup
       } else {
-        ind_grouped_list =   ind_cases %>% full_join(
+        ind_grouped_list =   ind_target %>% full_join(
               joiner_df,
               on='time_value',
             ) %>%  group_by (
@@ -161,7 +174,7 @@ for (ind_idx in 1:length(source_names)) {
             ) %>% group_split
         ind_sensorized_lm = parallel::mclapply(ind_grouped_list, function(df) {
             broom::tidy(
-              lm(cases_value ~ indicator_value, data = df)
+              lm(target_value ~ indicator_value, data = df)
             ) %>% mutate (
               geo_value = unique(df$geo_value),
               sensorize_date = unique(df$sensorize_date),
@@ -181,14 +194,14 @@ for (ind_idx in 1:length(source_names)) {
             names_from=term,
             values_from=estimate,
           )
-      ind_cases_sensorized = ind_cases %>% inner_join (
+      ind_target_sensorized = ind_target %>% inner_join (
             ind_sensorized_wide,
             by=c('time_value'='sensorize_date',
                  'geo_value'),
           ) %>% mutate (
             sensorized_value = intercept + indicator_value * slope,
           )
-      df_sensorized = ind_cases_sensorized %>% transmute (
+      df_sensorized = ind_target_sensorized %>% transmute (
             geo_value=geo_value,
             signal='ind_sensorized',
             time_value=time_value,
@@ -203,7 +216,7 @@ for (ind_idx in 1:length(source_names)) {
       attributes(df_sensorized)$geo_type = 'county'
       class(df_sensorized) = c("covidcast_signal", "data.frame")
 
-      df_cor_sensorized_ind = covidcast_cor(df_sensorized, df_cases,
+      df_cor_sensorized_ind = covidcast_cor(df_sensorized, df_target,
                                            by='time_value', method='spearman')
       df_cor_sensorized_ind$Indicator = sprintf('Sensorized (TS, %d:%d)',
                                                sensorize_llim,
@@ -219,8 +232,9 @@ for (ind_idx in 1:length(source_names)) {
   df_cor = bind_rows(df_cor_base, sensorize_cors)
   plt = ggplot(df_cor, aes(x = time_value, y = value)) +
     geom_line(aes(color = Indicator)) +
-    labs(title = sprintf("Correlation between %s and cases",
-                         pretty_names[ind_idx]),
+    labs(title = sprintf("Correlation between %s and %s",
+                         pretty_names[ind_idx],
+                         target_names[ind_idx]),
          subtitle = "Per day",
          x = "Date", y = "Correlation") +
     theme(legend.position = "bottom")
