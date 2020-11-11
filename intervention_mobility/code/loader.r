@@ -24,28 +24,28 @@ load_covidcast_data <- function(STARTDATE, ENDDATE, GEO_TYPE, GEO_VALUE, EXCLUDE
   
   # The fraction of mobile devices that 
   # did not leave the immediate area of their home
-  completely_home_prop <- covidcast_signal(data_source = "safegraph", 
-                            signal ="completely_home_prop",
-                            start_day = STARTDATE, 
-                            end_day = ENDDATE,
-                            geo_type = GEO_TYPE, 
-                            geo_values = GEO_VALUE)
-  
-  completely_home_prop <- completely_home_prop %>%  
-    filter(!(geo_value %in% EXCLUDED_AREAS))
-  
-  
-  # The median time spent at home for all devices at this location 
-  # for this time period, in minutes
-  median_home_dwell_time <- covidcast_signal(data_source = "safegraph", 
-                                             signal ="median_home_dwell_time",
-                                             start_day = STARTDATE, 
-                                             end_day = ENDDATE,
-                                             geo_type = GEO_TYPE, 
-                                             geo_values = GEO_VALUE)
-  
-  median_home_dwell_time <- median_home_dwell_time %>%  
-    filter(!(geo_value %in% EXCLUDED_AREAS))
+  # completely_home_prop <- covidcast_signal(data_source = "safegraph", 
+  #                           signal ="completely_home_prop",
+  #                           start_day = STARTDATE, 
+  #                           end_day = ENDDATE,
+  #                           geo_type = GEO_TYPE, 
+  #                           geo_values = GEO_VALUE)
+  # 
+  # completely_home_prop <- completely_home_prop %>%  
+  #   filter(!(geo_value %in% EXCLUDED_AREAS))
+  # 
+  # 
+  # # The median time spent at home for all devices at this location 
+  # # for this time period, in minutes
+  # median_home_dwell_time <- covidcast_signal(data_source = "safegraph", 
+  #                                            signal ="median_home_dwell_time",
+  #                                            start_day = STARTDATE, 
+  #                                            end_day = ENDDATE,
+  #                                            geo_type = GEO_TYPE, 
+  #                                            geo_values = GEO_VALUE)
+  # 
+  # median_home_dwell_time <- median_home_dwell_time %>%  
+  #   filter(!(geo_value %in% EXCLUDED_AREAS))
   
   ############## New confirmed COVID19 cases ############
   
@@ -143,10 +143,8 @@ load_covidcast_data <- function(STARTDATE, ENDDATE, GEO_TYPE, GEO_VALUE, EXCLUDE
     stderr = NA,
     sample_size = NA,
     data_source = 'Weekly Patterns')
-  return(list(Full.Time.Mobility=ftime, 
-              Part.Time.Mobility=ptime,
-              completely_home_prop=completely_home_prop,
-              median_home_dwell_time = median_home_dwell_time,
+  return(list(full_time_work_prop=ftime, 
+              part_time_work_prop=ptime,
               Avg.Confirmed.Case.Count=case_avg,  
               Cum.Avg.Case.Count=cum_case, 
               Cum.Avg.Case.Count.Prop = cum_case_prop, 

@@ -1,0 +1,573 @@
+---
+title: "03_state_by_state_causal_effect_of_intervention"
+author: "Kenneth Lee"
+date: "10/11/2020"
+output:
+  html_document:
+    code_folding: hide
+    keep_md: yes
+    toc: yes
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
+---
+
+# Introduction
+
+In this notebook, our goal is to estimate the causal effect of different state policies on mobility signal in a state-level. 
+
+We will look at a number of states that have enforced the same type of policies, both mandatory and non-mandatory, and see if the effect of the same intervention may vary from state to state. The mobility signals are from [Delphi Epidata API](https://cmu-delphi.github.io/delphi-epidata/api/covidcast-signals/safegraph.html), which include ``full_time_work_prop``, ``part_time_work_prop``, ``completely_home_prop``, and ``median_home_dwell_time``.
+
+The policy data is from University of Washington's [State-level social distancing policies](https://github.com/COVID19StatePolicy/SocialDistancing) as we will use it in model building. For the definition of the policy, please refer to the [codebooks](https://github.com/COVID19StatePolicy/SocialDistancing/blob/master/codebooks/State%20COVID-19%20policy%20documentation%2C%20Fall%202020.pdf).
+
+Based on exploratory data analysis, there is a significant decrase in mobility signal during weekends, we will drop all the weekends in the data throughout this analysis. 
+
+```{r import packages, warning = FALSE, message = FALSE}
+library(ggplot2)
+library (readr)
+library(tidyverse)
+library(dplyr)
+library(covidcast)
+library(lubridate)
+library(ggpubr)
+library(reshape2)
+library(tidyr)
+library(viridis)
+library(gridExtra)
+library(zoo)
+library(cowplot)
+library(gplots)
+library(car)
+library(nortest)
+#library(MASS)
+
+source("code/painter.r")
+source("code/loader.r")
+source("code/parser.r")
+```
+
+```{r global-variables,  warning = FALSE, message=FALSE}
+STARTDATE <- "2019-01-01"
+ENDDATE <- lubridate::today()
+GEO_TYPE = "state" # state-level
+GEO_VALUE = "*" # all states
+EXCLUDED_AREAS = c("as","gu", "mp","vi", "pr") # excluded areas due to small sample size
+```
+
+```{r load data,  warning = FALSE, message=FALSE}
+# Full time away home mobility
+ftime <- covidcast_signal(data_source = "safegraph", 
+                            signal ="full_time_work_prop",
+                            start_day = STARTDATE, 
+                            end_day = ENDDATE,
+                            geo_type = GEO_TYPE, 
+                            geo_values = GEO_VALUE)
+# filter out a few states
+ftime <- ftime %>%  
+    filter(!(geo_value %in% EXCLUDED_AREAS))
+  
+
+# The fraction of mobile devices that did not leave the immediate area of their home (SafeGraph’s completely_home_device_count / device_count)
+chome <- covidcast_signal(data_source = "safegraph", 
+                            signal ="completely_home_prop",
+                            start_day = STARTDATE, 
+                            end_day = ENDDATE,
+                            geo_type = GEO_TYPE, 
+                            geo_values = GEO_VALUE)
+# filter out a few states
+chome <- chome %>%  
+    filter(!(geo_value %in% EXCLUDED_AREAS))
+
+
+# The median time spent at home for all devices at this location for this time period, in minutes
+mhome<- covidcast_signal(data_source = "safegraph", 
+                            signal ="median_home_dwell_time",
+                            start_day = STARTDATE, 
+                            end_day = ENDDATE,
+                            geo_type = GEO_TYPE, 
+                            geo_values = GEO_VALUE)
+
+# filter out a few states
+mhome <- mhome %>%  
+    filter(!(geo_value %in% EXCLUDED_AREAS))
+
+# Read government intervention data
+policy <- load_policy()
+```
+
+
+# Analysis
+
+We would like to look at policies that have been implemented by all the states: school closure, restaurant restriction, emergency declaration, and bar restriction. The full list of policies are listed below (please refer to the [codebooks](https://github.com/COVID19StatePolicy/SocialDistancing/blob/master/codebooks/State%20COVID-19%20policy%20documentation%2C%20Fall%202020.pdf) for detailed definitions):
+
+* ``EmergDec``: Emergency declaration; currently includes State of Emergency, Public Health Emergency, Public Health Disaster declarations, Civil Emergency declarations, and other permutations of state‐level declarations of emergency in response to COVID‐19.
+
+* ``SchoolClose``: Formal closing of (at minimum) public K‐12 schools. 
+
+* ``BarRestrict``: Restriction or limitation of bars, breweries,wineries, tasting rooms, and/or other venues where alcoholic beverages are consumed on‐premises and sales of on‐site alcohol consumption is the primary function of the venue (i.e., bars/bar areas contained within restaurants are coded within RestaurantRestrict, as are venues that may be called bars, pubs, etc. but have food licenses)
+
+* ``GathRestrict``: gathering restriction       
+
+* ``OtherBusinessClose``: Mandate to close or substantially reduce operations of any category of business that are not classified under restaurants or bars.
+
+* ``RestaurantRestrict`` : Restriction or limitation of restaurants and other venues where food is consumed on‐premises. Establishments where alcohol is served and may be called a bar or like venue but have a food license are coded within the RestaurantRestrict policy category as they are viewed as operating more like a restaurant than a bar.
+
+* ``CaseIsolation``: Policy that requires individuals with confirmed coronavirus infection (via testing) or suspected infection to self‐isolate for a specified period of time, or when they no longer test positive for infection.  
+
+* ``StayAtHome``: Policy instructing individuals to stay at home for all non‐essential activities. Coding a case as a stay‐at‐home order mandate requires the executive order to using phrasing indicative of a mandate (e.g., "must stay at home"); otherwise it is coded as 0 for the "Mandate" variable if it uses advisory phrasing.        
+
+* ``PublicMask``: Policy that recommends or requires individuals to wear masks or other mouth and nose coverings when they are outside their places of residence in the public.
+
+* ``Quarantine``: Quarantines mandated for people entering the state, requiring a period of self‐isolation. Quarantines may be imposed on all people entering the state, out‐of‐ state residents, or travelers from a particular state or city.
+
+* ``NEBusinessClose``: Mandate to close all non‐essential businesses. Coding a case as a closure order requires the executive order to use phrasing indicative of a mandate (e.g., "non‐essential businesses are required to close", "non‐essential businesses must cease
+operations by date"). 
+
+* ``TravelRestrictIntra``: Restrictions on travel within the state.
+
+* ``TravelRestrictEntry``: Travel restriction mandates that limit non‐residents from entering a given state.
+
+* ``SchoolMask``: Policy that involves requiring students to wear masks or other mouth and nose coverings while at school.   
+
+* ``TravelRestrictExit``: Policies which prohibit residents of a state from leaving the state.
+
+* ``BusinessMask``: Policy that involves requiring employees to wear masks or other mouth and nose coverings as part of business operations. 
+
+Then, we focus on a number of states, in which some of them enforce one of the policies as mandatory, and some of them implement the policy as a recommendation. 
+
+```{r intervention preprocessing}
+# We filter down to only state wide policy
+policy <- policy %>% 
+  filter(StateWide ==  1)
+```
+
+## Regression Discontinuty Design
+
+First, we look at the simplest regression discontinuty (RD) design by regressing mobility on time in different states.
+
+
+### School Closure
+
+```{r schoolMandate}
+# Look at where has enacted school close as a mandate
+mandate.states <- policy %>%
+  filter(StatePolicy=='SchoolClose' & Mandate==1) %>%
+  dplyr::select(StateName) %>%
+  arrange(StateName) %>%
+  unique %>%
+  as.list
+
+print("States that enact school closure policy as a mandate:") 
+print(mandate.states$StateName)
+
+# Look at where school close is enacted as a recommendation
+nonmandate.states <- policy %>%
+  filter(StatePolicy=='SchoolClose' & Mandate==0) %>%
+  dplyr::select(StateName) %>%
+  arrange(StateName) %>%
+  unique() %>%
+  as.list %>%
+  as.vector 
+
+print("States that enact school closure policy as a recommendation:") 
+print(nonmandate.states$StateName)
+
+# Check if any state has changed their school close from mandate to recommendation, or the other way around
+print("States that have changed the mandatory status of school closure")
+dplyr::intersect(nonmandate.states$StateName, 
+                 mandate.states$StateName)
+```
+
+#### California
+
+```{r ca-school, warning=FALSE, message=FALSE}
+plotRD(ftime,
+         policy,
+         "SchoolClose", 
+         "ca",
+         STARTDATE,
+         ENDDATE)
+```
+
+#### Tennessee
+```{r tn-school, warning=FALSE, message=FALSE}
+plotRD(ftime,
+         policy,
+         "SchoolClose", 
+         "tn",
+         STARTDATE,
+         ENDDATE)
+```
+
+#### New York
+
+```{r ny-school, warning=FALSE, message=FALSE}
+plotRD(ftime,
+         policy,
+         "SchoolClose", 
+         "ny",
+         STARTDATE,
+         ENDDATE)
+```
+
+#### Alabama
+
+```{r al-school, warning=FALSE, message=FALSE}
+plotRD(ftime,
+         policy,
+         "SchoolClose", 
+         "al",
+         STARTDATE,
+         ENDDATE)
+```
+
+#### All-in-one
+
+```{r allinone-schoolclose, warning=FALSE, message=FALSE, fig.height= 12, fig.width = 12}
+states <- unique(ftime$geo_value)
+
+plist <- list()
+count <- 1
+for(state in states){
+  p <- plotRD(ftime,
+         policy,
+         "SchoolClose", 
+         state,
+         STARTDATE,
+         ENDDATE,
+         plotMultiple = T)
+
+  plist[[count]] <- p
+  count = count + 1
+}
+
+n <- length(plist)
+nCol <- floor(sqrt(n))
+do.call("grid.arrange", c(plist, ncol=nCol))
+```
+
+### Emergency Declaration
+
+```{r emergDecMandate}
+# Look at where has enacted school close as a mandate
+mandate.states <- policy %>%
+  filter(StatePolicy=='EmergDec' & Mandate==1) %>%
+  dplyr::select(StateName) %>%
+  arrange(StateName) %>%
+  unique %>%
+  as.list
+
+print("States that enact emergency declaration policy as a mandate:") 
+print(mandate.states$StateName)
+
+
+# Look at where school close is enacted as a recommendation
+nonmandate.states <- policy %>%
+  filter(StatePolicy=='EmergDec' & Mandate==0) %>%
+  dplyr::select(StateName) %>%
+  arrange(StateName) %>%
+  unique() %>%
+  as.list %>%
+  as.vector 
+
+print("States that enact emergency declaration policy as a recommendation:") 
+print(nonmandate.states$StateName)
+
+# Check if any state has changed their school close from mandate to recommendation, or the other way around
+print("States that have changed the mandatory status of emergency declaration")
+dplyr::intersect(nonmandate.states$StateName, 
+                 mandate.states$StateName)
+```
+
+#### All-in-one
+
+```{r all-in-one-emergDec, warning=FALSE, message=FALSE, fig.height= 10, fig.width = 10}
+states <- unique(ftime$geo_value)
+
+plist <- list()
+count <- 1
+for(state in states){
+  p <- plotRD(ftime,
+         policy,
+         "EmergDec", 
+         state,
+         STARTDATE,
+         ENDDATE,
+         plotMultiple = T)
+
+  plist[[count]] <- p
+  count = count + 1
+}
+
+n <- length(plist)
+nCol <- floor(sqrt(n))
+do.call("grid.arrange", c(plist, ncol=nCol))
+```
+
+### Bar Restriction
+
+```{r barmandate}
+# Look at where has enacted school close as a mandate
+mandate.states <- policy %>%
+  filter(StatePolicy=='BarRestrict' & Mandate==1) %>%
+  dplyr::select(StateName) %>%
+  arrange(StateName) %>%
+  unique %>%
+  as.list
+
+print("States that enact bar restriction policy as a mandate:") 
+print(mandate.states$StateName)
+
+
+# Look at where school close is enacted as a recommendation
+nonmandate.states <- policy %>%
+  filter(StatePolicy=='BarRestrict' & Mandate==0) %>%
+  dplyr::select(StateName) %>%
+  arrange(StateName) %>%
+  unique() %>%
+  as.list %>%
+  as.vector 
+
+print("States that enact bar restriction policy as a recommendation:") 
+print(nonmandate.states$StateName)
+
+# Check if any state has changed their school close from mandate to recommendation, or the other way around
+print("States that have changed the mandatory status of bar restriction")
+dplyr::intersect(nonmandate.states$StateName, 
+                 mandate.states$StateName)
+```
+
+```{r all-in-one bar restriction, warning=FALSE, message=FALSE, fig.height= 12, fig.width = 12}
+states <- unique(ftime$geo_value)
+
+plist <- list()
+count <- 1
+for(state in states){
+  p <- plotRD(ftime,
+         policy,
+         "BarRestrict", 
+         state,
+         STARTDATE,
+         ENDDATE,
+         plotMultiple = T)
+
+  plist[[count]] <- p
+  count = count + 1
+}
+
+n <- length(plist)
+nCol <- floor(sqrt(n))
+do.call("grid.arrange", c(plist, ncol=nCol))
+```
+
+### Restaurant Restriction
+
+```{r resturantMandate}
+# Look at where has enacted school close as a mandate
+mandate.states <- policy %>%
+  filter(StatePolicy=='RestaurantRestrict' & Mandate==1) %>%
+  dplyr::select(StateName) %>%
+  arrange(StateName) %>%
+  unique %>%
+  as.list
+
+print("States that enact restaurant restriction policy as a mandate:") 
+print(mandate.states$StateName)
+
+
+# Look at where school close is enacted as a recommendation
+nonmandate.states <- policy %>%
+  filter(StatePolicy=='RestaurantRestrict' & Mandate==0) %>%
+  dplyr::select(StateName) %>%
+  arrange(StateName) %>%
+  unique() %>%
+  as.list %>%
+  as.vector 
+
+print("States that enact restaurant restriction policy as a recommendation:") 
+print(nonmandate.states$StateName)
+
+# Check if any state has changed their school close from mandate to recommendation, or the other way around
+print("States that have changed the mandatory status of restaurant restriction")
+dplyr::intersect(nonmandate.states$StateName, 
+                 mandate.states$StateName)
+```
+
+
+```{r all-in-one-restaurant, , warning=FALSE, message=FALSE, fig.height= 12, fig.width = 12}
+states <- unique(ftime$geo_value)
+
+plist <- list()
+count <- 1
+for(state in states){
+  p <- plotRD(ftime,
+         policy,
+         "RestaurantRestrict", 
+         state,
+         STARTDATE,
+         ENDDATE,
+         plotMultiple = T)
+
+  plist[[count]] <- p
+  count = count + 1
+}
+
+n <- length(plist)
+nCol <- floor(sqrt(n))
+do.call("grid.arrange", c(plist, ncol=nCol))
+```
+
+## Linear Regression 
+
+$$y = \beta_{0} + \beta_{1}t + \beta_{2}I_t + \beta_{3}tI_t$$
+
+### Full-time-work-prop
+
+
+#### Emergency Declaration
+
+```{r lr-full-time-work-prop-emergDec}
+# compute the number of policies and rolling mean of the number
+# for each day between start and end dates
+for(state in states){
+  print(state)
+  print("---------------------")
+  ftime.state <- ftime %>% filter(geo_value == state)
+  policy.state <- policy %>% filter(StatePostal == state)
+  policy_signal.state <- getSumOfPolicy(policy.state, STARTDATE, ENDDATE)
+  # left join mobility with policy signal by time 
+  ftime.policy.df <- left_join(ftime.state , policy_signal.state, by = "time_value")
+  lm.fit <- lm(value~time_value*EmergDec,data=ftime.policy.df)
+  print(summary(lm.fit))
+}
+```
+
+#### School Closure
+
+```{r lr-full-time-work-prop-schoolClose}
+# compute the number of policies and rolling mean of the number
+# for each day between start and end dates
+for(state in states){
+  print(state)
+  print("---------------------")
+  ftime.state <- ftime %>% filter(geo_value == state)
+  policy.state <- policy %>% filter(StatePostal == state)
+  policy_signal.state <- getSumOfPolicy(policy.state, STARTDATE, ENDDATE)
+  # left join mobility with policy signal by time 
+  ftime.policy.df <- left_join(ftime.state , policy_signal.state, by = "time_value")
+  lm.fit <- lm(value~time_value*SchoolClose,data=ftime.policy.df)
+  print(summary(lm.fit))
+}
+```
+
+#### Bar Restriction
+
+```{r lr-full-time-work-prop-barRestrict}
+# compute the number of policies and rolling mean of the number
+# for each day between start and end dates
+for(state in states){
+  print(state)
+  print("---------------------")
+  ftime.state <- ftime %>% filter(geo_value == state)
+  policy.state <- policy %>% filter(StatePostal == state)
+  policy_signal.state <- getSumOfPolicy(policy.state, STARTDATE, ENDDATE)
+  # left join mobility with policy signal by time 
+  ftime.policy.df <- left_join(ftime.state , policy_signal.state, by = "time_value")
+  lm.fit <- lm(value~time_value*BarRestrict,data=ftime.policy.df)
+  print(summary(lm.fit))
+}
+```
+
+#### Restaurant Restriction
+
+```{r lr-full-time-work-prop-RestaurantRestrict}
+# compute the number of policies and rolling mean of the number
+# for each day between start and end dates
+for(state in states){
+  print(state)
+  print("---------------------")
+  ftime.state <- ftime %>% filter(geo_value == state)
+  policy.state <- policy %>% filter(StatePostal == state)
+  policy_signal.state <- getSumOfPolicy(policy.state, STARTDATE, ENDDATE)
+  # left join mobility with policy signal by time 
+  ftime.policy.df <- left_join(ftime.state , policy_signal.state, by = "time_value")
+  lm.fit <- lm(value~time_value*RestaurantRestrict,data=ftime.policy.df)
+  print(summary(lm.fit))
+}
+```
+
+### Completely staying at home
+
+#### Emergency Declaration
+
+```{r chome-lr-emergDec}
+# The fraction of mobile devices that did not leave the immediate area of their home (SafeGraph’s completely_home_device_count / device_count)
+for(state in states){
+  print(state)
+  print("---------------------")
+  chome.state <- chome %>% filter(geo_value == state)
+  policy.state <- policy %>% filter(StatePostal == state)
+  policy_signal.state <- getSumOfPolicy(policy.state, STARTDATE, ENDDATE)
+  # left join mobility with policy signal by time 
+  ftime.policy.df <- left_join(chome.state , policy_signal.state, by = "time_value")
+  lm.fit <- lm(value~time_value*EmergDec,data=ftime.policy.df)
+  print(summary(lm.fit))
+  }
+```
+
+#### School Closure
+
+```{r chome-lr-schoolclose}
+# The fraction of mobile devices that did not leave the immediate area of their home (SafeGraph’s completely_home_device_count / device_count)
+for(state in states){
+  print(state)
+  print("---------------------")
+  chome.state <- chome %>% filter(geo_value == state)
+  policy.state <- policy %>% filter(StatePostal == state)
+  policy_signal.state <- getSumOfPolicy(policy.state, STARTDATE, ENDDATE)
+  # left join mobility with policy signal by time 
+  ftime.policy.df <- left_join(chome.state , policy_signal.state, by = "time_value")
+  lm.fit <- lm(value~time_value*SchoolClose,data=ftime.policy.df)
+  print(summary(lm.fit))
+}
+```
+
+#### Bar Restriction
+
+```{r chome-lr-barRestrict}
+# The fraction of mobile devices that did not leave the immediate area of their home (SafeGraph’s completely_home_device_count / device_count)
+for(state in states){
+  print(state)
+  print("---------------------")
+  chome.state <- chome %>% filter(geo_value == state)
+  policy.state <- policy %>% filter(StatePostal == state)
+  policy_signal.state <- getSumOfPolicy(policy.state, STARTDATE, ENDDATE)
+  # left join mobility with policy signal by time 
+  ftime.policy.df <- left_join(chome.state , policy_signal.state, by = "time_value")
+  lm.fit <- lm(value~time_value*BarRestrict,data=ftime.policy.df)
+  print(summary(lm.fit))
+  }
+```
+
+
+#### Restaurant Restriction
+
+```{r chome-lr-restaurantRestrict}
+# The fraction of mobile devices that did not leave the immediate area of their home (SafeGraph’s completely_home_device_count / device_count)
+for(state in states){
+  print(state)
+  print("---------------------")
+  chome.state <- chome %>% filter(geo_value == state)
+  policy.state <- policy %>% filter(StatePostal == state)
+  policy_signal.state <- getSumOfPolicy(policy.state, STARTDATE, ENDDATE)
+  # left join mobility with policy signal by time 
+  ftime.policy.df <- left_join(chome.state , policy_signal.state, by = "time_value")
+  lm.fit <- lm(value~time_value*RestaurantRestrict,data=ftime.policy.df)
+  print(summary(lm.fit))
+}
+```
+
+
+## Non-parametric Regression
+
+# Conclusion

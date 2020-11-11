@@ -5,10 +5,11 @@ date: "10/09/2020"
 output:
   html_document:
     code_folding: hide
-    toc: true
+    keep_md: yes
+    toc: yes
     toc_float:
-      collapsed: True
-      smooth_scroll: True
+      collapsed: yes
+      smooth_scroll: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -79,10 +80,10 @@ data <- load_covidcast_data(STARTDATE, ENDDATE, GEO_TYPE, GEO_VALUE, EXCLUDED_AR
 # The fraction of mobile devices that spent more than 6 hours at a 
 # location other than their home during the daytime 
 # (SafeGraph’s full_time_work_behavior_devices / device_count)
-ftime <- data$Full.Time.Mobility
+ftime <- data[["full_time_work_prop"]]
 
 #The fraction of devices that spent between 3 and 6 hours at a location other than their home during the daytime (SafeGraph’s part_time_work_behavior_devices / device_count)
-ptime <-data$Part.Time.Mobility
+ptime <-data[["part_time_work_prop"]]
 
 ############## New confirmed COVID19 cases ############
 
@@ -502,25 +503,46 @@ We may want to construct a simple signal to represent state-wide government inte
 
 policy_signal <- getSumOfPolicy(policy, STARTDATE, ENDDATE)
 
-covidcast.like.policy.signal <- get7daysRowSumPolicy(policy_signal)
+covidcast.like.policy.signal <- transformToCovidcastLike(policy_signal)
 
 # Pearson correlation between the number of policies and mobility across states
-pearson_policy <- getCorrByShift(150, covidcast.like.policy.signal, data$Full.Time.Mobility, "pearson", "geo_value")
+pearson_policy <- getCorrByShift(150, 
+                                 covidcast.like.policy.signal,
+                                 data[["full_time_work_prop"]], 
+                                 "pearson", 
+                                 "geo_value")
 
 pearson_policy_med <-  getMedian(pearson_policy)
 
 # plot the graph
-p <- ggplot(pearson_policy_med , aes(x = dt, y = median)) + geom_line() + geom_point() + labs(title = "Median Pearson correlation between the 7-day rolling average of policies and future mobility", x = "Shift", y = "Correlation") +
+p <- ggplot(pearson_policy_med , 
+            aes(x = dt, 
+                y = median)) + 
+  geom_line() + 
+  geom_point() + 
+  labs(title = "Median Pearson correlation between the 7-day rolling average of policies and future mobility", 
+       x = "Shift", 
+       y = "Correlation") +
   theme(legend.title = element_blank())
 
 p
 
 # Spearman correlation between the number of policies and mobility across states
-spearman_policy <- getCorrByShift(150, covidcast.like.policy.signal,data$Full.Time.Mobility, "spearman", "geo_value")
+spearman_policy <- getCorrByShift(150, 
+                                  covidcast.like.policy.signal,
+                                  data[["full_time_work_prop"]], 
+                                  "spearman", 
+                                  "geo_value")
 
 spearman_policy_med <-  getMedian(spearman_policy)
 
-s<- ggplot(spearman_policy_med, aes(x = dt, y = median)) + geom_line() + geom_point() + labs(title = "Median rank correlation between the 7-day rolling average of policies and mobility", x = "Shift", y = "Correlation") +
+s<- ggplot(spearman_policy_med, 
+           aes(x = dt, y = median)) + 
+  geom_line() + 
+  geom_point() + 
+  labs(title = "Median rank correlation between the 7-day rolling average of policies and mobility", 
+       x = "Shift", 
+       y = "Correlation") +
   theme(legend.title = element_blank())
 s
 ```
@@ -536,16 +558,24 @@ idx <- seq(50,125,25)
 count <- 1
 
 for (i in idx){
-  policy.mobility.cor <- covidcast_cor(covidcast.like.policy.signal, data$Full.Time.Mobility, by = "geo_value", dt_x= i, method = "spearman")
+  policy.mobility.cor <- covidcast_cor(covidcast.like.policy.signal,
+                                       data[["full_time_work_prop"]], 
+                                       by = "geo_value", 
+                                       dt_x= i, 
+                                       method = "spearman")
 
   policy.mobility.cor$time_value = STARTDATE
   policy.mobility.cor$issue = STARTDATE
   attributes(policy.mobility.cor)$geo_type = "state"
   class(policy.mobility.cor) = c("covidcast_signal", "data.frame")
 
-# Plot choropleth maps, using the covidcast plotting functionality
-ls[[count]]  <-plot(policy.mobility.cor, title = sprintf("%s-day shifted num of policies and mobility", i), range = c(-1, 1), choro_col = cm.colors(10), alpha = 0.4)
-count <- count + 1
+  # Plot choropleth maps, using the covidcast plotting functionality
+  ls[[count]]  <-plot(policy.mobility.cor, 
+                      title = sprintf("%s-day shifted num of policies and mobility", i), 
+                      range = c(-1, 1), 
+                      choro_col = cm.colors(10), 
+                      alpha = 0.4)
+  count <- count + 1
 }
 
 # Plot all graphs

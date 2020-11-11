@@ -23,15 +23,15 @@ Mobility trends: Historically, did mobility patterns change as a result of gover
 
   * Bayesian time-series structural model named [Causallmpact](http://google.github.io/CausalImpact/CausalImpact.html) from Google (synthetic control method) [See Reference #2](#reference)
 
-* Blog post coupled with R Shiny interactive plots
-
 ## File Directory Description
 
 * `/data/`: this folder stores all data files.
 
 * `/code/`: this folder contains all the codes.
 
-* `/notebooks/`: this folder contains the main report in HTML produced by R Markdown.
+* `/html/`: this folder contains the main reports in HTML produced by R Markdown.
+
+* `/reports/`:this folder contains the main reports in Markdown format.
 
 ## Data sources
 
@@ -65,7 +65,7 @@ Mobility trends: Historically, did mobility patterns change as a result of gover
 
 * County-level:
 
-  * [Coronavirus City and County Non-Pharmaceutical intervention roll date dataset (Keystone)](https://www.keystonestrategy.com/coronavirus-covid19-intervention-dataset-model/)
+  * [Coronavirus City and County Non-Pharmaceutical intervention roll date dataset (Keystone)](https://www.keystonestrategy.com/coronavirus-covid19-intervention-dataset-model/) 
   
   * [Help Predict COVID-19’s Spread in Your Community (Stanford)](https://socialdistancing.stanford.edu/)
   

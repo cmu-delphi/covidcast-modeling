@@ -47,9 +47,9 @@ shiftDays <- function(filtered.df, original.df, shifted.days, columns.vec){
 }
 
 
-####################### getRowSumPolicy() ###############
+####################### getSumOfPolicy() ###############
 # Transform the policy data into another dataframe that counts
-# number of policy for each day 
+# number of policy for each day and computer 7-day rolling average
 
 getSumOfPolicy<- function(policy, STARTDATE, ENDDATE){
   
@@ -110,23 +110,22 @@ getSumOfPolicy<- function(policy, STARTDATE, ENDDATE){
   # Compute the sum of the number of policies for every day in the state
   policy_signal$total.num.policy <- rowSums(policy_signal[unique(policy$StatePolicy)])
   
-  return(policy_signal)
-}
-
-
-####################### get7daysRowSumPolicy() ###############
-# Transform the policy data with the number of policy for each data
-# into another dataframe that computes the 7-day rolling average
-# number of policy for each day 
-
-get7daysRowSumPolicy <- function(policy_signal){
-  
   # Compute the average on a 7day sliding window
   policy_signal <-policy_signal %>%
     arrange(desc(geo_value)) %>% 
     group_by(geo_value) %>% 
     mutate(num.policy.7avg = rollmean(total.num.policy, k = 7, fill = NA))%>%
     ungroup()
+  
+  return(policy_signal)
+}
+
+
+####################### get7daysRowSumPolicy() ###############
+# Transform the policy data with the number of policy for each data
+# into another dataframe that has covidcast dataframe format
+
+transformToCovidcastLike <- function(policy_signal){
   
   # Finalize the covidcast-like signal for governemnt intervention
   covidcast.like.policy.signal <- policy_signal %>% transmute(
@@ -142,22 +141,6 @@ get7daysRowSumPolicy <- function(policy_signal){
     data_source = 'University of Washington')
   
   return(covidcast.like.policy.signal)
-}
-
-
-################### getCovidcastLikePolicySignal() #################
-# A wrapper to load the policy data and transform the data at the 
-# same time
-
-getCovidcastLikePolicySignal <- function(STARTDATE, ENDDATE){
-  
-  # load the policy data
-  policy <- load_policy()
-  
-  # Transform the policy data into a covidcast like signal dataframe
-  policy_signal <- getSumOfPolicy(policy, STARTDATE, ENDDATE)
-  
-  return(policy_signal)
 }
 
 
@@ -286,8 +269,28 @@ getFirstDayOfIntervention <- function(intervention,
   # 2. Get the row index that corresponds to the days that policy is enacted
   rowIdx <- policy.valid.time[,colIdx]==1
   # 3. Get the first day 
-  intervention.first.day <-policy.valid.time[rowIdx, "time_value"][1]
+  intervention.first.day <-policy.valid.time[rowIdx, "time_value"]
   
-  return(intervention.first.day)
+  firstday <- as.data.frame(intervention.first.day)[1,1]
+  
+  return(firstday)
 }
 
+
+################### getCovidcastLikePolicySignal() #################
+# A wrapper to load the policy data and transform the data at the 
+# same time
+
+getCovidcastLikePolicySignal <- function(STARTDATE, ENDDATE){
+  
+  # load the policy data
+  policy <- load_policy()
+  
+  # Compute number of policy and 7-day rolling average
+  policy_signal <- getSumOfPolicy(policy, STARTDATE, ENDDATE)
+  
+  # Transform the policy data into a covidcast like signal dataframe
+  policy_signal <-transformToCovidcastLike(policy_signal)
+  
+  return(policy_signal)
+}

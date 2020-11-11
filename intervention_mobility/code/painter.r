@@ -57,8 +57,97 @@ plotInterventionTime <-function(intervention_mobility_case,
     ggplot(aes_string(x = "time_value", y = mobility.name)) + 
     geom_point() +
     geom_vline(xintercept = intervention.first.day) + 
-    labs(y = "Full time away home signal", 
-         x = "time-value")
+    labs(y = ylab, 
+         x = xlab)
   
 }
 
+################## plotRD () ############################
+# a helper function to draw the regression discontinuty design
+# arguments:
+
+# mobility.df(data.frame): a covidcast like signal dataframe with single
+#                           mobiility signal
+
+# policy.df (data.frame): a policy dataframe that output by load_policy()
+
+# policyName(character): the name of the policy you are looking at
+
+# stateName(character): the name of the state postal, e.g. "ca"
+
+# STARTDATE(date): the start date to filter the policy dataframe
+
+# ENDDATE(date): the start date to filter the policy dataframe
+
+plotRD <- function(mobility.df,
+                   policy.df,
+                   policyName,
+                   stateName,
+                   STARTDATE,
+                   ENDDATE,
+                   plotMultiple=F){
+  
+  # filter mobility by the specified state
+  mobility.df <- mobility.df %>% filter(geo_value == stateName)
+  
+  # Get the mobility signal name
+  mobilityName <- unique(mobility.df$signal)
+  
+  # filter the policy data
+  policy.df <- policy.df %>% filter(StatePostal == stateName)
+  
+  # compute the number of policies and rolling mean of the number
+  # for each day between start and end dates
+  policy_signal <- getSumOfPolicy(policy.df, STARTDATE, ENDDATE)
+  
+  # left join mobility with policy signal by time 
+  df <- left_join(mobility.df, policy_signal, by = "time_value")
+  
+  # drop all the weekends in the data
+  df.noweekend <- df %>% 
+    mutate(weekday= weekdays(as.Date(time_value)))%>% 
+    filter(!weekday %in% c("Saturday", "Sunday")) 
+  
+  # filter the dataframe
+  filtered.df <- df.noweekend[,c("time_value","value", policyName)]
+  
+  if(plotMultiple){
+    # Plot the RD 
+    p <- filtered.df %>% 
+      mutate(intervention= as.factor(eval(parse(text=policyName)))) %>% 
+      ggplot(aes(x = time_value, 
+                 y = value, 
+                 color = intervention)) +
+      geom_point() + 
+      geom_smooth(method = "lm")+
+      labs(title = paste(toupper(stateName)))+ 
+      theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        legend.position = "none")
+    
+  }else{
+
+    # Plot the RD 
+    p <- filtered.df %>% 
+      mutate(intervention= as.factor(eval(parse(text=policyName)))) %>% 
+      ggplot(aes(x = time_value, y = value, color = intervention)) +
+      geom_point() + 
+      geom_smooth(method = "lm")+
+      labs(title = paste(" Mobility ~ time (", 
+                         stateName,
+                         ")",
+                         ",", 
+                         policyName), 
+           x = "Time", 
+           y =  mobilityName)
+    
+  }
+
+  
+  return(p)
+  
+}
