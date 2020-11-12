@@ -1,0 +1,309 @@
+---
+title: "Indicator Heterogeneity I: November 12th Report"
+author: "Addison"
+output:
+  html_document:
+    toc: true
+    code_folding: hide
+---
+```{r import_statements, message = FALSE}
+knitr::opts_chunk$set(message=FALSE, warning=FALSE) 
+library(tidyverse)
+library(covidcast)
+```
+
+```{r data_setup, echo = TRUE}
+# Fetch the following sources and signals from the API 
+# TODO: Add Google Symptoms "eventually"
+source_names = c("doctor-visits", "fb-survey", "fb-survey", "hospital-admissions")
+signal_names = c("smoothed_adj_cli", "smoothed_cli", "smoothed_hh_cmnty_cli", 
+            "smoothed_adj_covid19")
+pretty_names = c("Doctor visits", "Facebook CLI", "Facebook CLI-in-community", 
+          "Hospitalizations")
+target_names = c("Cases", "Cases", "Cases", "Deaths")
+geo_level = "county"
+
+start_day = "2020-04-15"
+end_day = NULL
+cache_fname = 'cached_data/03_heterogeneity_core_indicators.RDS'
+
+if (!file.exists(cache_fname)) {
+  df_signals = vector("list", length(signal_names))
+  for (i in 1:length(signal_names)) {
+    df_signals[[i]] = suppressWarnings(
+                        covidcast_signal(source_names[i], signal_names[i],
+                                         start_day, end_day,
+                                         geo_type=geo_level))
+  }
+
+  # Fetch USAFacts confirmed case incidence proportion (smoothed with 7-day 
+  # trailing average)
+  df_cases = suppressWarnings(
+              covidcast_signal("usa-facts", "confirmed_7dav_incidence_prop",
+                              start_day, end_day,
+                              geo_type=geo_level))
+
+  df_deaths = suppressWarnings(
+              covidcast_signal("usa-facts", "deaths_7dav_incidence_prop",
+                              start_day, end_day,
+                              geo_type=geo_level))
+
+  case_num = 500
+  geo_values = suppressWarnings(covidcast_signal("usa-facts", "confirmed_cumulative_num",
+                                max(df_cases$time_value), 
+                                max(df_cases$time_value))) %>%
+    filter(value >= case_num) %>% pull(geo_value)
+  saveRDS(list(df_signals, df_cases, df_deaths), cache_fname)
+} else {
+  cached_data = readRDS(cache_fname)
+  df_signals = cached_data[[1]]
+  df_cases = cached_data[[2]]
+  df_deaths = cached_data[[3]]
+}
+```
+
+```{r helper_functions, echo = TRUE}
+plot_points = function(plt) {
+  plt + geom_point(
+    aes(
+      x=indicator_value,
+      y=target_value,
+      color=time_value,
+    ),
+    alpha=ALPHA,
+  ) + scale_colour_viridis_c(
+    trans='date',
+  ) + facet_wrap (
+    vars(county_name_fips),
+    nrow=nr,
+    scales='free',
+  )
+}
+```
+
+# Introduction
+TODO
+
+## What is heterogeneity?
+TODO
+
+## Motivating examples
+
+```{r build_example_plots, echo = TRUE}
+dv = tibble(df_signals[[1]])
+cases = tibble(df_cases)
+county_tibble = covidcast::county_geo %>% transmute (
+      geo_value = fips,
+      county_name=county,
+      state=abbr,
+      county_name_fips = sprintf('FIPS: %s\n%s, %s',
+                                 geo_value, county_name, state),
+    )
+dv_cases = inner_join(df_signals[[1]], cases, by=c('geo_value', 'time_value')) %>% select (
+      geo_value=geo_value,
+      time_value=time_value,
+      indicator_value=value.x,
+      target_value=value.y,
+    ) %>% inner_join (
+			county_tibble,
+			on='geo_value',
+    ) %>% tibble
+
+
+MARICOPA_AZ = '04013'
+FRANKLIN_OH = '39049'
+FULTON_IL   = '17057'
+NATRONA_WY  = '56025'
+BROWN_SD    = '46013'
+
+TEMP_HET = MARICOPA_AZ
+SPAT_HET = c(FRANKLIN_OH,
+#             NATRONA_WY,
+             BROWN_SD)
+
+
+plt_temporal_heterogeneity = dv_cases %>% filter (
+      geo_value == TEMP_HET,
+    ) %>% ggplot(
+    ) + geom_point(
+      shape=21,
+      colour='black',
+      aes(
+        x=indicator_value,
+        y=target_value,
+        fill=time_value,
+      ),
+    ) + scale_fill_viridis_c(
+      trans='date',
+    ) + xlab (
+      "Doctor visits"
+    ) + ylab (
+      "Cases per 100k"
+    ) + ggtitle (
+      "Temporal heterogenenity (Maricopa County, AZ)"
+    ) + theme(legend.position = "bottom"
+    )
+
+plt_spatial_heterogeneity = dv_cases %>% filter (
+      geo_value %in% SPAT_HET
+    ) %>% ggplot(
+    ) + geom_point(
+      shape=21,
+      colour='black',
+      aes(
+        x=indicator_value,
+        y=target_value,
+        #fill=geo_value,
+        fill=county_name_fips,
+      ),
+    ) + xlab (
+      "Doctor visits"
+    ) + ylab (
+      "Cases per 100k"
+    ) + ggtitle (
+      "Spatial heterogeneity"
+    ) + theme(legend.position = "bottom"
+    )
+
+```
+
+```{r render_example_plots, echo = TRUE, fig.width=10, fig.height=5}
+gridExtra::grid.arrange(
+                        plt_spatial_heterogeneity,
+                        plt_temporal_heterogeneity,
+                        ncol=2)
+
+```
+
+TODO
+
+
+# Methods
+
+First, we fix notation.  Assume an indicator and target (e.g., doctors visits
+and case rate), which we suppress notationally for brevity.  Each observation
+is then represented as $(x_{t\ell}, y_{t\ell})$, where $x$ is the indicator
+value, $y$ is the target value, $t$ represents time (measured in dates),
+and $\ell$ represents location.  Let $L$ denote the set of all valid locations,
+e.g., all counties.  Let $x_{t\cdot}$ denote all the $x_{t\ell}$ collected
+across locations in $L$, and similarly for $y_{t\cdot}$.  Let
+$x_{t_1:t_2, \ell}$, $y_{t_1:t_2, \ell}$ denote the observations that fall
+within times $t_1, t_2$, endpoints included.  Finally, let $x, y$
+be the collection of all observations across time and location.
+
+In the classical, unsensorized approach, we take the $x_{t\ell}$ and
+hope that they give some indication of the intensity of $y_{t\ell}$, e.g.,
+we may compute the Spearman correlation between $x_{t\cdot}$ and
+$y_{t\cdot}$ for each $t$:
+
+```{r plot_example_correlation, echo = TRUE}
+ind_idx=1
+base_cor_fname = sprintf('results/03_base_cors_%s_%s.RDS',
+                          source_names[ind_idx], signal_names[ind_idx])
+df_cor_base = readRDS(base_cor_fname) %>% filter (
+      Indicator == 'Raw'
+    )
+
+plt = ggplot(df_cor_base, aes(x = time_value, y = value)) +
+  geom_line(
+            #aes(color = Indicator)
+            ) +
+  labs(title = sprintf("Correlation between %s and %s",
+                       pretty_names[ind_idx],
+                       target_names[ind_idx]),
+       subtitle = "Per day",
+       x = "Date", y = "Correlation") +
+  theme(legend.position = "bottom")
+print(plt)
+```
+
+For some reason, $x$ by itself is "not great" at giving us a sense
+of how $y$ is doing.  The idea behind _sensorization_ is to replace
+$x$ with $\tilde x$ which does better.  We do this by learning specific
+relationships between $x$ and $y$ for each location and time window
+and using these relationships to "correct" x into $\tilde x$.
+
+## Spatial-only sensorization
+
+In the basic, spatial-only form of sensorization (as computed in Aaron's
+notebook), we ignore the possibility of temporal heterogeneity and learn
+a single linear relationship between the indicator and target for
+each location.  Specifically, we learn, for each $\ell \in L$
+$$
+y_{\cdot\ell} \sim x_{\cdot\ell} \qquad\Rightarrow \mathrm{Model}(\ell)
+$$
+and obtain the sensorized indicator values
+$$
+\tilde x_{t\ell} = \texttt{predict}(x_{t\ell}, \mathrm{Model}(\ell)) = \hat y_{t\ell}.
+$$
+Note, importantly, that the sensorized $\tilde x$ is no longer on the same
+scale as the original indicator $x$.
+
+## Temporal and spatial sensorization (TS)
+
+Let $k$ denote the number of days into the past we wish to examine data
+when fitting our model.  (Smaller $k$ is "more adaptive" to temporal
+heterogeneity, but may also lead to less stable fits).
+
+We fit, for each $t, \ell$:
+$$
+y_{(t-k):t, \ell} \sim x_{(t-k):t, \ell} \qquad\Rightarrow \mathrm{Model}(\ell, t, k)
+$$
+and obtain the sensorized indicator values
+$$
+\tilde x_{t\ell} = \texttt{predict}(x_{t\ell}, \mathrm{Model}(\ell, t, k))
+$$
+We fit a linear model for each location and day, and then take the prediction
+for that day.  (Huge number of models to fit, but embarrassingly
+parallelizable).
+
+## Temporal and spatial sensorization, accounting for delay (TS Delayed)
+TODO
+
+
+# Results
+TODO
+
+```{r train_correlations, echo = TRUE, fig.width=10, fig.height=5}
+sensorize_time_ranges = list(
+      c(-7, 0),
+      c(-10, 0),
+      c(-14, 0),
+      c(-21, 0))
+
+for (ind_idx in 1:length(source_names)) {
+  base_cor_fname = sprintf('results/03_base_cors_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+  df_cor_base = readRDS(base_cor_fname)
+  sensorize_fname = sprintf('results/03_sensorize_cors_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+  sensorize_cors = readRDS(sensorize_fname)
+
+  df_cor = bind_rows(df_cor_base, sensorize_cors)
+  df_cor$Indicator = factor(df_cor$Indicator,
+                            levels=c('Raw',
+                                     'Sensorized (Spatial)',
+                                     sapply(sensorize_time_ranges,
+                                            function(x) {
+                                              sprintf('Sensorized (TS, %d:%d)',
+                                                      x[[1]], x[[2]])
+                                            })))
+
+  plt = ggplot(df_cor, aes(x = time_value, y = value)) +
+    geom_line(aes(color = Indicator)) +
+    labs(title = sprintf("Correlation between %s and %s",
+                         pretty_names[ind_idx],
+                         target_names[ind_idx]),
+         subtitle = "Per day",
+         x = "Date", y = "Correlation") +
+    theme(legend.position = "bottom")
+  print(plt)
+}
+```
+
+# Discussion & next steps
+TODO
+
+## TS Delayed model
+
+## Quantifying degree of heterogeneity
