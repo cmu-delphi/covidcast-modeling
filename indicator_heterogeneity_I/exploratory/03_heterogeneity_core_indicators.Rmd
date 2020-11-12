@@ -75,10 +75,10 @@ if (!file.exists(cache_fname)) {
 
 ```{r train_correlations, echo = TRUE}
 sensorize_time_ranges = list(
-      c(-7, 0),
-      c(-10, 0),
-      c(-14, 0),
-      c(-21, 0))
+      c(-7, -1),
+      c(-10, -1),
+      c(-14, -1),
+      c(-21, -1))
 
 # TODO: Add more "core indicators"
 
