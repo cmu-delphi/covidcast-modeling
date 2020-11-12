@@ -123,14 +123,22 @@ for (ind_idx in 1:length(source_names)) {
 	attributes(df_global_sensorized)$metadata$geo_type = 'county'
 	class(df_global_sensorized) = c("covidcast_signal", "data.frame")
 
-	df_cor_base_ind = covidcast_cor(df_signals[[ind_idx]], df_target,
-																 by='time_value', method='spearman')
-	df_cor_sensorized_ind = covidcast_cor(df_global_sensorized, df_target,
-																			 by='time_value', method='spearman')
-	df_cor_base = rbind(df_cor_base_ind, df_cor_sensorized_ind)
-	df_cor_base$Indicator = as.factor(c(rep('Raw', nrow(df_cor_base_ind)),
-																      rep('Sensorized (Spatial)',
-                                          nrow(df_cor_sensorized_ind))))
+  base_cor_fname = sprintf('results/03_base_cors_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+  if (!file.exists(base_cor_fname)) {
+    df_cor_base_ind = covidcast_cor(df_signals[[ind_idx]], df_target,
+                                   by='time_value', method='spearman')
+    df_cor_sensorized_ind = covidcast_cor(df_global_sensorized, df_target,
+                                         by='time_value', method='spearman')
+    df_cor_base = rbind(df_cor_base_ind, df_cor_sensorized_ind)
+    df_cor_base$Indicator = as.factor(c(rep('Raw', nrow(df_cor_base_ind)),
+                                        rep('Sensorized (Spatial)',
+                                            nrow(df_cor_sensorized_ind))))
+    saveRDS(df_cor_base, base_cor_fname)
+  } else {
+    df_cor_base = readRDS(base_cor_fname)
+  }
+
 
 
   sensorize_fname = sprintf('results/03_sensorize_cors_%s_%s.RDS',
@@ -231,6 +239,15 @@ for (ind_idx in 1:length(source_names)) {
   }
 
   df_cor = bind_rows(df_cor_base, sensorize_cors)
+  df_cor$Indicator = factor(df_cor$Indicator,
+                            levels=c('Raw',
+                                     'Sensorized (Spatial)',
+                                     sapply(sensorize_time_ranges,
+                                            function(x) {
+                                              sprintf('Sensorized (TS, %d:%d)',
+                                                      x[[1]], x[[2]])
+                                            })))
+
   plt = ggplot(df_cor, aes(x = time_value, y = value)) +
     geom_line(aes(color = Indicator)) +
     labs(title = sprintf("Correlation between %s and %s",
