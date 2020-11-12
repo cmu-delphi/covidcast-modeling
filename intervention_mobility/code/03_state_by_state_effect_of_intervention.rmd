@@ -1,5 +1,5 @@
 ---
-title: "03_state_by_state_causal_effect_of_intervention"
+title: "Estimating the causal effect of interventions in a state-level"
 author: "Kenneth Lee"
 date: "10/11/2020"
 output:
@@ -39,6 +39,7 @@ library(cowplot)
 library(gplots)
 library(car)
 library(nortest)
+library(mgcv)
 #library(MASS)
 
 source("code/painter.r")
@@ -141,7 +142,7 @@ policy <- policy %>%
   filter(StateWide ==  1)
 ```
 
-## Regression Discontinuty Design
+## Regression Discontinuity Design
 
 First, we look at the simplest regression discontinuty (RD) design by regressing mobility on time in different states.
 
@@ -437,6 +438,12 @@ for(state in states){
   policy_signal.state <- getSumOfPolicy(policy.state, STARTDATE, ENDDATE)
   # left join mobility with policy signal by time 
   ftime.policy.df <- left_join(ftime.state , policy_signal.state, by = "time_value")
+  
+  # Filter weekend effects
+  ftime.policy.df<- ftime.policy.df %>% 
+    mutate(weekday= weekdays(as.Date(time_value)))%>% 
+    filter(!weekday %in% c("Saturday", "Sunday")) 
+  
   lm.fit <- lm(value~time_value*EmergDec,data=ftime.policy.df)
   print(summary(lm.fit))
 }
@@ -455,6 +462,12 @@ for(state in states){
   policy_signal.state <- getSumOfPolicy(policy.state, STARTDATE, ENDDATE)
   # left join mobility with policy signal by time 
   ftime.policy.df <- left_join(ftime.state , policy_signal.state, by = "time_value")
+  
+  # Filter weekend effects
+  ftime.policy.df<- ftime.policy.df %>% 
+    mutate(weekday= weekdays(as.Date(time_value)))%>% 
+    filter(!weekday %in% c("Saturday", "Sunday")) 
+  
   lm.fit <- lm(value~time_value*SchoolClose,data=ftime.policy.df)
   print(summary(lm.fit))
 }
@@ -473,6 +486,12 @@ for(state in states){
   policy_signal.state <- getSumOfPolicy(policy.state, STARTDATE, ENDDATE)
   # left join mobility with policy signal by time 
   ftime.policy.df <- left_join(ftime.state , policy_signal.state, by = "time_value")
+  
+  # Filter weekend effects
+  ftime.policy.df<- ftime.policy.df %>% 
+    mutate(weekday= weekdays(as.Date(time_value)))%>% 
+    filter(!weekday %in% c("Saturday", "Sunday")) 
+  
   lm.fit <- lm(value~time_value*BarRestrict,data=ftime.policy.df)
   print(summary(lm.fit))
 }
@@ -491,6 +510,12 @@ for(state in states){
   policy_signal.state <- getSumOfPolicy(policy.state, STARTDATE, ENDDATE)
   # left join mobility with policy signal by time 
   ftime.policy.df <- left_join(ftime.state , policy_signal.state, by = "time_value")
+  
+  # Filter weekend effects
+  ftime.policy.df<- ftime.policy.df %>% 
+    mutate(weekday= weekdays(as.Date(time_value)))%>% 
+    filter(!weekday %in% c("Saturday", "Sunday")) 
+  
   lm.fit <- lm(value~time_value*RestaurantRestrict,data=ftime.policy.df)
   print(summary(lm.fit))
 }
@@ -498,7 +523,7 @@ for(state in states){
 
 ### Completely staying at home
 
-#### Emergency Declaration
+#### Emergency Declaration 
 
 ```{r chome-lr-emergDec}
 # The fraction of mobile devices that did not leave the immediate area of their home (SafeGraph’s completely_home_device_count / device_count)
@@ -510,12 +535,18 @@ for(state in states){
   policy_signal.state <- getSumOfPolicy(policy.state, STARTDATE, ENDDATE)
   # left join mobility with policy signal by time 
   ftime.policy.df <- left_join(chome.state , policy_signal.state, by = "time_value")
+  
+  # Filter weekend effects
+  ftime.policy.df<- ftime.policy.df %>% 
+    mutate(weekday= weekdays(as.Date(time_value)))%>% 
+    filter(!weekday %in% c("Saturday", "Sunday")) 
+  
   lm.fit <- lm(value~time_value*EmergDec,data=ftime.policy.df)
   print(summary(lm.fit))
   }
 ```
 
-#### School Closure
+#### School Closure with full time work prop
 
 ```{r chome-lr-schoolclose}
 # The fraction of mobile devices that did not leave the immediate area of their home (SafeGraph’s completely_home_device_count / device_count)
@@ -527,12 +558,18 @@ for(state in states){
   policy_signal.state <- getSumOfPolicy(policy.state, STARTDATE, ENDDATE)
   # left join mobility with policy signal by time 
   ftime.policy.df <- left_join(chome.state , policy_signal.state, by = "time_value")
+  
+  # Filter weekend effects
+  ftime.policy.df<- ftime.policy.df %>% 
+    mutate(weekday= weekdays(as.Date(time_value)))%>% 
+    filter(!weekday %in% c("Saturday", "Sunday")) 
+  
   lm.fit <- lm(value~time_value*SchoolClose,data=ftime.policy.df)
   print(summary(lm.fit))
 }
 ```
 
-#### Bar Restriction
+#### Bar Restriction with full time work prop
 
 ```{r chome-lr-barRestrict}
 # The fraction of mobile devices that did not leave the immediate area of their home (SafeGraph’s completely_home_device_count / device_count)
@@ -544,13 +581,19 @@ for(state in states){
   policy_signal.state <- getSumOfPolicy(policy.state, STARTDATE, ENDDATE)
   # left join mobility with policy signal by time 
   ftime.policy.df <- left_join(chome.state , policy_signal.state, by = "time_value")
+  
+  # Filter weekend effects
+  ftime.policy.df<- ftime.policy.df %>% 
+    mutate(weekday= weekdays(as.Date(time_value)))%>% 
+    filter(!weekday %in% c("Saturday", "Sunday")) 
+  
   lm.fit <- lm(value~time_value*BarRestrict,data=ftime.policy.df)
   print(summary(lm.fit))
   }
 ```
 
 
-#### Restaurant Restriction
+#### Restaurant Restriction with full time work prop
 
 ```{r chome-lr-restaurantRestrict}
 # The fraction of mobile devices that did not leave the immediate area of their home (SafeGraph’s completely_home_device_count / device_count)
@@ -562,6 +605,12 @@ for(state in states){
   policy_signal.state <- getSumOfPolicy(policy.state, STARTDATE, ENDDATE)
   # left join mobility with policy signal by time 
   ftime.policy.df <- left_join(chome.state , policy_signal.state, by = "time_value")
+  
+  # Filter weekend effects
+  ftime.policy.df<- ftime.policy.df %>% 
+    mutate(weekday= weekdays(as.Date(time_value)))%>% 
+    filter(!weekday %in% c("Saturday", "Sunday")) 
+  
   lm.fit <- lm(value~time_value*RestaurantRestrict,data=ftime.policy.df)
   print(summary(lm.fit))
 }
@@ -569,5 +618,124 @@ for(state in states){
 
 
 ## Non-parametric Regression
+
+### Full time work prop
+
+#### Emergency Declaration
+
+```{r non-par-emgDec}
+
+# compute the number of policies and rolling mean of the number
+# for each day between start and end dates
+for(state in states){
+  print(state)
+  print("---------------------")
+  ftime.state <- ftime %>% filter(geo_value == state)
+  policy.state <- policy %>% filter(StatePostal == state)
+  policy_signal.state <- getSumOfPolicy(policy.state, STARTDATE, ENDDATE)
+  # left join mobility with policy signal by time 
+  ftime.policy.df <- left_join(ftime.state , policy_signal.state, by = "time_value")
+  
+  # Filter weekend effects
+  ftime.policy.df<- ftime.policy.df %>% 
+    mutate(weekday= weekdays(as.Date(time_value)))%>% 
+    filter(!weekday %in% c("Saturday", "Sunday")) 
+  
+  ftime.policy.df <- as.data.frame(ftime.policy.df)
+  
+  ftime.policy.df$time_value <- as.numeric(ftime.policy.df$time_value)
+
+  lm.fit <- gam(value~ EmergDec + s(time_value)+ s(time_value,by = EmergDec),data=ftime.policy.df)
+  print(summary(lm.fit))
+}
+
+```
+
+#### School Closure 
+
+
+```{r non-par-schoolClosure}
+
+# compute the number of policies and rolling mean of the number
+# for each day between start and end dates
+for(state in states){
+  print(state)
+  print("---------------------")
+  ftime.state <- ftime %>% filter(geo_value == state)
+  policy.state <- policy %>% filter(StatePostal == state)
+  policy_signal.state <- getSumOfPolicy(policy.state, STARTDATE, ENDDATE)
+  # left join mobility with policy signal by time 
+  ftime.policy.df <- left_join(ftime.state , policy_signal.state, by = "time_value")
+  
+  # Filter weekend effects
+  ftime.policy.df<- ftime.policy.df %>% 
+    mutate(weekday= weekdays(as.Date(time_value)))%>% 
+    filter(!weekday %in% c("Saturday", "Sunday")) 
+  
+  ftime.policy.df <- as.data.frame(ftime.policy.df)
+  
+  ftime.policy.df$time_value <- as.numeric(ftime.policy.df$time_value)
+
+  lm.fit <- gam(value~ SchoolClose + s(time_value)+ s(time_value,by = SchoolClose),data=ftime.policy.df)
+  print(summary(lm.fit))
+}
+
+```
+
+#### Bar Restriction 
+
+```{r nonpar-bar-restriction}
+# compute the number of policies and rolling mean of the number
+# for each day between start and end dates
+for(state in states){
+  print(state)
+  print("---------------------")
+  ftime.state <- ftime %>% filter(geo_value == state)
+  policy.state <- policy %>% filter(StatePostal == state)
+  policy_signal.state <- getSumOfPolicy(policy.state, STARTDATE, ENDDATE)
+  # left join mobility with policy signal by time 
+  ftime.policy.df <- left_join(ftime.state , policy_signal.state, by = "time_value")
+  
+  # Filter weekend effects
+  ftime.policy.df<- ftime.policy.df %>% 
+    mutate(weekday= weekdays(as.Date(time_value)))%>% 
+    filter(!weekday %in% c("Saturday", "Sunday")) 
+  
+  ftime.policy.df <- as.data.frame(ftime.policy.df)
+  
+  ftime.policy.df$time_value <- as.numeric(ftime.policy.df$time_value)
+
+  lm.fit <- gam(value~ BarRestrict + s(time_value)+ s(time_value,by = BarRestrict),data=ftime.policy.df)
+  print(summary(lm.fit))
+}
+```
+
+#### Restaurant Restriction
+
+```{r nonpar-restaurant-restriction}
+# compute the number of policies and rolling mean of the number
+# for each day between start and end dates
+for(state in states){
+  print(state)
+  print("---------------------")
+  ftime.state <- ftime %>% filter(geo_value == state)
+  policy.state <- policy %>% filter(StatePostal == state)
+  policy_signal.state <- getSumOfPolicy(policy.state, STARTDATE, ENDDATE)
+  # left join mobility with policy signal by time 
+  ftime.policy.df <- left_join(ftime.state , policy_signal.state, by = "time_value")
+  
+  # Filter weekend effects
+  ftime.policy.df<- ftime.policy.df %>% 
+    mutate(weekday= weekdays(as.Date(time_value)))%>% 
+    filter(!weekday %in% c("Saturday", "Sunday")) 
+  
+  ftime.policy.df <- as.data.frame(ftime.policy.df)
+  
+  ftime.policy.df$time_value <- as.numeric(ftime.policy.df$time_value)
+
+  lm.fit <- gam(value~ RestaurantRestrict + s(time_value)+ s(time_value,by = RestaurantRestrict),data=ftime.policy.df)
+  print(summary(lm.fit))
+}
+```
 
 # Conclusion
