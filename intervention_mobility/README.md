@@ -29,6 +29,8 @@ Mobility trends: Historically, did mobility patterns change as a result of gover
 
 * `/code/`: this folder contains all the codes.
 
+* `/historic/`: this folder contains codes for implementing different ideas to estimate the causal effect of intervention with other confounding signals. 
+
 * `/html/`: this folder contains the main reports in HTML produced by R Markdown.
 
 * `/reports/`:this folder contains the main reports in Markdown format.
