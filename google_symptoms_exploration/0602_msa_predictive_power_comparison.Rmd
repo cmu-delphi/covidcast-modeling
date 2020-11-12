@@ -335,6 +335,7 @@ knitr::kable(res_err %>%
              format = "html", table.attr = "style='width:70%;'")
 ```
 
+Calculating median scaled error over all dates and all counties for a given model, we see that adding Ageusia as a predictor do not reduce the median scaled error much compared to a cases-only model.However, Anosmia search volume do help add predictive power.
 
 "Are these differences in median scaled errors significant? It’s hard to say [for certain, given the spatial and temporal dependence of the data], but some basic hypothesis testing suggests that they probably are: below we conduct a sign test for whether the difference in the “Cases” model’s scaled error and each other model’s scaled error is centered at zero" ([source](https://delphi.cmu.edu/blog/2020/09/21/can-symptoms-surveys-improve-covid-19-forecasts/)).
 
@@ -383,7 +384,7 @@ ggplot(res_dif %>%
   theme_bw() + theme(legend.pos = "none")
 ```
 
-If the differences between models were *not* significant, we'd expect the distribution of p-values to be uniform. That is distinctly not what we see here. Model differences at both 7 and 14 days ahead have elevated (compared to expected) numbers of low p-values, suggesting significance. However, 14-day ahead comparisons look *more* significant across all alternative models. So it appears that additional predictors, especially GS, are useful for farther-future predictions, rather than near-future where number of cases is largely sufficient.
+Similar as what we got at county level, 14-day ahead comparisons look *more* significant across all alternative models. So it appears that additional predictors, especially GS, are useful for farther-future predictions, rather than near-future where number of cases is largely sufficient.
 
 ```{r, echo = FALSE, message = FALSE, warning=FALSE, cache=TRUE}
 # Fetch the following sources and signals from the API 
@@ -598,3 +599,4 @@ ggplot(err_by_lead, aes(x = lead, y = err)) +
 ```
 
 
+We can see that models containing GS outperform other models including Case-only and Cases + other signals at MSA level. Errors are calculated on a shared-time basis. With all models together, more dates are dropped and it causes shifts in some error values. In fact, it shows that the prediction of cases + GS model is of high quality though with low geographical coverage. Compared with county level result, the Cases + Anosmia model outperforms the other two models containing GS which is probably because Anosmia search volume has better coverage than that of Ageusia. However, it might worth further exploration why Cases + Anosmia outperform Cases + Anosmia & Ageusia.
