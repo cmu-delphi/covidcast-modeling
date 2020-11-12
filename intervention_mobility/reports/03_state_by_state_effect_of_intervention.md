@@ -317,7 +317,7 @@ nCol <- floor(sqrt(n))
 do.call("grid.arrange", c(plist, ncol=nCol))
 ```
 
-![](03_state_by_state_effect_of_intervention_files/figure-html/allinone-schoolclose-1.png)<!-- -->
+![](03_state_by_state_effect_of_intervention_files/figure-html/allinone-ftime-schoolclose-1.png)<!-- -->
 
 ### Emergency Declaration
 
@@ -431,7 +431,7 @@ nCol <- floor(sqrt(n))
 do.call("grid.arrange", c(plist, ncol=nCol))
 ```
 
-![](03_state_by_state_effect_of_intervention_files/figure-html/all-in-one-emergDec-1.png)<!-- -->
+![](03_state_by_state_effect_of_intervention_files/figure-html/all-in-one-ftime-emergDec-1.png)<!-- -->
 
 ### Bar Restriction
 
@@ -543,7 +543,7 @@ nCol <- floor(sqrt(n))
 do.call("grid.arrange", c(plist, ncol=nCol))
 ```
 
-![](03_state_by_state_effect_of_intervention_files/figure-html/all-in-one bar restriction-1.png)<!-- -->
+![](03_state_by_state_effect_of_intervention_files/figure-html/all-in-one-ftime-bar-restriction-1.png)<!-- -->
 
 ### Restaurant Restriction
 
@@ -656,7 +656,7 @@ nCol <- floor(sqrt(n))
 do.call("grid.arrange", c(plist, ncol=nCol))
 ```
 
-![](03_state_by_state_effect_of_intervention_files/figure-html/all-in-one-restaurant, -1.png)<!-- -->
+![](03_state_by_state_effect_of_intervention_files/figure-html/all-in-one-ftime-restaurantRestrict-1.png)<!-- -->
 
 ## Linear Regression 
 

@@ -224,7 +224,7 @@ plotRD(ftime,
 
 #### All-in-one
 
-```{r allinone-schoolclose, warning=FALSE, message=FALSE, fig.height= 12, fig.width = 12}
+```{r allinone-ftime-schoolclose, warning=FALSE, message=FALSE, fig.height= 12, fig.width = 12}
 states <- unique(ftime$geo_value)
 
 plist <- list()
@@ -282,7 +282,7 @@ dplyr::intersect(nonmandate.states$StateName,
 
 #### All-in-one
 
-```{r all-in-one-emergDec, warning=FALSE, message=FALSE, fig.height= 10, fig.width = 10}
+```{r all-in-one-ftime-emergDec, warning=FALSE, message=FALSE, fig.height= 10, fig.width = 10}
 states <- unique(ftime$geo_value)
 
 plist <- list()
@@ -338,7 +338,7 @@ dplyr::intersect(nonmandate.states$StateName,
                  mandate.states$StateName)
 ```
 
-```{r all-in-one bar restriction, warning=FALSE, message=FALSE, fig.height= 12, fig.width = 12}
+```{r all-in-one-ftime-bar-restriction, warning=FALSE, message=FALSE, fig.height= 12, fig.width = 12}
 states <- unique(ftime$geo_value)
 
 plist <- list()
@@ -395,7 +395,7 @@ dplyr::intersect(nonmandate.states$StateName,
 ```
 
 
-```{r all-in-one-restaurant, , warning=FALSE, message=FALSE, fig.height= 12, fig.width = 12}
+```{r all-in-one-ftime-restaurantRestrict, warning=FALSE, message=FALSE, fig.height= 12, fig.width = 12}
 states <- unique(ftime$geo_value)
 
 plist <- list()
