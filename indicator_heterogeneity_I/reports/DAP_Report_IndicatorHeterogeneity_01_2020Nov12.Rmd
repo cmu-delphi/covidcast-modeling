@@ -249,7 +249,7 @@ heterogeneity, but may also lead to less stable fits).
 
 We fit, for each $t, \ell$:
 $$
-y_{(t-k):t, \ell} \sim x_{(t-k):t, \ell} \qquad\Rightarrow \mathrm{Model}(\ell, t, k)
+y_{(t-k):(t-1), \ell} \sim x_{(t-k):(t-1), \ell} \qquad\Rightarrow \mathrm{Model}(\ell, t, k)
 $$
 and obtain the sensorized indicator values
 $$
@@ -313,10 +313,14 @@ the best results; as does using a smaller time window.
 
 ```{r train_correlations, echo = TRUE, fig.width=10, fig.height=5}
 sensorize_time_ranges = list(
-      c(-7, 0),
-      c(-10, 0),
-      c(-14, 0),
-      c(-21, 0))
+      c(-7, -1),
+      c(-10, -1),
+      c(-14, -1),
+      c(-21, -1))
+      #c(-7, -1),
+      #c(-10, -1),
+      #c(-14, -1),
+      #c(-21, -1))
 
 for (ind_idx in 1:length(source_names)) {
   base_cor_fname = sprintf('results/03_base_cors_%s_%s.RDS',
