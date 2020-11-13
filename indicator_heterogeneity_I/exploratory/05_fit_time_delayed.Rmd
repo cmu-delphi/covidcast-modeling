@@ -96,6 +96,51 @@ for (n_delay in n_delays) {
 }
 ```
 
+```{r play_with_data}
+
+n0 = 5
+cache_fname = sprintf('cached_data/05_delayed_indicators_d%02d.RDS',
+                      n0)
+
+d0 = readRDS(cache_fname)
+
+n1 = 7
+cache_fname = sprintf('cached_data/05_delayed_indicators_d%02d.RDS',
+                      n1)
+
+d1 = readRDS(cache_fname)
+
+n2 = 12
+cache_fname = sprintf('cached_data/05_delayed_indicators_d%02d.RDS',
+                      n2)
+d2 = readRDS(cache_fname)
+
+d0[[1]][[2]] %>% arrange(time_value) %>% head
+d1[[1]][[2]] %>% arrange(time_value) %>% head
+d2[[1]][[2]] %>% arrange(time_value) %>% head
+
+d0[[1]][[2]] %>% arrange(time_value) %>% tail
+d1[[1]][[2]] %>% arrange(time_value) %>% tail
+d2[[1]][[2]] %>% arrange(time_value) %>% tail
+
+d0[[1]][[2]] %>% filter(lag >= n0) %>% tail
+d1[[1]][[2]] %>% filter(lag >= n1) %>% tail
+d2[[1]][[2]] %>% filter(lag >= n2) %>% tail
+
+d0[[1]][[2]] %>% pull(lag) %>% unique
+d1[[1]][[2]] %>% pull(lag) %>% unique
+d2[[1]][[2]] %>% pull(lag) %>% unique
+
+d0[[1]][[2]] %>% nrow
+d1[[1]][[2]] %>% nrow
+d2[[1]][[2]] %>% nrow
+
+d0[[1]][[2]] %>% filter(lag >= n0) %>% nrow
+d1[[1]][[2]] %>% filter(lag >= n1) %>% nrow
+d2[[1]][[2]] %>% filter(lag >= n2) %>% nrow
+
+```
+
 ## Setup
 
 
