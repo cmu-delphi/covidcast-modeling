@@ -62,32 +62,13 @@ if (!file.exists(cache_fname)) {
 }
 ```
 
-```{r helper_functions, echo = TRUE}
-plot_points = function(plt) {
-  plt + geom_point(
-    aes(
-      x=indicator_value,
-      y=target_value,
-      color=time_value,
-    ),
-    alpha=ALPHA,
-  ) + scale_colour_viridis_c(
-    trans='date',
-  ) + facet_wrap (
-    vars(county_name_fips),
-    nrow=nr,
-    scales='free',
-  )
-}
-```
-
 # Introduction
 
 The purpose of this note is to give a first look at heterogeneity (spatial and
 temporal) relationships between our indicators and the quantities that we
 wish to predict -- usually, case rates, or death rates.
 
-## What is heterogeneity?
+### What is heterogeneity?
 
 Heterogeneity in a relationship between two variables $x$ and $y$  means that
 their relationship "varies".  For our purposes, this can mean that the
@@ -101,7 +82,7 @@ heterogeneity, has a long history in Delphi; see
 [David's thesis](https://delphi.cmu.edu/~dfarrow/thesis.pdf) and
 [Maria's paper](https://papers.nips.cc/paper/9475-kalman-filter-sensor-fusion-and-constrained-regression-equivalences-and-insights.pdf).
 
-## Motivating examples
+### Motivating examples
 
 In the following plots, we see both _spatial heterogeneity_, in which
 two counties exhibit the relationship between doctors visits and case
@@ -196,6 +177,8 @@ gridExtra::grid.arrange(
                         ncol=2)
 
 ```
+The full set of plots may be found
+[here](https://github.com/cmu-delphi/covidcast-modeling/tree/master/indicator_heterogeneity_I/exploratory/fig).
 
 # Methods
 
@@ -242,7 +225,7 @@ $x$ with $\tilde x$ which does better.  We do this by learning specific
 relationships between $x$ and $y$ for each location and time window
 and using these relationships to "correct" x into $\tilde x$.
 
-## Spatial-only sensorization
+### Spatial-only sensorization
 
 In the basic, spatial-only form of sensorization (as computed in Aaron's
 notebook), we ignore the possibility of temporal heterogeneity and learn
@@ -258,7 +241,7 @@ $$
 Note, importantly, that the sensorized $\tilde x$ is no longer on the same
 scale as the original indicator $x$.
 
-## Temporal and spatial sensorization (TS)
+### Temporal and spatial sensorization (TS)
 
 Let $k$ denote the number of days into the past we wish to examine data
 when fitting our model.  (Smaller $k$ is "more adaptive" to temporal
@@ -266,7 +249,7 @@ heterogeneity, but may also lead to less stable fits).
 
 We fit, for each $t, \ell$:
 $$
-y_{(t-k):t, \ell} \sim x_{(t-k):t, \ell} \qquad\Rightarrow \mathrm{Model}(\ell, t, k)
+y_{(t-k):(t-1), \ell} \sim x_{(t-k):(t-1), \ell} \qquad\Rightarrow \mathrm{Model}(\ell, t, k)
 $$
 and obtain the sensorized indicator values
 $$
@@ -276,11 +259,11 @@ We fit a linear model for each location and day, and then take the prediction
 for that day.  (Huge number of models to fit, but embarrassingly
 parallelizable).
 
-## Temporal and spatial sensorization, accounting for delay (TS Delayed)
+### Temporal and spatial sensorization, accounting for delay (TS Delayed)
 
 A wrinkle to our approach is added when we consider the problems of
 _data delay_ and _backfill_.  For some indicators, data is available
-"immediately" (usually, this means the morining after the day to be measured)
+"immediately" (usually, this means the morning after the day to be measured)
 and that version of the data is "final".  This is the ideal case.
 
 However, for many indicators, data is not available until a few days after
@@ -299,15 +282,15 @@ When we say $x_{t\ell}^{(\infty)}$, we mean "the latest available data at
 time of analysis".  Hence, all methods up until now have assumed $t' = \infty$.
 
 Recalling $k$ as the number of days into the past we wish to examine
-data when fitting our model, and fixing $\Delta$ to be the "delay" at which
+data when fitting our model, and fixing $\delta$ to be the "delay" at which
 we sensorize, we fit
 $$
-y_{(t-k):t, \ell}^{(t+\Delta)} \sim x_{(t-k):t, \ell}^{(t+\Delta)}
-    \qquad\Rightarrow \mathrm{Model}(\ell, t, k, t+\Delta)
+y_{(t-k):t, \ell}^{(t+\delta)} \sim x_{(t-k):t, \ell}^{(t+\delta)}
+    \qquad\Rightarrow \mathrm{Model}(\ell, t, k, t+\delta)
 $$
 and obtain the sensorized indicator values
 $$
-\tilde x_{t\ell} = \texttt{predict}(x_{t\ell}, \mathrm{Model}(\ell, t, k, t+\Delta))
+\tilde x_{t\ell} = \texttt{predict}(x_{t\ell}, \mathrm{Model}(\ell, t, k, t+\delta))
 $$
 Fitting this model carries the computational annoyance of having to form
 a new dataset for each $t$, a task whose burden is greatly lessened by the
@@ -330,10 +313,14 @@ the best results; as does using a smaller time window.
 
 ```{r train_correlations, echo = TRUE, fig.width=10, fig.height=5}
 sensorize_time_ranges = list(
-      c(-7, 0),
-      c(-10, 0),
-      c(-14, 0),
-      c(-21, 0))
+      c(-7, -1),
+      c(-10, -1),
+      c(-14, -1),
+      c(-21, -1))
+      #c(-7, -1),
+      #c(-10, -1),
+      #c(-14, -1),
+      #c(-21, -1))
 
 for (ind_idx in 1:length(source_names)) {
   base_cor_fname = sprintf('results/03_base_cors_%s_%s.RDS',
@@ -365,8 +352,24 @@ for (ind_idx in 1:length(source_names)) {
 }
 ```
 
+The code for fitting these models can be found
+[here](https://github.com/cmu-delphi/covidcast-modeling/blob/master/indicator_heterogeneity_I/exploratory/03_heterogeneity_core_indicators.Rmd).
+
+
 # Discussion & next steps
 
-## TS Delayed model
+### TS Delayed model
 
-## Quantifying degree of heterogeneity
+An immediate next step is to fit the model using "data as of", in order to 
+understand the degree to which we obtain different performance when
+sensorizing with contemporaneous vs latest available data.
+
+### Quantifying degree of heterogeneity
+
+Ideally, we want to measure "how much" heterogeneity there is in the data,
+i.e., a statistic for heterogeneity; or even whether there is "enough"
+heterogeneity that we can say the relationship is heterogeneous (test
+statistic).  More broadly, we would like to be able to say whether there is
+"more or less" heterogeneity in one indicator vs another.
+
+TODO: scatterplot of slopes as a function of time
