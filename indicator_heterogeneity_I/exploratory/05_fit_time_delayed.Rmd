@@ -98,6 +98,7 @@ for (n_delay in n_delays) {
 
 ```{r play_with_data}
 
+# TODO: Understand the distribution of delay in the different dataframes
 n0 = 5
 cache_fname = sprintf('cached_data/05_delayed_indicators_d%02d.RDS',
                       n0)
@@ -115,220 +116,257 @@ cache_fname = sprintf('cached_data/05_delayed_indicators_d%02d.RDS',
                       n2)
 d2 = readRDS(cache_fname)
 
-d0[[1]][[2]] %>% arrange(time_value) %>% head
-d1[[1]][[2]] %>% arrange(time_value) %>% head
-d2[[1]][[2]] %>% arrange(time_value) %>% head
+d0[[1]][[2]] %>% group_by(lag) %>% summarise(count=n())
+d1[[1]][[2]] %>% group_by(lag) %>% summarise(count=n())
+d2[[1]][[2]] %>% group_by(lag) %>% summarise(count=n())
 
-d0[[1]][[2]] %>% arrange(time_value) %>% tail
-d1[[1]][[2]] %>% arrange(time_value) %>% tail
-d2[[1]][[2]] %>% arrange(time_value) %>% tail
-
-d0[[1]][[2]] %>% filter(lag >= n0) %>% tail
-d1[[1]][[2]] %>% filter(lag >= n1) %>% tail
-d2[[1]][[2]] %>% filter(lag >= n2) %>% tail
-
-d0[[1]][[2]] %>% pull(lag) %>% unique
-d1[[1]][[2]] %>% pull(lag) %>% unique
-d2[[1]][[2]] %>% pull(lag) %>% unique
-
-d0[[1]][[2]] %>% nrow
-d1[[1]][[2]] %>% nrow
-d2[[1]][[2]] %>% nrow
-
-d0[[1]][[2]] %>% filter(lag >= n0) %>% nrow
-d1[[1]][[2]] %>% filter(lag >= n1) %>% nrow
-d2[[1]][[2]] %>% filter(lag >= n2) %>% nrow
-
+d0[[1]][[2]] %>% filter(lag==2)  %>% tibble
+d0[[1]][[2]] %>% filter(lag==2) %>% head
 ```
+
+Recall the following terminology:
+
+* The `as_of` parameter of the API gives you data for time $t$ 
+  "as of" another time $t+\delta$
+* The `issue` column in the data specifies on which date a row 
+  was uploaded into the API.  In the best case, `issue` is
+  time $t+1$, i.e., we get data immediately (the day after).
+* The `lag` column is simply `issue` - `as_of`.
+
+The way we created this dataset is by placing an upper bound on
+`lag`.  As we reduce this upper bound, we look at data that is
+more and more "contemporaneous" to the date that we are interested
+in.  This is important because some data sources will issue data
+for the same day multiple times, updating the data at each time
+(backfill).  By controlling this upper bound, we look at how our
+sensorization approach performs for different levels of data quality.
 
 ## Setup
 
+```{r investigate_data_availability, echo = TRUE}
+# TODO: investigate the amount of data available for each delay.  If 
+#       there is pathologically little data available for some delays,
+#       then we may want to exclude it entirely.
+for (delay in n_delays) {
+  cache_fname = sprintf('cached_data/05_delayed_indicators_d%02d.RDS',
+                        delay)
+  df_signals = readRDS(cache_fname)
+  cat(sprintf('delay=%d\n', delay))
+  for (ind_idx in 1:length(signal_names)) {
+    cat(sprintf('%s %s: %d\n',
+                source_names[ind_idx],
+                signal_names[ind_idx],
+                nrow(df_signals[[1]][[ind_idx]])))
+  }
+  cat(sprintf('Cases: %d\n', nrow(df_signals[[2]])))
+  cat(sprintf('Deaths: %d\n', nrow(df_signals[[3]])))
+  cat('\n')
+}
 
-TODO: update rest of this thing
+```
+
+
 ```{r train_correlations, echo = TRUE}
+# TODO: update cache filename to also index on the delay
+# TODO: loop over different delays
 sensorize_time_ranges = list(
-      c(-7, 0),
-      c(-10, 0),
-      c(-14, 0),
-      c(-21, 0))
+      c(-7, -1),
+      c(-10, -1),
+      c(-14, -1),
+      c(-21, -1))
 
 # TODO: Add more "core indicators"
 
-for (ind_idx in 1:length(source_names)) {
-  if (target_names[ind_idx] == 'Cases') {
-    df_target = df_cases
-  } else if (target_names[ind_idx] == 'Deaths') {
-    df_target = df_deaths
-  } else {
-    stop(sprintf("No matching dataframe for target %s.", target_names[ind_idx]))
-  }
-  ind_df = tibble(df_signals[[ind_idx]])
-  ind_target = inner_join(ind_df, tibble(df_target),
-                          by=c('geo_value', 'time_value')) %>% select (
-        geo_value=geo_value,
-        time_value=time_value,
-        indicator_value=value.x,
-        target_value=value.y,
-      )
-	ind_global_sensorized =  ind_target %>% group_by (
-				geo_value,
-			) %>% group_modify ( ~ {
-				fit = lm(target_value ~ indicator_value, data =.x);
-				tibble(time_value=.x$time_value,
-							 indicator_value=.x$indicator_value,
-							 target_value=.x$target_value,
-							 sensorized_value=fit$fitted.values)
-			}) %>% ungroup
-	df_global_sensorized = ind_global_sensorized %>% transmute (
-				geo_value=geo_value,
-				signal='ind_sensorized',
-				time_value=time_value,
-				direction=NA,
-				issue=lubridate::ymd('2020-11-01'),
-				lag=NA,
-				value=sensorized_value,
-				stderr=NA,
-				sample_size=NA,
-				data_source='linear_sensorization',
-			)
-	attributes(df_global_sensorized)$geo_type = 'county'
-	attributes(df_global_sensorized)$metadata$geo_type = 'county'
-	class(df_global_sensorized) = c("covidcast_signal", "data.frame")
+for (delay in rev(n_delays)) {
+  cat('Delay=%d\n', delay)
+  cache_fname = sprintf('cached_data/05_delayed_indicators_d%02d.RDS',
+                        delay)
+  base_cor_fname = sprintf('results/05_base_cors_%s_%s_delay%02d.RDS',
+                            source_names[ind_idx], signal_names[ind_idx],
+                            delay)
+  sensorize_fname = sprintf('results/05_sensorize_cors_%s_%s_delay%02d.RDS',
+                            source_names[ind_idx], signal_names[ind_idx],
+                            delay)
+  cached_data = readRDS(cache_fname)
+  df_signals = cached_data[[1]]
+  df_cases = cached_data[[2]]
+  df_deaths = cached_data[[3]]
+  for (ind_idx in 1:length(source_names)) {
+    if (target_names[ind_idx] == 'Cases') {
+      df_target = df_cases
+    } else if (target_names[ind_idx] == 'Deaths') {
+      df_target = df_deaths
+    } else {
+      stop(sprintf("No matching dataframe for target %s.", target_names[ind_idx]))
+    }
+    ind_df = tibble(df_signals[[ind_idx]])
+    ind_target = inner_join(ind_df, tibble(df_target),
+                            by=c('geo_value', 'time_value')) %>% select (
+          geo_value=geo_value,
+          time_value=time_value,
+          indicator_value=value.x,
+          target_value=value.y,
+        )
+    ind_global_sensorized =  ind_target %>% group_by (
+          geo_value,
+        ) %>% group_modify ( ~ {
+          fit = lm(target_value ~ indicator_value, data =.x);
+          tibble(time_value=.x$time_value,
+                 indicator_value=.x$indicator_value,
+                 target_value=.x$target_value,
+                 sensorized_value=fit$fitted.values)
+        }) %>% ungroup
+    df_global_sensorized = ind_global_sensorized %>% transmute (
+          geo_value=geo_value,
+          signal='ind_sensorized',
+          time_value=time_value,
+          direction=NA,
+          issue=lubridate::ymd('2020-11-01'),
+          lag=NA,
+          value=sensorized_value,
+          stderr=NA,
+          sample_size=NA,
+          data_source='linear_sensorization',
+        )
+    attributes(df_global_sensorized)$geo_type = 'county'
+    attributes(df_global_sensorized)$metadata$geo_type = 'county'
+    class(df_global_sensorized) = c("covidcast_signal", "data.frame")
 
-  base_cor_fname = sprintf('results/03_base_cors_%s_%s.RDS',
-                            source_names[ind_idx], signal_names[ind_idx])
-  if (!file.exists(base_cor_fname)) {
-    df_cor_base_ind = covidcast_cor(df_signals[[ind_idx]], df_target,
-                                   by='time_value', method='spearman')
-    df_cor_sensorized_ind = covidcast_cor(df_global_sensorized, df_target,
-                                         by='time_value', method='spearman')
-    df_cor_base = rbind(df_cor_base_ind, df_cor_sensorized_ind)
-    df_cor_base$Indicator = as.factor(c(rep('Raw', nrow(df_cor_base_ind)),
-                                        rep('Sensorized (Spatial)',
-                                            nrow(df_cor_sensorized_ind))))
-    saveRDS(df_cor_base, base_cor_fname)
-  } else {
-    df_cor_base = readRDS(base_cor_fname)
-  }
-
-
-
-  sensorize_fname = sprintf('results/03_sensorize_cors_%s_%s.RDS',
-                            source_names[ind_idx], signal_names[ind_idx])
-  if (!file.exists(sensorize_fname)) {
-    sensorize_cors = vector('list', length(sensorize_time_ranges))
-    for (outer_idx in 1:length(sensorize_time_ranges)) {
-      sensorize_llim = sensorize_time_ranges[[outer_idx]][1]
-      sensorize_ulim = sensorize_time_ranges[[outer_idx]][2]
-
-      min_sensorize_date = lubridate::ymd(start_day) - sensorize_llim
-      max_sensorize_date = max(ind_target$time_value)
-      sensorize_date_offsets = 0:(max_sensorize_date-min_sensorize_date)
-
-      joiner_df_list = vector('list', length(sensorize_date_offsets))
-      for (idx in 1:length(sensorize_date_offsets)) {
-        dt = sensorize_date_offsets[idx]
-        sensorize_date = min_sensorize_date + dt
-        joiner_df_list[[idx]] = tibble(
-                          sensorize_date = sensorize_date,
-                          time_value = sensorize_date + sensorize_llim:sensorize_ulim)
-      }
-      joiner_df = bind_rows(joiner_df_list)
-
-      if (!PARCOMPUTE) {
-        ind_sensorized_lm =  ind_target %>% full_join(
-              joiner_df,
-              on='time_value',
-            ) %>%  group_by (
-              geo_value,
-              sensorize_date,
-            ) %>% group_modify (
-              ~ broom::tidy(lm(target_value ~ indicator_value, data = .x))
-            ) %>% ungroup
-      } else {
-        ind_grouped_list =   ind_target %>% full_join(
-              joiner_df,
-              on='time_value',
-            ) %>%  group_by (
-              geo_value,
-              sensorize_date,
-            ) %>% group_split
-        ind_sensorized_lm = parallel::mclapply(ind_grouped_list, function(df) {
-            broom::tidy(
-              lm(target_value ~ indicator_value, data = df)
-            ) %>% mutate (
-              geo_value = unique(df$geo_value),
-              sensorize_date = unique(df$sensorize_date),
-            )}, mc.cores = N_CORE) %>% bind_rows
-      }
-      ind_sensorized_wide = ind_sensorized_lm %>% select(
-            geo_value,
-            sensorize_date,
-            term,
-            estimate,
-          ) %>% mutate (
-            term = sapply(term, function(x) {ifelse(x=='(Intercept)',
-                                                    'intercept',
-                                                    'slope')}),
-          ) %>% pivot_wider (
-            id_cols = c(geo_value, sensorize_date),
-            names_from=term,
-            values_from=estimate,
-          )
-      ind_target_sensorized = ind_target %>% inner_join (
-            ind_sensorized_wide,
-            by=c('time_value'='sensorize_date',
-                 'geo_value'),
-          ) %>% mutate (
-            sensorized_value = intercept + indicator_value * slope,
-          )
-      df_sensorized = ind_target_sensorized %>% transmute (
-            geo_value=geo_value,
-            signal='ind_sensorized',
-            time_value=time_value,
-            direction=NA,
-            issue=lubridate::ymd('2020-11-01'),
-            lag=NA,
-            value=sensorized_value,
-            stderr=NA,
-            sample_size=NA,
-            data_source='linear_sensorization',
-          )
-      attributes(df_sensorized)$geo_type = 'county'
-      class(df_sensorized) = c("covidcast_signal", "data.frame")
-
-      df_cor_sensorized_ind = covidcast_cor(df_sensorized, df_target,
+    if (!file.exists(base_cor_fname)) {
+      df_cor_base_ind = covidcast_cor(df_signals[[ind_idx]], df_target,
+                                     by='time_value', method='spearman')
+      df_cor_sensorized_ind = covidcast_cor(df_global_sensorized, df_target,
                                            by='time_value', method='spearman')
-      df_cor_sensorized_ind$Indicator = sprintf('Sensorized (TS, %d:%d)',
-                                               sensorize_llim,
-                                               sensorize_ulim)
-      sensorize_cors[[outer_idx]] = df_cor_sensorized_ind
+      df_cor_base = rbind(df_cor_base_ind, df_cor_sensorized_ind)
+      df_cor_base$Indicator = as.factor(c(rep(sprintf('Raw (Delay=%02d)',
+                                                      delay),
+                                              nrow(df_cor_base_ind)),
+                                          rep(sprintf('Sensorized (Spatial, Delay=%02d)',
+                                                      delay),
+                                              nrow(df_cor_sensorized_ind))))
+      saveRDS(df_cor_base, base_cor_fname)
+    } else {
+      df_cor_base = readRDS(base_cor_fname)
     }
 
-    saveRDS(sensorize_cors, sensorize_fname)
-  } else {
-    sensorize_cors = readRDS(sensorize_fname)
+
+
+    if (!file.exists(sensorize_fname)) {
+      sensorize_cors = vector('list', length(sensorize_time_ranges))
+      for (outer_idx in 1:length(sensorize_time_ranges)) {
+        sensorize_llim = sensorize_time_ranges[[outer_idx]][1]
+        sensorize_ulim = sensorize_time_ranges[[outer_idx]][2]
+
+        min_sensorize_date = lubridate::ymd(start_day) - sensorize_llim
+        max_sensorize_date = max(ind_target$time_value)
+        sensorize_date_offsets = 0:(max_sensorize_date-min_sensorize_date)
+
+        joiner_df_list = vector('list', length(sensorize_date_offsets))
+        for (idx in 1:length(sensorize_date_offsets)) {
+          dt = sensorize_date_offsets[idx]
+          sensorize_date = min_sensorize_date + dt
+          joiner_df_list[[idx]] = tibble(
+                            sensorize_date = sensorize_date,
+                            time_value = sensorize_date + sensorize_llim:sensorize_ulim)
+        }
+        joiner_df = bind_rows(joiner_df_list)
+
+        if (!PARCOMPUTE) {
+          ind_sensorized_lm =  ind_target %>% full_join(
+                joiner_df,
+                on='time_value',
+              ) %>%  group_by (
+                geo_value,
+                sensorize_date,
+              ) %>% group_modify (
+                ~ broom::tidy(lm(target_value ~ indicator_value, data = .x))
+              ) %>% ungroup
+        } else {
+          ind_grouped_list =   ind_target %>% full_join(
+                joiner_df,
+                on='time_value',
+              ) %>%  group_by (
+                geo_value,
+                sensorize_date,
+              ) %>% group_split
+          ind_sensorized_lm = parallel::mclapply(ind_grouped_list, function(df) {
+              broom::tidy(
+                lm(target_value ~ indicator_value, data = df)
+              ) %>% mutate (
+                geo_value = unique(df$geo_value),
+                sensorize_date = unique(df$sensorize_date),
+              )}, mc.cores = N_CORE) %>% bind_rows
+        }
+        ind_sensorized_wide = ind_sensorized_lm %>% select(
+              geo_value,
+              sensorize_date,
+              term,
+              estimate,
+            ) %>% mutate (
+              term = sapply(term, function(x) {ifelse(x=='(Intercept)',
+                                                      'intercept',
+                                                      'slope')}),
+            ) %>% pivot_wider (
+              id_cols = c(geo_value, sensorize_date),
+              names_from=term,
+              values_from=estimate,
+            )
+        ind_target_sensorized = ind_target %>% inner_join (
+              ind_sensorized_wide,
+              by=c('time_value'='sensorize_date',
+                   'geo_value'),
+            ) %>% mutate (
+              sensorized_value = intercept + indicator_value * slope,
+            )
+        df_sensorized = ind_target_sensorized %>% transmute (
+              geo_value=geo_value,
+              signal='ind_sensorized',
+              time_value=time_value,
+              direction=NA,
+              issue=lubridate::ymd('2020-11-01'),
+              lag=NA,
+              value=sensorized_value,
+              stderr=NA,
+              sample_size=NA,
+              data_source='linear_sensorization',
+            )
+        attributes(df_sensorized)$geo_type = 'county'
+        class(df_sensorized) = c("covidcast_signal", "data.frame")
+
+        df_cor_sensorized_ind = covidcast_cor(df_sensorized, df_target,
+                                             by='time_value', method='spearman')
+        df_cor_sensorized_ind$Indicator = sprintf('Sensorized (TS, %d:%d; Delay=%02d)',
+                                                 sensorize_llim,
+                                                 sensorize_ulim,
+                                                 delay)
+        sensorize_cors[[outer_idx]] = df_cor_sensorized_ind
+      }
+
+      saveRDS(sensorize_cors, sensorize_fname)
+    } else {
+      sensorize_cors = readRDS(sensorize_fname)
+    }
+
+    df_cor = bind_rows(df_cor_base, sensorize_cors)
+    df_cor$Indicator = factor(df_cor$Indicator,
+                              levels=c(sprintf('Raw (Delay=%02d)', delay),
+                                       sprintf('Sensorized (Spatial, Delay=%02d)', delay),
+                                       sapply(sensorize_time_ranges,
+                                              function(x) {
+                                                sprintf('Sensorized (TS, %d:%d; Delay=%02d)',
+                                                        x[[1]], x[[2]], delay)
+                                              })))
+
+    plt = ggplot(df_cor, aes(x = time_value, y = value)) +
+      geom_line(aes(color = Indicator)) +
+      labs(title = sprintf("Correlation between %s and %s",
+                           pretty_names[ind_idx],
+                           target_names[ind_idx]),
+           subtitle = sprintf("Per day; Delay=%02d", delay),
+           x = "Date", y = "Correlation") +
+      theme(legend.position = "bottom")
+    print(plt)
   }
-
-  df_cor = bind_rows(df_cor_base, sensorize_cors)
-  df_cor$Indicator = factor(df_cor$Indicator,
-                            levels=c('Raw',
-                                     'Sensorized (Spatial)',
-                                     sapply(sensorize_time_ranges,
-                                            function(x) {
-                                              sprintf('Sensorized (TS, %d:%d)',
-                                                      x[[1]], x[[2]])
-                                            })))
-
-  plt = ggplot(df_cor, aes(x = time_value, y = value)) +
-    geom_line(aes(color = Indicator)) +
-    labs(title = sprintf("Correlation between %s and %s",
-                         pretty_names[ind_idx],
-                         target_names[ind_idx]),
-         subtitle = "Per day",
-         x = "Date", y = "Correlation") +
-    theme(legend.position = "bottom")
-  print(plt)
 }
 
 ```
