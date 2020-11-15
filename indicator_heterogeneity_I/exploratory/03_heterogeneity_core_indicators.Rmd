@@ -143,6 +143,8 @@ for (ind_idx in 1:length(source_names)) {
 
   sensorize_fname = sprintf('results/03_sensorize_cors_%s_%s.RDS',
                             source_names[ind_idx], signal_names[ind_idx])
+  sensorize_val_fname = sprintf('results/03_sensorize_vals_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
   if (!file.exists(sensorize_fname)) {
     sensorize_cors = vector('list', length(sensorize_time_ranges))
     for (outer_idx in 1:length(sensorize_time_ranges)) {
@@ -234,6 +236,7 @@ for (ind_idx in 1:length(source_names)) {
     }
 
     saveRDS(sensorize_cors, sensorize_fname)
+    saveRDS(ind_target_sensorized, sensorize_val_fname)
   } else {
     sensorize_cors = readRDS(sensorize_fname)
   }
