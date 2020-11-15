@@ -192,6 +192,9 @@ for (delay in rev(n_delays)) {
     sensorize_fname = sprintf('results/05_sensorize_cors_%s_%s_delay%02d.RDS',
                               source_names[ind_idx], signal_names[ind_idx],
                               delay)
+  sensorize_val_fname = sprintf('results/05_sensorize_vals_%s_%s_delay%02d.RDS',
+                            source_names[ind_idx], signal_names[ind_idx],
+                            delay)
     if (target_names[ind_idx] == 'Cases') {
       df_target = df_cases
     } else if (target_names[ind_idx] == 'Deaths') {
@@ -343,6 +346,7 @@ for (delay in rev(n_delays)) {
       }
 
       saveRDS(sensorize_cors, sensorize_fname)
+      saveRDS(ind_target_sensorized, sensorize_val_fname)
     } else {
       sensorize_cors = readRDS(sensorize_fname)
     }
