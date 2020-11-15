@@ -181,17 +181,17 @@ for (delay in rev(n_delays)) {
   cat('Delay=%d\n', delay)
   cache_fname = sprintf('cached_data/05_delayed_indicators_d%02d.RDS',
                         delay)
-  base_cor_fname = sprintf('results/05_base_cors_%s_%s_delay%02d.RDS',
-                            source_names[ind_idx], signal_names[ind_idx],
-                            delay)
-  sensorize_fname = sprintf('results/05_sensorize_cors_%s_%s_delay%02d.RDS',
-                            source_names[ind_idx], signal_names[ind_idx],
-                            delay)
   cached_data = readRDS(cache_fname)
   df_signals = cached_data[[1]]
   df_cases = cached_data[[2]]
   df_deaths = cached_data[[3]]
   for (ind_idx in 1:length(source_names)) {
+    base_cor_fname = sprintf('results/05_base_cors_%s_%s_delay%02d.RDS',
+                              source_names[ind_idx], signal_names[ind_idx],
+                              delay)
+    sensorize_fname = sprintf('results/05_sensorize_cors_%s_%s_delay%02d.RDS',
+                              source_names[ind_idx], signal_names[ind_idx],
+                              delay)
     if (target_names[ind_idx] == 'Cases') {
       df_target = df_cases
     } else if (target_names[ind_idx] == 'Deaths') {
@@ -250,7 +250,6 @@ for (delay in rev(n_delays)) {
     }
 
 
-
     if (!file.exists(sensorize_fname)) {
       sensorize_cors = vector('list', length(sensorize_time_ranges))
       for (outer_idx in 1:length(sensorize_time_ranges)) {
@@ -272,14 +271,15 @@ for (delay in rev(n_delays)) {
         joiner_df = bind_rows(joiner_df_list)
 
         if (!PARCOMPUTE) {
-          ind_sensorized_lm =  ind_target %>% full_join(
+          ind_sensorized_lm = ind_target %>% full_join(
                 joiner_df,
                 on='time_value',
               ) %>%  group_by (
                 geo_value,
                 sensorize_date,
               ) %>% group_modify (
-                ~ broom::tidy(lm(target_value ~ indicator_value, data = .x))
+                ~ broom::tidy(lm(target_value ~ indicator_value, data = .x,
+                                 na.action=NULL))
               ) %>% ungroup
         } else {
           ind_grouped_list =   ind_target %>% full_join(
