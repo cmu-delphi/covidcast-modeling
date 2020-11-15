@@ -271,7 +271,7 @@ for (delay in rev(n_delays)) {
         joiner_df = bind_rows(joiner_df_list)
 
         if (!PARCOMPUTE) {
-          ind_sensorized_lm = ind_target %>% full_join(
+          ind_sensorized_lm = ind_target %>% inner_join(
                 joiner_df,
                 on='time_value',
               ) %>%  group_by (
@@ -282,7 +282,7 @@ for (delay in rev(n_delays)) {
                                  na.action=NULL))
               ) %>% ungroup
         } else {
-          ind_grouped_list =   ind_target %>% full_join(
+          ind_grouped_list =   ind_target %>% inner_join(
                 joiner_df,
                 on='time_value',
               ) %>%  group_by (
