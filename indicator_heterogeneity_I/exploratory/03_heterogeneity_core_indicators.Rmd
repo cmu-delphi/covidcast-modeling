@@ -147,6 +147,7 @@ for (ind_idx in 1:length(source_names)) {
                             source_names[ind_idx], signal_names[ind_idx])
   if (!file.exists(sensorize_fname)) {
     sensorize_cors = vector('list', length(sensorize_time_ranges))
+    ind_target_sensorize_list = vector('list', length(sensorize_time_ranges))
     for (outer_idx in 1:length(sensorize_time_ranges)) {
       sensorize_llim = sensorize_time_ranges[[outer_idx]][1]
       sensorize_ulim = sensorize_time_ranges[[outer_idx]][2]
@@ -233,10 +234,11 @@ for (ind_idx in 1:length(source_names)) {
                                                sensorize_llim,
                                                sensorize_ulim)
       sensorize_cors[[outer_idx]] = df_cor_sensorized_ind
+      ind_target_sensorize_list[[outer_idx]] = ind_target_sensorized
     }
 
     saveRDS(sensorize_cors, sensorize_fname)
-    saveRDS(ind_target_sensorized, sensorize_val_fname)
+    saveRDS(ind_target_sensorized_list, sensorize_val_fname)
   } else {
     sensorize_cors = readRDS(sensorize_fname)
   }
