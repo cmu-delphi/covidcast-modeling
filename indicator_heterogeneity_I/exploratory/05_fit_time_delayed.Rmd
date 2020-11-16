@@ -177,7 +177,8 @@ sensorize_time_ranges = list(
 
 # TODO: Add more "core indicators"
 
-for (delay in rev(n_delays)) {
+n_delays_fit = 3:14 # too little data on c(1, 2)
+for (delay in n_delays_fit) {
   cat('Delay=%d\n', delay)
   cache_fname = sprintf('cached_data/05_delayed_indicators_d%02d.RDS',
                         delay)
