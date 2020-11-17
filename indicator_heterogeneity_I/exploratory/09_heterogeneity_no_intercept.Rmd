@@ -1,0 +1,350 @@
+---
+title: "Indicator Heterogeneity I: Temporal Heterogeneity"
+author: "Addison"
+output:
+  html_document
+---
+```{r import_statements, echo = FALSE, message = FALSE}
+library(tidyverse)
+library(covidcast)
+```
+
+```{r setup_multidplyr, echo = TRUE}
+PARCOMPUTE = TRUE
+N_CORE = parallel::detectCores()
+```
+
+# Background
+
+In this notebook, we repeat the analysis of `02_temporal_heterogeneity.Rmd`
+for all of our core indicators.
+
+# Data setup
+
+```{r data_ingestion_county, echo = TRUE, cache=TRUE}
+# Fetch the following sources and signals from the API 
+# TODO: Add Google Symptoms "eventually"
+source_names = c("doctor-visits", "fb-survey", "fb-survey", "hospital-admissions")
+signal_names = c("smoothed_adj_cli", "smoothed_cli", "smoothed_hh_cmnty_cli", 
+            "smoothed_adj_covid19")
+pretty_names = c("Doctor visits", "Facebook CLI", "Facebook CLI-in-community", 
+          "Hospitalizations")
+target_names = c("Cases", "Cases", "Cases", "Deaths")
+geo_level = "county"
+
+start_day = "2020-04-15"
+end_day = NULL
+cache_fname = 'cached_data/03_heterogeneity_core_indicators.RDS'
+
+if (!file.exists(cache_fname)) {
+  df_signals = vector("list", length(signal_names))
+  for (i in 1:length(signal_names)) {
+    df_signals[[i]] = suppressWarnings(
+                        covidcast_signal(source_names[i], signal_names[i],
+                                         start_day, end_day,
+                                         geo_type=geo_level))
+  }
+
+  # Fetch USAFacts confirmed case incidence proportion (smoothed with 7-day 
+  # trailing average)
+  df_cases = suppressWarnings(
+              covidcast_signal("usa-facts", "confirmed_7dav_incidence_prop",
+                              start_day, end_day,
+                              geo_type=geo_level))
+
+  df_deaths = suppressWarnings(
+              covidcast_signal("usa-facts", "deaths_7dav_incidence_prop",
+                              start_day, end_day,
+                              geo_type=geo_level))
+
+  saveRDS(list(df_signals, df_cases, df_deaths), cache_fname)
+} else {
+  cached_data = readRDS(cache_fname)
+  df_signals = cached_data[[1]]
+  df_cases = cached_data[[2]]
+  df_deaths = cached_data[[3]]
+}
+
+case_num = 500
+geo_values = suppressWarnings(covidcast_signal("usa-facts", "confirmed_cumulative_num",
+                              max(df_cases$time_value), 
+                              max(df_cases$time_value))) %>%
+  filter(value >= case_num) %>% pull(geo_value)
+
+geo_values = suppressWarnings(covidcast_signal("usa-facts", "confirmed_cumulative_num",
+                              '2020-11-01', 
+                              '2020-11-01')) %>%
+  filter(value >= case_num) %>% pull(geo_value)
+```
+
+## Setup
+
+```{r train_correlations, echo = TRUE}
+sensorize_time_ranges = list(
+      c(-7, -1),
+      c(-10, -1),
+      c(-14, -1),
+      c(-21, -1))
+
+for (ind_idx in 1:length(source_names)) {
+  if (target_names[ind_idx] == 'Cases') {
+    df_target = df_cases
+  } else if (target_names[ind_idx] == 'Deaths') {
+    df_target = df_deaths
+  } else {
+    stop(sprintf("No matching dataframe for target %s.", target_names[ind_idx]))
+  }
+  ind_df = tibble(df_signals[[ind_idx]]) %>% filter(geo_value %in% geo_values)
+  ind_target = inner_join(ind_df, tibble(df_target),
+                          by=c('geo_value', 'time_value')) %>% select (
+        geo_value=geo_value,
+        time_value=time_value,
+        indicator_value=value.x,
+        target_value=value.y,
+      )
+	ind_global_sensorized =  ind_target %>% group_by (
+				geo_value,
+			) %>% group_modify ( ~ {
+				fit = lm(target_value ~ indicator_value, data =.x);
+				tibble(time_value=.x$time_value,
+							 indicator_value=.x$indicator_value,
+							 target_value=.x$target_value,
+							 sensorized_value=fit$fitted.values)
+			}) %>% ungroup
+	df_global_sensorized = ind_global_sensorized %>% transmute (
+				geo_value=geo_value,
+				signal='ind_sensorized',
+				time_value=time_value,
+				direction=NA,
+				issue=lubridate::ymd('2020-11-01'),
+				lag=NA,
+				value=sensorized_value,
+				stderr=NA,
+				sample_size=NA,
+				data_source='linear_sensorization',
+			)
+	attributes(df_global_sensorized)$geo_type = 'county'
+	attributes(df_global_sensorized)$metadata$geo_type = 'county'
+	class(df_global_sensorized) = c("covidcast_signal", "data.frame")
+
+  base_cor_fname = sprintf('results/09_base_cors_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+  if (!file.exists(base_cor_fname)) {
+    df_cor_base_ind = covidcast_cor(df_signals[[ind_idx]], df_target,
+                                   by='time_value', method='spearman')
+    df_cor_sensorized_ind = covidcast_cor(df_global_sensorized, df_target,
+                                         by='time_value', method='spearman')
+    df_cor_base = rbind(df_cor_base_ind, df_cor_sensorized_ind)
+    df_cor_base$Indicator = as.factor(c(rep('Raw', nrow(df_cor_base_ind)),
+                                        rep('Sensorized (Spatial)',
+                                            nrow(df_cor_sensorized_ind))))
+    saveRDS(df_cor_base, base_cor_fname)
+  } else {
+    df_cor_base = readRDS(base_cor_fname)
+  }
+
+
+
+  sensorize_fname = sprintf('results/09_sensorize_cors_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+  sensorize_val_fname = sprintf('results/09_sensorize_vals_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+  if (!file.exists(sensorize_fname)) {
+    sensorize_cors = vector('list', length(sensorize_time_ranges))
+    ind_target_sensorized_list = vector('list', length(sensorize_time_ranges))
+    for (outer_idx in 1:length(sensorize_time_ranges)) {
+      sensorize_llim = sensorize_time_ranges[[outer_idx]][1]
+      sensorize_ulim = sensorize_time_ranges[[outer_idx]][2]
+
+      min_sensorize_date = lubridate::ymd(start_day) - sensorize_llim
+      max_sensorize_date = max(ind_target$time_value)
+      sensorize_date_offsets = 0:(max_sensorize_date-min_sensorize_date)
+
+      joiner_df_list = vector('list', length(sensorize_date_offsets))
+      for (idx in 1:length(sensorize_date_offsets)) {
+        dt = sensorize_date_offsets[idx]
+        sensorize_date = min_sensorize_date + dt
+        joiner_df_list[[idx]] = tibble(
+                          sensorize_date = sensorize_date,
+                          time_value = sensorize_date + sensorize_llim:sensorize_ulim)
+      }
+      joiner_df = bind_rows(joiner_df_list)
+
+      if (!PARCOMPUTE) {
+        ind_sensorized_lm =  ind_target %>% full_join(
+              joiner_df,
+              on='time_value',
+            ) %>%  group_by (
+              geo_value,
+              sensorize_date,
+            ) %>% group_modify (
+              ~ broom::tidy(lm(target_value ~ indicator_value, data = .x))
+            ) %>% ungroup
+      } else {
+        ind_grouped_list =   ind_target %>% full_join(
+              joiner_df,
+              on='time_value',
+            ) %>%  group_by (
+              geo_value,
+              sensorize_date,
+            ) %>% group_split
+        ind_sensorized_lm = parallel::mclapply(ind_grouped_list, function(df) {
+            broom::tidy(
+              lm(target_value ~ indicator_value, data = df)
+            ) %>% mutate (
+              geo_value = unique(df$geo_value),
+              sensorize_date = unique(df$sensorize_date),
+            )}, mc.cores = N_CORE) %>% bind_rows
+      }
+      ind_sensorized_wide = ind_sensorized_lm %>% select(
+            geo_value,
+            sensorize_date,
+            term,
+            estimate,
+          ) %>% mutate (
+            term = sapply(term, function(x) {ifelse(x=='(Intercept)',
+                                                    'intercept',
+                                                    'slope')}),
+          ) %>% pivot_wider (
+            id_cols = c(geo_value, sensorize_date),
+            names_from=term,
+            values_from=estimate,
+          )
+      ind_target_sensorized = ind_target %>% inner_join (
+            ind_sensorized_wide,
+            by=c('time_value'='sensorize_date',
+                 'geo_value'),
+          ) %>% mutate (
+            sensorized_value = intercept + indicator_value * slope,
+          )
+      df_sensorized = ind_target_sensorized %>% transmute (
+            geo_value=geo_value,
+            signal='ind_sensorized',
+            time_value=time_value,
+            direction=NA,
+            issue=lubridate::ymd('2020-11-01'),
+            lag=NA,
+            value=sensorized_value,
+            stderr=NA,
+            sample_size=NA,
+            data_source='linear_sensorization',
+          )
+      attributes(df_sensorized)$geo_type = 'county'
+      class(df_sensorized) = c("covidcast_signal", "data.frame")
+
+      df_cor_sensorized_ind = covidcast_cor(df_sensorized, df_target,
+                                           by='time_value', method='spearman')
+      df_cor_sensorized_ind$Indicator = sprintf('Sensorized (TS, %d:%d)',
+                                               sensorize_llim,
+                                               sensorize_ulim)
+      sensorize_cors[[outer_idx]] = df_cor_sensorized_ind
+      ind_target_sensorized_list[[outer_idx]] = ind_target_sensorized
+    }
+
+    saveRDS(sensorize_cors, sensorize_fname)
+    saveRDS(ind_target_sensorized_list, sensorize_val_fname)
+  } else {
+    sensorize_cors = readRDS(sensorize_fname)
+    ind_target_sensorized_list = readRDS(sensorize_val_fname)
+  }
+
+  df_cor = bind_rows(df_cor_base, sensorize_cors)
+  df_cor$Indicator = factor(df_cor$Indicator,
+                            levels=c('Raw',
+                                     'Sensorized (Spatial)',
+                                     sapply(sensorize_time_ranges,
+                                            function(x) {
+                                              sprintf('Sensorized (TS, %d:%d)',
+                                                      x[[1]], x[[2]])
+                                            })))
+
+  plt = ggplot(df_cor, aes(x = time_value, y = value)) +
+    geom_line(aes(color = Indicator)) +
+    labs(title = sprintf("Correlation between %s and %s",
+                         pretty_names[ind_idx],
+                         target_names[ind_idx]),
+         subtitle = "Per day",
+         x = "Date", y = "Correlation") +
+    theme(legend.position = "bottom")
+  print(plt)
+}
+```
+
+```{r plot_slopes, echo = TRUE, cache=TRUE}
+QUANTS = c(0.01, 0.99)
+
+# TODO: Add more "core indicators"
+
+for (ind_idx in 1:length(source_names)) {
+  if (target_names[ind_idx] == 'Cases') {
+    df_target = df_cases
+  } else if (target_names[ind_idx] == 'Deaths') {
+    df_target = df_deaths
+  } else {
+    stop(sprintf("No matching dataframe for target %s.", target_names[ind_idx]))
+  }
+
+  base_cor_fname = sprintf('results/09_base_cors_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+  sensorize_fname = sprintf('results/09_sensorize_cors_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+  sensorize_val_fname = sprintf('results/09_sensorize_vals_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+
+  df_cor_base = readRDS(base_cor_fname)
+  sensorize_cors = readRDS(sensorize_fname)
+  sensorized_vals = readRDS(sensorize_val_fname)
+
+  for (inner_idx in 1:length(sensorize_time_ranges)) {
+    sv = sensorized_vals[[inner_idx]]
+    print(summary(sv$slope))
+    print(slope_limits <- quantile(sv$slope, QUANTS, na.rm=TRUE))
+    plt = ggplot(
+      sensorized_vals[[inner_idx]],
+      aes(x=time_value,
+          y=slope),
+    ) + geom_point (
+      alpha=0.1,
+      size=0.5,
+    ) + geom_hline (
+      yintercept=0,
+      colour='white',
+    ) + stat_summary (
+        aes(y=slope,
+            group=1,
+            colour='median'),
+        fun=median,
+        geom="line",
+        group=1,
+    ) + stat_summary (
+        aes(y=slope,
+            group=1,
+            colour='+/- mad'),
+        fun=function(x) { median(x) + mad(x) },
+        geom="line",
+        group=1,
+    ) + stat_summary (
+        aes(y=slope,
+            group=1,
+            colour='+/- mad'),
+        fun=function(x) { median(x) - mad(x) },
+        geom="line",
+        group=1,
+    ) + scale_colour_manual(
+        values=c("median"="maroon",
+                 "+/- mad"="darkgreen")
+    ) + labs(
+      colour=''
+    ) + ggtitle(
+      sprintf("Slope distribution for %s, fitted on t in %d:%d",
+              pretty_names[ind_idx],
+              sensorize_time_ranges[[inner_idx]][1],
+              sensorize_time_ranges[[inner_idx]][2])
+    ) + ylim (
+      slope_limits[[1]], slope_limits[[2]]
+    )
+    print(plt)
+  }
+}
+```
+
