@@ -372,4 +372,100 @@ heterogeneity that we can say the relationship is heterogeneous (test
 statistic).  More broadly, we would like to be able to say whether there is
 "more or less" heterogeneity in one indicator vs another.
 
-TODO: scatterplot of slopes as a function of time
+Here we plot distribution of slopes taken from the sensorization relationships
+for each of the indicator-target pairs.  For brevity, we only display the plots
+for TS -7:-1.  The full set of plots may be found
+[here](https://github.com/cmu-delphi/covidcast-modeling/blob/master/indicator_heterogeneity_I/exploratory/06_heterogeneity_slopes.html).
+Note also that we restrict the vertical limits to the 0.01 and 0.99 quantile of
+fitted slope values.  This is to prevent a handful of outliers (presumably due
+to unstable fits when there is little data available in a time window) from
+overtaking the scale of the plot.
+
+```{r plot_slopes, echo = TRUE, cache=TRUE}
+sensorize_time_ranges = list(
+      c(-7, -1),
+      c(-10, -1),
+      c(-14, -1),
+      c(-21, -1))
+QUANTS = c(0.01, 0.99)
+
+for (ind_idx in 1:length(source_names)) {
+  if (target_names[ind_idx] == 'Cases') {
+    df_target = df_cases
+  } else if (target_names[ind_idx] == 'Deaths') {
+    df_target = df_deaths
+  } else {
+    stop(sprintf("No matching dataframe for target %s.", target_names[ind_idx]))
+  }
+
+  base_cor_fname = sprintf('results/03_base_cors_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+  sensorize_fname = sprintf('results/03_sensorize_cors_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+  sensorize_val_fname = sprintf('results/03_sensorize_vals_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+
+  df_cor_base = readRDS(base_cor_fname)
+  sensorize_cors = readRDS(sensorize_fname)
+  sensorized_vals = readRDS(sensorize_val_fname)
+
+  inner_idx = 1
+  sv = sensorized_vals[[inner_idx]]
+  slope_limits <- quantile(sv$slope, QUANTS, na.rm=TRUE)
+  plt = ggplot(
+    sensorized_vals[[inner_idx]],
+    aes(x=time_value,
+        y=slope),
+  ) + geom_point (
+    alpha=0.1,
+    size=0.5,
+  ) + geom_hline (
+    yintercept=0,
+    colour='white',
+  ) + stat_summary (
+      aes(y=slope,
+          group=1,
+          colour='median'),
+      fun=median,
+      geom="line",
+      group=1,
+  ) + stat_summary (
+      aes(y=slope,
+          group=1,
+          colour='+/- mad'),
+      fun=function(x) { median(x) + mad(x) },
+      geom="line",
+      group=1,
+  ) + stat_summary (
+      aes(y=slope,
+          group=1,
+          colour='+/- mad'),
+      fun=function(x) { median(x) - mad(x) },
+      geom="line",
+      group=1,
+  ) + scale_colour_manual(
+      values=c("median"="maroon",
+               "+/- mad"="darkgreen")
+  ) + labs(
+    colour=''
+  ) + ggtitle(
+    sprintf("Slope distribution for %s, fitted on t in %d:%d",
+            pretty_names[ind_idx],
+            sensorize_time_ranges[[inner_idx]][1],
+            sensorize_time_ranges[[inner_idx]][2])
+  ) + ylim (
+    slope_limits[[1]], slope_limits[[2]]
+  )
+  print(plt)
+}
+```
+
+We see, concerningly, that the distributions are centered on zero,
+after we have conditioned on time.  A natural question to ask is
+whether the zero-centering is also true if we instead condition
+on location; the answer is yes (this was confirmed by calculating
+the $\text{Median} \pm \text{MAD}$ interval for each location and
+seeing whether it covered zero; it did in >99% of locations for
+the first three indicators (DV, FB) and in 93.6% of locations for
+Hospitalizations.  This analysis may also be found in the
+[previously mentioned notebook](https://github.com/cmu-delphi/covidcast-modeling/blob/master/indicator_heterogeneity_I/exploratory/06_heterogeneity_slopes.html).
