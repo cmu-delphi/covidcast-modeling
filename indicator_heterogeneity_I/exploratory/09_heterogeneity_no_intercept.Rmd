@@ -105,7 +105,7 @@ for (ind_idx in 1:length(source_names)) {
 	ind_global_sensorized =  ind_target %>% group_by (
 				geo_value,
 			) %>% group_modify ( ~ {
-				fit = lm(target_value ~ indicator_value, data =.x);
+				fit = lm(target_value ~ indicator_value - 1, data =.x);
 				tibble(time_value=.x$time_value,
 							 indicator_value=.x$indicator_value,
 							 target_value=.x$target_value,
@@ -178,7 +178,7 @@ for (ind_idx in 1:length(source_names)) {
               geo_value,
               sensorize_date,
             ) %>% group_modify (
-              ~ broom::tidy(lm(target_value ~ indicator_value, data = .x))
+              ~ broom::tidy(lm(target_value ~ indicator_value - 1, data = .x))
             ) %>% ungroup
       } else {
         ind_grouped_list =   ind_target %>% full_join(
@@ -190,7 +190,7 @@ for (ind_idx in 1:length(source_names)) {
             ) %>% group_split
         ind_sensorized_lm = parallel::mclapply(ind_grouped_list, function(df) {
             broom::tidy(
-              lm(target_value ~ indicator_value, data = df)
+              lm(target_value ~ indicator_value - 1, data = df)
             ) %>% mutate (
               geo_value = unique(df$geo_value),
               sensorize_date = unique(df$sensorize_date),
