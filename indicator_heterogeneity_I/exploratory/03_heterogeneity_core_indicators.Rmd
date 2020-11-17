@@ -273,3 +273,83 @@ for (ind_idx in 1:length(source_names)) {
 
 ```
 
+
+```{r plot_slopes, echo = TRUE, cache=TRUE}
+QUANTS = c(0.01, 0.99)
+
+# TODO: Add more "core indicators"
+
+for (ind_idx in 1:length(source_names)) {
+  if (target_names[ind_idx] == 'Cases') {
+    df_target = df_cases
+  } else if (target_names[ind_idx] == 'Deaths') {
+    df_target = df_deaths
+  } else {
+    stop(sprintf("No matching dataframe for target %s.", target_names[ind_idx]))
+  }
+
+  base_cor_fname = sprintf('results/03_base_cors_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+  sensorize_fname = sprintf('results/03_sensorize_cors_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+  sensorize_val_fname = sprintf('results/03_sensorize_vals_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+
+  df_cor_base = readRDS(base_cor_fname)
+  sensorize_cors = readRDS(sensorize_fname)
+  sensorized_vals = readRDS(sensorize_val_fname)
+
+  for (inner_idx in 1:length(sensorize_time_ranges)) {
+    sv = sensorized_vals[[inner_idx]]
+    print(summary(sv$slope))
+    print(slope_limits <- quantile(sv$slope, QUANTS, na.rm=TRUE))
+    plt = ggplot(
+      sensorized_vals[[inner_idx]],
+      aes(x=time_value,
+          y=slope),
+    ) + geom_point (
+      alpha=0.1,
+      size=0.5,
+    ) + geom_hline (
+      yintercept=0,
+      colour='white',
+    ) + stat_summary (
+        aes(y=slope,
+            group=1,
+            colour='median'),
+        fun=median,
+        geom="line",
+        group=1,
+    ) + stat_summary (
+        aes(y=slope,
+            group=1,
+            colour='+/- mad'),
+        fun=function(x) { median(x) + mad(x) },
+        geom="line",
+        group=1,
+    ) + stat_summary (
+        aes(y=slope,
+            group=1,
+            colour='+/- mad'),
+        fun=function(x) { median(x) - mad(x) },
+        geom="line",
+        group=1,
+    ) + scale_colour_manual(
+        values=c("median"="maroon",
+                 "+/- mad"="darkgreen")
+    ) + labs(
+      colour=''
+    ) + ggtitle(
+      sprintf("Slope distribution for %s, fitted on t in %d:%d",
+              pretty_names[ind_idx],
+              sensorize_time_ranges[[inner_idx]][1],
+              sensorize_time_ranges[[inner_idx]][2])
+    ) + ylim (
+      slope_limits[[1]], slope_limits[[2]]
+    )
+    print(plt)
+  }
+}
+```
+
+
