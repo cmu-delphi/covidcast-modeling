@@ -376,6 +376,13 @@ degradation in the correlation of the sensorized signal with the target (except
 for the much lower correlations on days following missing data, which is
 more common at shorter delays).
 
+Here, we plot the results for a few delays (to avoid overcrowding the plot)
+as well as the sensorization with delay=infinity, from the previous section.
+We also restrict our attention to t in -7:-1, since that gave us the best
+results in the previous section.  The full set of results may be found
+in this
+[notebook](https://github.com/cmu-delphi/covidcast-modeling/blob/master/indicator_heterogeneity_I/exploratory/05_fit_time_delayed.html).
+
 ```{r plot_delayed_correlations, echo = TRUE, fig.width=10, fig.height=5}
 sensorize_time_ranges = list(
       c(-7, -1),
