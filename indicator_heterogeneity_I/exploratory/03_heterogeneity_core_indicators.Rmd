@@ -58,10 +58,6 @@ if (!file.exists(cache_fname)) {
                               geo_type=geo_level))
 
   case_num = 500
-  geo_values = suppressWarnings(covidcast_signal("usa-facts", "confirmed_cumulative_num",
-                                max(df_cases$time_value), 
-                                max(df_cases$time_value))) %>%
-    filter(value >= case_num) %>% pull(geo_value)
   saveRDS(list(df_signals, df_cases, df_deaths), cache_fname)
 } else {
   cached_data = readRDS(cache_fname)
@@ -69,6 +65,17 @@ if (!file.exists(cache_fname)) {
   df_cases = cached_data[[2]]
   df_deaths = cached_data[[3]]
 }
+
+geo_values = suppressWarnings(covidcast_signal("usa-facts", "confirmed_cumulative_num",
+															max(df_cases$time_value), 
+															max(df_cases$time_value))) %>%
+	filter(value >= case_num) %>% pull(geo_value)
+
+geo_values = suppressWarnings(covidcast_signal("usa-facts", "confirmed_cumulative_num",
+                              '2020-11-01', 
+                              '2020-11-01')) %>%
+  filter(value >= case_num) %>% pull(geo_value)
+
 ```
 
 ## Setup
@@ -90,7 +97,7 @@ for (ind_idx in 1:length(source_names)) {
   } else {
     stop(sprintf("No matching dataframe for target %s.", target_names[ind_idx]))
   }
-  ind_df = tibble(df_signals[[ind_idx]])
+  ind_df = tibble(df_signals[[ind_idx]]) %>% filter(geo_value %in% geo_values)
   ind_target = inner_join(ind_df, tibble(df_target),
                           by=c('geo_value', 'time_value')) %>% select (
         geo_value=geo_value,
