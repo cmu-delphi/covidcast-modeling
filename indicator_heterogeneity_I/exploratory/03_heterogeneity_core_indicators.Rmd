@@ -57,7 +57,6 @@ if (!file.exists(cache_fname)) {
                               start_day, end_day,
                               geo_type=geo_level))
 
-  case_num = 500
   saveRDS(list(df_signals, df_cases, df_deaths), cache_fname)
 } else {
   cached_data = readRDS(cache_fname)
@@ -66,6 +65,7 @@ if (!file.exists(cache_fname)) {
   df_deaths = cached_data[[3]]
 }
 
+case_num = 500
 geo_values = suppressWarnings(covidcast_signal("usa-facts", "confirmed_cumulative_num",
 															max(df_cases$time_value), 
 															max(df_cases$time_value))) %>%
