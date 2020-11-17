@@ -180,6 +180,20 @@ gridExtra::grid.arrange(
 The full set of plots may be found
 [here](https://github.com/cmu-delphi/covidcast-modeling/tree/master/indicator_heterogeneity_I/exploratory/fig).
 
+#### Aside: Is sensorization the right thing to do?
+
+During one of our modeling meetings, Logan asked whether, for example in
+Maricopa county above, the observed changed in slope was truly to due to
+a change in the underlying relationship, or whether it was due to a
+degradation in our ability to measure case rates (or doctors visits).
+In essence, if the change in slope was actually due to a degradation in
+case rate measurement, e.g. because of reduced testing capacity, then
+perhaps we don't want to sensorize and correct doctors visits downwards.
+On Slack, Aaron's response was that a possible degradation of case rate
+measurement cannot be the sole explainer of the degradation of correlation
+between DV and case rate, because other indicators did not see as drastic
+a fall in their (unsensorized) correlations.
+
 # Methods
 
 First, we fix notation.  Assume an indicator and target (e.g., doctors visits
@@ -303,10 +317,14 @@ Here we report results for the doctors visits, Facebook %CLI, Facebook
 indicators, the target is cases per 100k; for hospitalization, the target is
 deaths per 100k.
 
+## TS Sensorization
+
 We compute correlations using the raw (unsensorized) indicator;
 spatial sensorized, spatial and temporal sensorized.  For the latter
 sensorization, we use several window sizes: up to 7, 10, 14, and 21 days
-into the past.
+into the past.  In the language of "delayed" sensorization, here we use
+a delay of $\infty$ (i.e., we always use the most recent data at time
+of analysis).
 
 In broad terms, we find that sensorizing for both time and space provides
 the best results; as does using a smaller time window.
@@ -317,10 +335,6 @@ sensorize_time_ranges = list(
       c(-10, -1),
       c(-14, -1),
       c(-21, -1))
-      #c(-7, -1),
-      #c(-10, -1),
-      #c(-14, -1),
-      #c(-21, -1))
 
 for (ind_idx in 1:length(source_names)) {
   base_cor_fname = sprintf('results/03_base_cors_%s_%s.RDS',
@@ -355,14 +369,63 @@ for (ind_idx in 1:length(source_names)) {
 The code for fitting these models can be found
 [here](https://github.com/cmu-delphi/covidcast-modeling/blob/master/indicator_heterogeneity_I/exploratory/03_heterogeneity_core_indicators.Rmd).
 
+## TS+Delay Sensorization
+
+Impressively, reducing the delay in obtaining data does not induce a strong
+degradation in the correlation of the sensorized signal with the target (except
+for the much lower correlations on days following missing data, which is
+more common at shorter delays).
+
+```{r plot_delayed_correlations, echo = TRUE, fig.width=10, fig.height=5}
+sensorize_time_ranges = list(
+      c(-7, -1),
+      c(-10, -1),
+      c(-14, -1),
+      c(-21, -1))
+
+delays = c(3, 7, 10, 14)
+time_range = 1
+
+for (ind_idx in 1:length(source_names)) {
+  sensorize_fname = sprintf('results/03_sensorize_cors_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+  sensorize_cors = readRDS(sensorize_fname)
+  delayed_cors_list = vector('list', length(delays))
+  for (d_idx in 1:length(delays)) {
+    sensorize_delayed_fname = sprintf('results/05_sensorize_cors_%s_%s_delay%02d.RDS',
+                                      source_names[ind_idx], signal_names[ind_idx],
+                                      delays[d_idx])
+    sensorize_delayed_cors = readRDS(sensorize_delayed_fname)
+    delayed_cors_list[[d_idx]] = sensorize_delayed_cors[[time_range]]
+  }
+
+  df_cor = bind_rows(sensorize_cors[[time_range]], delayed_cors_list)
+  df_cor$Indicator = stringr::str_replace(df_cor$Indicator, 'Sensorized ', '')
+  df_cor$Indicator = factor(df_cor$Indicator,
+                            levels=c(sprintf('(TS, %d:%d)',
+                                             sensorize_time_ranges[[time_range]][1],
+                                             sensorize_time_ranges[[time_range]][2]),
+                                     sapply(delays,
+                                            function(x) {
+                                     sprintf('(TS, %d:%d; Delay=%02d)',
+                                             sensorize_time_ranges[[time_range]][1],
+                                             sensorize_time_ranges[[time_range]][2],
+                                             x)
+                                            })))
+
+  plt = ggplot(df_cor, aes(x = time_value, y = value)) +
+    geom_line(aes(color = Indicator)) +
+    labs(title = sprintf("Correlation between %s and %s",
+                         pretty_names[ind_idx],
+                         target_names[ind_idx]),
+         subtitle = "Per day",
+         x = "Date", y = "Correlation") +
+    theme(legend.position = "bottom")
+  print(plt)
+}
+```
 
 # Discussion & next steps
-
-### TS Delayed model
-
-An immediate next step is to fit the model using "data as of", in order to 
-understand the degree to which we obtain different performance when
-sensorizing with contemporaneous vs latest available data.
 
 ### Quantifying degree of heterogeneity
 
@@ -380,6 +443,25 @@ Note also that we restrict the vertical limits to the 0.01 and 0.99 quantile of
 fitted slope values.  This is to prevent a handful of outliers (presumably due
 to unstable fits when there is little data available in a time window) from
 overtaking the scale of the plot.
+
+We see, concerningly, that the distributions are centered on zero,
+after we have conditioned on time.  A natural question to ask is
+whether the zero-centering is also true if we instead condition
+on location; the answer is yes (this was confirmed by calculating
+the $\text{Median} \pm \text{MAD}$ interval for each location and
+seeing whether it covered zero; it did in >99% of locations for
+the first three indicators (DV, FB) and in 93.6% of locations for
+Hospitalizations.  This analysis may also be found in the
+[previously mentioned notebook](https://github.com/cmu-delphi/covidcast-modeling/blob/master/indicator_heterogeneity_I/exploratory/06_heterogeneity_slopes.html).
+
+One possible hypothesis is that (assuming the indicator and target
+are smooth functions of time, which is roughly true given they have
+been subject to smoothing) the relationships over small time windows are
+well-modeled by constant functions.  One way to test this would be to sensorize
+using a model that only fits an intercept, and compare the correlations
+obtained from this sensorization against the correlations obtained from linear
+sensorization.
+
 
 ```{r plot_slopes, echo = TRUE, cache=TRUE}
 sensorize_time_ranges = list(
@@ -459,13 +541,3 @@ for (ind_idx in 1:length(source_names)) {
   print(plt)
 }
 ```
-
-We see, concerningly, that the distributions are centered on zero,
-after we have conditioned on time.  A natural question to ask is
-whether the zero-centering is also true if we instead condition
-on location; the answer is yes (this was confirmed by calculating
-the $\text{Median} \pm \text{MAD}$ interval for each location and
-seeing whether it covered zero; it did in >99% of locations for
-the first three indicators (DV, FB) and in 93.6% of locations for
-Hospitalizations.  This analysis may also be found in the
-[previously mentioned notebook](https://github.com/cmu-delphi/covidcast-modeling/blob/master/indicator_heterogeneity_I/exploratory/06_heterogeneity_slopes.html).
