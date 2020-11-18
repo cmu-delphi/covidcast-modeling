@@ -294,7 +294,7 @@ cfr_pred = cfr_signals %>% mutate(type = "cfr-local") %>%
     
 plot_err = function(x, geo_value, start_day = NULL, end_day = NULL) {
   if (is.null(start_day)) start_day = Min(x$time_value)
-  if (is.null(end_day)) end_day = Max(x$time_value)
+  if (is.null(end_day)) end_day = Max(x$time_value[!is.na(x$deaths)])
   start_day = as.Date(start_day); end_day = as.Date(end_day)
   given_geo_value = geo_value
   
@@ -323,10 +323,10 @@ other two global forecasters, and a little more accurate than the local one. It
 appears that the global CFR = 1.7% forecaster is most accurate at lag 16, that 
 is, 16-day-ahead forecasts.
 
-Next we repeat this but restricting to forecasts made after September 1. 
+Next we repeat this but restricting to forecasts made after August 15. 
 
 ```{r, fig.width = 7, fig.height = 4}
-plot_err(cfr_pred, geo_value = "us", start_day = "2020-09-11") 
+plot_err(cfr_pred, geo_value = "us", start_day = "2020-08-15") 
 ```
 
 We see that the CFR = 1.7% forecaster is still the most accurate, but the best 
@@ -450,12 +450,12 @@ Here is the comparison of forecast errors.
 
 ```{r, fig.width = 7, fig.height = 4}
 plot_err(cfr_ens_pred, geo_value = "us", start_day = "2020-07-01") 
-plot_err(cfr_ens_pred, geo_value = "us", start_day = "2020-09-01") 
+plot_err(cfr_ens_pred, geo_value = "us", start_day = "2020-08-15") 
 ```
 
 Interestingly this reveals that the CFR = 1.7% forecaster is quite competitive
-with the COVID Hub ensemble, over both periods (starting July 1, and starting
-September 1), though only for longer lags (farther-ahead forecasts). 
+with the COVID Hub ensemble, over both periods (after July 1, and after August
+15), though only for longer lags (farther-ahead forecasts). 
 
 However, a critical point: this is not a perfectly fair comparison! We only
 considered the global CFR = 1.7% forecaster  in the first place because it 
