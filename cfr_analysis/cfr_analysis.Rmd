@@ -1,10 +1,6 @@
 ---
 title: "Case-fatality-ratio analysis"
-<<<<<<< HEAD
 author: "Ryan Tibshirani, [Delphi Group](https://delphi.cmu.edu)"
-=======
-author: "Ryan Tibshirani"
->>>>>>> f94972df90c8f749d755861a2334393bb508187c
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:
   html_document:
@@ -17,10 +13,6 @@ output:
 knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 knitr::opts_chunk$set(cache = TRUE, autodep = TRUE, cache.comments = TRUE)
 
-<<<<<<< HEAD
-=======
-library(covidcast)     
->>>>>>> f94972df90c8f749d755861a2334393bb508187c
 library(dplyr)
 library(purrr)
 library(tidyr)
@@ -32,20 +24,16 @@ Max = function(x) max(x, na.rm = TRUE)
 Sum = function(x) sum(x, na.rm = TRUE)
 Mean = function(x) mean(x, na.rm = TRUE)
 Median = function(x) median(x, na.rm = TRUE)
-<<<<<<< HEAD
 
 quiet = function(x) { 
   sink(tempfile()) 
   on.exit(sink()) 
   invisible(force(x)) 
 } 
-=======
->>>>>>> f94972df90c8f749d755861a2334393bb508187c
 ```
 
 ## Fetching data 
 
-<<<<<<< HEAD
 We first fetch state-level JHU CSSE confirmed cases and deaths using the
 [API](https://cmu-delphi.github.io/delphi-epidata/api/covidcast.html) from the
 [COVIDcast project](https://covidcast.cmu.edu). Here and throughout we look at 
@@ -53,13 +41,6 @@ the 7-day smoothed versions of these signals (via 7-day trailing averages).
 
 ```{r}
 library(covidcast) # https://github.com/cmu-delphi/covidcast
-=======
-We first fetch state-level JHU CSSE confirmed cases and deaths from Delphi's
-COVIDcast API. Here and throughout we look at the 7-day smoothed versions of 
-these signals (via 7-day trailing averages). 
-
-```{r}
->>>>>>> f94972df90c8f749d755861a2334393bb508187c
 start_day = "2020-03-01"
 cases = covidcast_signal(data_source = "jhu-csse",
                          signal = "confirmed_7dav_incidence_num", 
@@ -445,7 +426,6 @@ consistently, to be typically more robust and accurate that any the individual
 component forecasters). 
 
 ```{r}
-<<<<<<< HEAD
 library(covidHubUtils) # https://github.com/reichlab/covidHubUtils
 ens = quiet(load_forecasts(models = "COVIDhub-ensemble",
                            types = c("point", "quantile"), 
@@ -459,22 +439,8 @@ ens = quiet(load_forecasts(models = "COVIDhub-ensemble",
 cfr_ens_pred = cfr_pred %>%
   bind_rows(
     ens %>% 
-      select(-c(model, forecast_date, temporal_resolution, target_variable)) %>%
-=======
-ens = covidHubUtils::load_forecasts(models = "COVIDhub-ensemble",
-                                    types = c("point", "quantile"),
-                                    location = "US",
-                                    targets = c("1 wk ahead inc death", 
-                                                "2 wk ahead inc death", 
-                                                "3 wk ahead inc death",
-                                                "4 wk ahead inc death")) %>% 
-  select(-c(model, forecast_date, temporal_resolution, target_variable, type)) 
-         
-# Wrangle to match the format of CFR predictions, join together
-cfr_ens_pred = cfr_pred %>%
-  bind_rows(
-    ens %>%
->>>>>>> f94972df90c8f749d755861a2334393bb508187c
+      select(-c(model, forecast_date, temporal_resolution, target_variable, 
+                type)) %>%
       filter(is.na(quantile) | quantile %in% c(0.025, 0.975)) %>%
       pivot_wider(names_from = "quantile", values_from = "value") %>%
       rename("geo_value" = location, "time_value" = target_end_date, 
@@ -501,11 +467,7 @@ with the COVID Hub ensemble, over both periods (after July 1, and after August
 15), though only for longer lags (farther-ahead forecasts). 
 
 However, a critical point: this is not a perfectly fair comparison! We only
-<<<<<<< HEAD
 considered the global CFR = 1.7% forecaster in the first place because it 
-=======
-considered the global CFR = 1.7% forecaster  in the first place because it 
->>>>>>> f94972df90c8f749d755861a2334393bb508187c
 looked interesting in hindsight. In other words, based on all data available as
 of today, we are asking how a CFR of 1.7% does in terms of forecast accuracy
 *retrospectively*. The ensemble forecaster is, of course, *prospective* (it is 
