@@ -2,9 +2,9 @@
 title: "Indicator Heterogeneity I: Should we include an intercept?"
 author: "Addison"
 output:
-  github_document:
+  html_document:
     toc: true
-    #code_folding: hide
+    code_folding: hide
 ---
 ```{r import_statements, echo = FALSE, message = FALSE}
 library(tidyverse)
@@ -52,7 +52,7 @@ ns_df = no_slope_cors[[1]]
 ns_df$Indicator = 'Slope only; -7:-1'
 
 ns_wider_df = no_slope_cors[[4]]
-ns_df$Indicator = 'Slope only; -21:-1'
+ns_wider_df$Indicator = 'Slope only; -21:-1'
 
 lt_slopes = readRDS('results/08_sensorize_vals_doctor-visits_smoothed_adj_cli.RDS')[[4]]
 ns_slopes_list = readRDS('results/09_sensorize_vals_doctor-visits_smoothed_adj_cli.RDS')
