@@ -125,3 +125,50 @@ for (idx in 1:length(slope_dfs)) {
 }
 ```
 
+```{r plot_intercept, cache=TRUE, warning=FALSE, message = FALSE}
+cur_df = lt_slopes
+intercept_limits <- quantile(cur_df$intercept, QUANTS, na.rm=TRUE)
+plt = ggplot(
+  cur_df,
+  aes(x=time_value,
+      y=intercept),
+) + geom_point (
+  alpha=0.1,
+  size=0.5,
+) + geom_hline (
+  yintercept=0,
+  colour='white',
+) + stat_summary (
+    aes(y=intercept,
+        group=1,
+        colour='median'),
+    fun=median,
+    geom="line",
+    group=1,
+) + stat_summary (
+    aes(y=intercept,
+        group=1,
+        colour='+/- mad'),
+    fun=function(x) { median(x) + mad(x) },
+    geom="line",
+    group=1,
+) + stat_summary (
+    aes(y=intercept,
+        group=1,
+        colour='+/- mad'),
+    fun=function(x) { median(x) - mad(x) },
+    geom="line",
+    group=1,
+) + scale_colour_manual(
+    values=c("median"="maroon",
+             "+/- mad"="darkgreen")
+) + labs(
+  colour=''
+) + ggtitle(
+  'Longer time window (-42:-8) - INTERCEPTS'
+) + ylim (
+  intercept_limits[[1]], intercept_limits[[2]]
+)
+print(plt)
+```
+
