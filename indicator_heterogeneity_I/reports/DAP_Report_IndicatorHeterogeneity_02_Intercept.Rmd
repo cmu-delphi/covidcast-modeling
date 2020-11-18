@@ -23,7 +23,9 @@ Next steps: try no slope, but with longer time window (-42:-8).
 
 ### Background and setup
 
-This notebook was motivated by the fact that in my original analysis, we found
+This notebook was motivated by the fact that in my
+[original analysis](https://htmlpreview.github.io/?https://github.com/cmu-delphi/covidcast-modeling/blob/master/indicator_heterogeneity_I/reports/DAP_Report_IndicatorHeterogeneity_01_2020Nov12.html),
+we found
 extremely high correlation between sensorized DV and cases when we sensorized
 using 7 days in past until 1 day in past, **but** the slopes were found to
 be centered on zero.  This leads us to believe that all the information was
