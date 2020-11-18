@@ -215,7 +215,7 @@ for (ind_idx in 1:length(source_names)) {
             by=c('time_value'='sensorize_date',
                  'geo_value'),
           ) %>% mutate (
-            sensorized_value = intercept + indicator_value * slope,
+            sensorized_value = indicator_value * slope,
           )
       df_sensorized = ind_target_sensorized %>% transmute (
             geo_value=geo_value,
