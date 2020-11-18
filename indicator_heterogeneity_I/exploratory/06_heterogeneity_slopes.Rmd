@@ -1,0 +1,212 @@
+---
+title: "Indicator Heterogeneity I: Temporal Heterogeneity"
+author: "Addison"
+output:
+  html_document
+---
+```{r import_statements, echo = FALSE, message = FALSE}
+library(tidyverse)
+library(covidcast)
+```
+
+# Background
+
+Notebook to play with slope coefficients before putting them into the report.
+
+# Data setup
+
+```{r data_ingestion_county, echo = TRUE, cache=TRUE}
+# Fetch the following sources and signals from the API 
+# TODO: Add Google Symptoms "eventually"
+source_names = c("doctor-visits", "fb-survey", "fb-survey", "hospital-admissions")
+signal_names = c("smoothed_adj_cli", "smoothed_cli", "smoothed_hh_cmnty_cli", 
+            "smoothed_adj_covid19")
+pretty_names = c("Doctor visits", "Facebook CLI", "Facebook CLI-in-community", 
+          "Hospitalizations")
+target_names = c("Cases", "Cases", "Cases", "Deaths")
+geo_level = "county"
+
+start_day = "2020-04-15"
+end_day = NULL
+cache_fname = 'cached_data/03_heterogeneity_core_indicators.RDS'
+
+if (!file.exists(cache_fname)) {
+  df_signals = vector("list", length(signal_names))
+  for (i in 1:length(signal_names)) {
+    df_signals[[i]] = suppressWarnings(
+                        covidcast_signal(source_names[i], signal_names[i],
+                                         start_day, end_day,
+                                         geo_type=geo_level))
+  }
+
+  # Fetch USAFacts confirmed case incidence proportion (smoothed with 7-day 
+  # trailing average)
+  df_cases = suppressWarnings(
+              covidcast_signal("usa-facts", "confirmed_7dav_incidence_prop",
+                              start_day, end_day,
+                              geo_type=geo_level))
+
+  df_deaths = suppressWarnings(
+              covidcast_signal("usa-facts", "deaths_7dav_incidence_prop",
+                              start_day, end_day,
+                              geo_type=geo_level))
+
+  case_num = 500
+  geo_values = suppressWarnings(covidcast_signal("usa-facts", "confirmed_cumulative_num",
+                                max(df_cases$time_value), 
+                                max(df_cases$time_value))) %>%
+    filter(value >= case_num) %>% pull(geo_value)
+  saveRDS(list(df_signals, df_cases, df_deaths), cache_fname)
+} else {
+  cached_data = readRDS(cache_fname)
+  df_signals = cached_data[[1]]
+  df_cases = cached_data[[2]]
+  df_deaths = cached_data[[3]]
+}
+```
+
+## Setup
+
+```{r plot_slopes, echo = TRUE, cache=TRUE}
+sensorize_time_ranges = list(
+      c(-7, -1),
+      c(-10, -1),
+      c(-14, -1),
+      c(-21, -1))
+QUANTS = c(0.01, 0.99)
+
+# TODO: Add more "core indicators"
+
+for (ind_idx in 1:length(source_names)) {
+  if (target_names[ind_idx] == 'Cases') {
+    df_target = df_cases
+  } else if (target_names[ind_idx] == 'Deaths') {
+    df_target = df_deaths
+  } else {
+    stop(sprintf("No matching dataframe for target %s.", target_names[ind_idx]))
+  }
+
+  base_cor_fname = sprintf('results/03_base_cors_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+  sensorize_fname = sprintf('results/03_sensorize_cors_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+  sensorize_val_fname = sprintf('results/03_sensorize_vals_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+
+  df_cor_base = readRDS(base_cor_fname)
+  sensorize_cors = readRDS(sensorize_fname)
+  sensorized_vals = readRDS(sensorize_val_fname)
+
+  for (inner_idx in 1:length(sensorize_time_ranges)) {
+    sv = sensorized_vals[[inner_idx]]
+    print(summary(sv$slope))
+    print(slope_limits <- quantile(sv$slope, QUANTS, na.rm=TRUE))
+    plt = ggplot(
+      sensorized_vals[[inner_idx]],
+      aes(x=time_value,
+          y=slope),
+    ) + geom_point (
+      alpha=0.1,
+      size=0.5,
+    ) + geom_hline (
+      yintercept=0,
+      colour='white',
+    ) + stat_summary (
+        aes(y=slope,
+            group=1,
+            colour='median'),
+        fun=median,
+        geom="line",
+        group=1,
+    ) + stat_summary (
+        aes(y=slope,
+            group=1,
+            colour='+/- mad'),
+        fun=function(x) { median(x) + mad(x) },
+        geom="line",
+        group=1,
+    ) + stat_summary (
+        aes(y=slope,
+            group=1,
+            colour='+/- mad'),
+        fun=function(x) { median(x) - mad(x) },
+        geom="line",
+        group=1,
+    ) + scale_colour_manual(
+        values=c("median"="maroon",
+                 "+/- mad"="darkgreen")
+    ) + labs(
+      colour=''
+    ) + ggtitle(
+      sprintf("Slope distribution for %s, fitted on t in %d:%d",
+              pretty_names[ind_idx],
+              sensorize_time_ranges[[inner_idx]][1],
+              sensorize_time_ranges[[inner_idx]][2])
+    ) + ylim (
+      slope_limits[[1]], slope_limits[[2]]
+    )
+    print(plt)
+  }
+}
+
+```
+
+Why is the distribution of slope coefficients centered on zero?  (Shouldn't we
+expect the center of the distribution to be positive?)  It _might_ be possible
+that the distribution is not centered on zero once we condition on location
+(but unlikely).  We can take a look anyways...
+
+```{r condition_on_location, echo = TRUE}
+sensorize_time_ranges = list(
+      c(-7, -1),
+      c(-10, -1),
+      c(-14, -1),
+      c(-21, -1))
+QUANTS = c(0.01, 0.99)
+
+# TODO: Add more "core indicators"
+
+for (ind_idx in 1:length(source_names)) {
+  if (target_names[ind_idx] == 'Cases') {
+    df_target = df_cases
+  } else if (target_names[ind_idx] == 'Deaths') {
+    df_target = df_deaths
+  } else {
+    stop(sprintf("No matching dataframe for target %s.", target_names[ind_idx]))
+  }
+
+  base_cor_fname = sprintf('results/03_base_cors_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+  sensorize_fname = sprintf('results/03_sensorize_cors_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+  sensorize_val_fname = sprintf('results/03_sensorize_vals_%s_%s.RDS',
+                            source_names[ind_idx], signal_names[ind_idx])
+
+  df_cor_base = readRDS(base_cor_fname)
+  sensorize_cors = readRDS(sensorize_fname)
+  sensorized_vals = readRDS(sensorize_val_fname)
+
+  for (inner_idx in 1:length(sensorize_time_ranges)) {
+    sv = sensorized_vals[[inner_idx]]
+    sv_medmad = sv %>% group_by(
+      geo_value
+    ) %>% summarize (
+      med = median(slope),
+      mad = mad(slope),
+      med_upper = med+mad,
+      med_lower = med-mad,
+    )
+    coverage = sv_medmad %>% mutate (
+      contains_zero = (0 < med_upper) & (0 > med_lower),
+    ) %>% pull (
+      contains_zero
+    ) %>% mean (
+      na.rm=TRUE
+    )
+    print(sprintf('Coverage for %s: %f',
+                  pretty_names[ind_idx],
+                  coverage))
+  }
+}
+
+```
