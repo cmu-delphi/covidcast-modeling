@@ -1,0 +1,125 @@
+Indicator Heterogeneity I: Should we include an intercept?
+================
+Addison
+
+  - [High level summary](#high-level-summary)
+  - [Background and setup](#background-and-setup)
+
+### High level summary
+
+  - A longer time window (in Aaron’s approach) yields slopes that
+    capture some information (no longer centered on zero) but the spread
+    is still rather large, with the +/- 1 MAD interval covering zero.
+  - Omitting the slope term still yields good correlation results. But
+    too good to be true?
+
+Next steps: try no slope, but with longer time window (-42:-8).
+
+### Background and setup
+
+This notebook was motivated by the fact that in my original analysis, we
+found extremely high correlation between sensorized DV and cases when we
+sensorized using 7 days in past until 1 day in past, **but** the slopes
+were found to be centered on zero. This leads us to believe that all the
+information was being captured in the intercept, and we had essentially
+produced a smooth version of case rate.
+
+Here, we compare two alternatives. One is a longer time window (42 days
+in past to 8 days in past), which corresponds to [Aaron’s sensorization
+approach](https://delphi.cmu.edu/blog/2020/11/05/a-syndromic-covid-19-indicator-based-on-insurance-claims-of-outpatient-visits/),
+retaining the slope and intercept terms; and the other is a shorter time
+window (7 days in past to 1 day in past; 21 days in past to 1 day in
+past) but where we omit the intercept term.
+
+For the latter model, we also fit -10:-1; -14:-1. These achieve
+correlations in between -7:-1 and -21:-1.
+
+``` r
+longer_time_cors = readRDS('results/08_sensorize_cors_doctor-visits_smoothed_adj_cli.RDS')
+no_slope_cors = readRDS('results/09_sensorize_cors_doctor-visits_smoothed_adj_cli.RDS')
+# Plot correlation 
+
+lt_df = longer_time_cors[[4]]
+lt_df$Indicator = 'Slope+Intercept; -42:-8'
+
+ns_df = no_slope_cors[[1]]
+ns_df$Indicator = 'Slope only; -7:-1'
+
+ns_wider_df = no_slope_cors[[4]]
+ns_df$Indicator = 'Slope only; -21:-1'
+
+lt_slopes = readRDS('results/08_sensorize_vals_doctor-visits_smoothed_adj_cli.RDS')[[4]]
+ns_slopes_list = readRDS('results/09_sensorize_vals_doctor-visits_smoothed_adj_cli.RDS')
+ns_slopes = ns_slopes_list[[1]]
+ns_wider_slopes = ns_slopes_list[[4]]
+```
+
+``` r
+plt = ggplot(bind_rows(lt_df, ns_df, ns_wider_df), aes(x = time_value, y = value)) +
+  geom_line(aes(color = Indicator)) +
+  labs(title = sprintf("Correlation between Case rate and Doctors visits"),
+       subtitle = "Per day",
+       x = "Date", y = "Correlation") +
+  theme(legend.position = "bottom")
+print(plt)
+```
+
+    ## Warning: Removed 76 row(s) containing missing values (geom_path).
+
+![](DAP_Report_IndicatorHeterogeneity_02_Intercept_files/figure-gfm/plot_correlations-1.png)<!-- -->
+
+``` r
+QUANTS = c(0.01, 0.99)
+
+titles = c('Longer time window (-42:-8)', 'No slope, -7:-1', 'No slope, -21:-1')
+slope_dfs = list(lt_slopes, ns_slopes, ns_wider_slopes)
+
+for (idx in 1:length(slope_dfs)) {
+  cur_df = slope_dfs[[idx]]
+  slope_limits <- quantile(cur_df$slope, QUANTS, na.rm=TRUE)
+  plt = ggplot(
+    cur_df,
+    aes(x=time_value,
+        y=slope),
+  ) + geom_point (
+    alpha=0.1,
+    size=0.5,
+  ) + geom_hline (
+    yintercept=0,
+    colour='white',
+  ) + stat_summary (
+      aes(y=slope,
+          group=1,
+          colour='median'),
+      fun=median,
+      geom="line",
+      group=1,
+  ) + stat_summary (
+      aes(y=slope,
+          group=1,
+          colour='+/- mad'),
+      fun=function(x) { median(x) + mad(x) },
+      geom="line",
+      group=1,
+  ) + stat_summary (
+      aes(y=slope,
+          group=1,
+          colour='+/- mad'),
+      fun=function(x) { median(x) - mad(x) },
+      geom="line",
+      group=1,
+  ) + scale_colour_manual(
+      values=c("median"="maroon",
+               "+/- mad"="darkgreen")
+  ) + labs(
+    colour=''
+  ) + ggtitle(
+    titles[idx]
+  ) + ylim (
+    slope_limits[[1]], slope_limits[[2]]
+  )
+  print(plt)
+}
+```
+
+![](DAP_Report_IndicatorHeterogeneity_02_Intercept_files/figure-gfm/plot_slopes-1.png)<!-- -->![](DAP_Report_IndicatorHeterogeneity_02_Intercept_files/figure-gfm/plot_slopes-2.png)<!-- -->![](DAP_Report_IndicatorHeterogeneity_02_Intercept_files/figure-gfm/plot_slopes-3.png)<!-- -->
