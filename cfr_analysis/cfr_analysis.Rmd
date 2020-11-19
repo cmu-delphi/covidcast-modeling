@@ -1,7 +1,7 @@
 ---
-title: "Case-fatality-ratio analysis"
+title: "Case Fatality Ratio Analysis"
 author: "Ryan Tibshirani, [Delphi Group](https://delphi.cmu.edu)"
-date: "`r format(Sys.time(), '%B %d, %Y')`"
+date: "November 18, 2020"
 output:
   html_document:
     toc: true
@@ -171,7 +171,7 @@ huge spread. Once again, it's hard to walk away with a clear picture for the
 
 ## CFR estimation: national level
 
-We compute the case-fatality-ratio (CFR), for various lags. For each lag value 
+We compute the case fatality ratio (CFR), for various lags. For each lag value 
 $k$, we actually shift the death signals forward in time $k$ days, then take a 
 ratio to current cases. Thus the interpretion of the (say) CFR using a lag of 10
 estimated on June 1 is as follows: of the cases that arrive June 1, it gives the 
@@ -220,8 +220,8 @@ ggplot(cfr %>% filter(geo_value == "us",
   geom_line(aes(color = as.factor(dt))) +
   geom_hline(yintercept = 1.5, linetype = 2) +
   scale_x_date(breaks = "months", date_labels = "%b") +
-  labs(x = "Date", y = "Case-fatality-ratio (%)", 
-       title = "Case-fatality-ratio, US", color = "Lag") 
+  labs(x = "Date", y = "case fatality ratio (%)", 
+       title = "case fatality ratio, US", color = "Lag") 
 ```
 
 We can see that the CFR has come down from the scary numbers we were seeing in 
@@ -241,8 +241,8 @@ ggplot(cfr %>% filter(geo_value == "us",
   geom_line(aes(color = as.factor(dt))) +
   geom_hline(yintercept = 1.5, linetype = 2) +
   scale_x_date(breaks = "months", date_labels = "%b") +
-  labs(x = "Date", y = "Case-fatality-ratio (%)", 
-       title = "Case-fatality-ratio, US", color = "Lag") 
+  labs(x = "Date", y = "case fatality ratio (%)", 
+       title = "case fatality ratio, US", color = "Lag") 
 ```
 
 ## CFR estimation: state level
