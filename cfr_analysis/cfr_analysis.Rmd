@@ -220,8 +220,8 @@ ggplot(cfr %>% filter(geo_value == "us",
   geom_line(aes(color = as.factor(dt))) +
   geom_hline(yintercept = 1.5, linetype = 2) +
   scale_x_date(breaks = "months", date_labels = "%b") +
-  labs(x = "Date", y = "case fatality ratio (%)", 
-       title = "case fatality ratio, US", color = "Lag") 
+  labs(x = "Date", y = "Case fatality ratio (%)", 
+       title = "Case fatality ratio, US", color = "Lag") 
 ```
 
 We can see that the CFR has come down from the scary numbers we were seeing in 
@@ -241,8 +241,8 @@ ggplot(cfr %>% filter(geo_value == "us",
   geom_line(aes(color = as.factor(dt))) +
   geom_hline(yintercept = 1.5, linetype = 2) +
   scale_x_date(breaks = "months", date_labels = "%b") +
-  labs(x = "Date", y = "case fatality ratio (%)", 
-       title = "case fatality ratio, US", color = "Lag") 
+  labs(x = "Date", y = "Case fatality ratio (%)", 
+       title = "Case fatality ratio, US", color = "Lag") 
 ```
 
 ## CFR estimation: state level
