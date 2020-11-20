@@ -42,12 +42,15 @@ the 7-day smoothed versions of these signals (via 7-day trailing averages).
 ```{r}
 library(covidcast) # https://github.com/cmu-delphi/covidcast
 start_day = "2020-03-01"
+as_of = "2020-11-16" # Fetch data "as of" the day we first did this analysis!
 cases = covidcast_signal(data_source = "jhu-csse",
                          signal = "confirmed_7dav_incidence_num", 
-                         start_day = start_day, geo_type = "state")
+                         start_day = start_day, geo_type = "state",
+                         as_of = as_of)
 deaths = covidcast_signal(data_source = "jhu-csse",
                           signal = "deaths_7dav_incidence_num", 
-                          start_day = start_day, geo_type = "state")
+                          start_day = start_day, geo_type = "state",
+                         as_of = as_of)
 ```
 
 ## Lagged correlations
@@ -119,8 +122,8 @@ ggplot(df_summary, aes(x = lag, y = value)) +
 The median and mean curves are quite different; suggesting that the distribution
 of correlations per lag (over states) is skewed, and also likely also has a big 
 spread given the gap between the median and mean. The mean curve is maximized at 
-20 days, but has very little curvature around its maximum. The median curve is
-maximized at 16 days, but has a second local max 28 days. From this picture, it
+19 days, but has very little curvature around its maximum. The median curve is
+maximized at 16 days, but has a second local max 27 days. From this picture, it
 seems difficult to look at any one lag as the "right" one.
 
 Below we plot each correlation per lag value (over states) and overlay the
@@ -144,7 +147,7 @@ ggplot(df, aes(x = lag, y = value)) +
 ```
 
 As we guessed, there's both a lot of asymmetry and a huge spread. So it seems
-pretty difficult to agree on 16 vs 20 vs 28 as the "right" lag with any amount 
+pretty difficult to agree on 16 vs 19 vs 27 as the "right" lag with any amount 
 of confidence.
 
 Next we look at the distribution of maximizing lags per state.
