@@ -227,9 +227,9 @@ ggplot(cfr %>% filter(geo_value == "us",
 We can see that the CFR has come down from the scary numbers we were seeing in 
 the early stages of the pandemic and has been mostly flat since July, hovering 
 somewhere above 1.5% (the horizontal dashed line). If we believe the shorter 
-lags are relevant, then it looks like the like the CFR is possibly dropping in
-early November; but if we believe the longer lags are more relevant, then this 
-really remains to be seen.
+lags are relevant, then it looks like the CFR is possibly dropping in early 
+November; but if we believe the longer lags are more relevant, then this really 
+remains to be seen.
 
 Next we zoom on on July 1 through current day.
 
