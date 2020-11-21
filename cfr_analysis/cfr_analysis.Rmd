@@ -350,8 +350,8 @@ line shows the observed deaths (recall, smoothed via a 7-day trailing average).
 
 An important note: these bands have by construction 95% *historical* coverage. 
 They have not been calibrated (nor been attempted to be calibrated) to have 95%
-*future* coverage. Therefore they should be looked at with skepticism when it 
-comes to the actual forward-look predictions made by the CFR = 1.7% forecaster 
+*future* coverage. Therefore they should be viewed with skepticism when it comes
+to the actual forward-looking predictions made by the CFR = 1.7% forecaster 
 (indeed they look far too narrow here). 
 
 ```{r, fig.width = 7, fig.height = 4}
