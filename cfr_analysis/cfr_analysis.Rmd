@@ -40,7 +40,7 @@ cases = covidcast_signal(data_source = "jhu-csse",
 deaths = covidcast_signal(data_source = "jhu-csse",
                           signal = "deaths_7dav_incidence_num", 
                           start_day = start_day, geo_type = "state",
-                         as_of = as_of)
+                          as_of = as_of)
 ```
 
 ## Lagged correlations
