@@ -61,7 +61,7 @@ policy_signal <- getSumOfPolicy(policy, STARTDATE, ENDDATE)
 ```
 
 
-```{r create a unified dataframe with mobility-intervention-confounders}
+```{r create-a-unified-dataframe-with-mobility-intervention-confounders}
 # We fist get all the signals
 ftime.mobility <- data$full_time_work_prop[c("time_value","geo_value","value")] #mobility
 
@@ -134,7 +134,7 @@ To answer these questions, assuming that the data are normally distributed and t
 
 We can see that some states have a particularly higher range of the mean mobility signal. For example, Montana (MT) clearly stands out from the rest, whereas Hawaii (HI) has a much lower mean mobility signal from Feb. to Sep. in 2020.
 
-```{r check main effect, fig.width = 15, fig.height=10}
+```{r check-main-effect, fig.width = 15, fig.height=10}
 # Plotting the main effect of geo_value
 plotmeans(full_time_work_prop~ geo_value,data=intervention_mobility_case, xlab="Geo_value", ylab="Mobility", main="Main effect (States)") 
 ```
@@ -147,7 +147,7 @@ We notice the following interventions may have statistically siginficant interac
 
 * Gathering Reommendation (Recommendation of against gathering that stops short of a formal mandate or restriction of gatherings) , public mask, quarantine.
 
-```{r interaction plots across states}
+```{r interaction-plots-across-states}
 # Get all the column indicies for policies 
 policyIdx <- which(!(names(factored_data) %in%
         c("time_value",
@@ -179,7 +179,7 @@ The noteworthy interventions are:
 
 * Emergency declaration, gathering restriction, restaurant restriction, school closure, bar restriction, other buseinss closure. 
 
-```{r boxplots for categorical variables, fig.height= 10, fig.width = 10}
+```{r boxplots-for-categorical-variables, fig.height= 10, fig.width = 10}
 # plot the boplots for categoical variables columns
 p <- list()
 counter <- 1
@@ -206,7 +206,7 @@ Also, for the school closure policy, the mobility in Mississippi remains quite s
 
 Regarding gathering restriction, restaurant restriction, and bar restriction, there isn't any particular state standing out in terms of the difference of mobility between not having and having the intervention.
 
-```{r mobility signal by intervention}
+```{r mobility-signal-by-intervention}
 # grouped boxplot
 for (i in policyIdx){
   
@@ -224,7 +224,7 @@ print(p)
 Distribution of mobility signal is right-skewed, so we may want to
 consider a transformation to make it more normal like. The square-root transformation seems to work best in this case.
 
-```{r visualize all histogram of reponse}
+```{r visualize-all-histogram-of-reponse}
 par(mfrow=c(2,2))
 hist(factored_data$full_time_work_prop, main="Histogram of unchanged response", xlab="full_time_work_prop")
 hist(log(factored_data$full_time_work_prop), main="Histogram of log response", xlab="full_time_work_prop")
@@ -236,7 +236,7 @@ hist(sqrt(factored_data$full_time_work_prop), main="Histogram of squared root of
 
 We also would like to explore some predictor variables.
 
-```{r visualize the distributions of the continuous variables, fig.height= 10, fig.width = 10}
+```{r visualize-the distributions-of-the-continuous-variables, fig.height= 10, fig.width = 10}
 con.var.idx <- which(names(factored_data) %in%
                        c("total.num.policy",
                          "num.policy.7avg",
@@ -256,7 +256,7 @@ par(mfrow=c(1,1))
 ```
 
 
-```{r shifting the variables, warning = FALSE, message = FALSE}
+```{r shifting-the-variables, warning = FALSE, message = FALSE}
 # select best lag number based on intial exploration
 case.shifted.days.spearman <- 37 # based spearman correlation
 doc.visit.shifted.days.spearman <- 50 # based spearman correlation for doctor visit
@@ -296,7 +296,7 @@ After shifting the covariates, we also drop some data. The number of samples goe
 
 We also transform the reponse by taking a square-root of it to satisfy the normality assumption. 
 
-```{r preliminary investigation}
+```{r preliminary-investigation}
 #Problematic: EmergDec, deaths_7dav_incidence_num
 
 # model 1 : y is mobility, x's are the confounders and intervention
@@ -346,7 +346,7 @@ The reason why we are particularly interested in negative coefficients because w
 
 Later, we can also look at the ANOVA model to see if these variables account for the variation of mobility significantly. 
 
-```{r model selection, include = FALSE}
+```{r model-selection, include = FALSE}
 # Null model
 none_mod <- lm(full_time_work_prop^(1/2)~1, data=na.omit(factored_data[,-c(1)]))
 # Full model
@@ -365,7 +365,7 @@ stepAIC(none_mod, scope=list(upper=full_mod), direction="both", k=log(n))
 ```
 
 
-```{r lm summary}
+```{r lm-summary}
 # We look at the summary of the selected model
 fin_mod <- lm(formula = full_time_work_prop^(1/2) ~ confirmed_7dav_cumulative_prop + geo_value + smoothed_cli + smoothed_adj_cli + confirmed_7dav_cumulative + BarRestrict + deaths_7dav_incidence_num + Quarantine + SchoolClose + StayAtHome + confirmed_7dav_incidence_num, data = na.omit(factored_data[, -c(1)]))
 
@@ -377,7 +377,7 @@ summary(fin_mod)
 
 We suspect that the mobility signal is lower than usual during the weekend.
 
-```{r examine weekend effects from the data}
+```{r examine-weekend-effects-from-the-data}
 factored_data$weekday <- weekdays(as.Date(factored_data$time_value)) 
 
 p <- ggplot(factored_data, aes(x=weekday, y=full_time_work_prop)) + 
@@ -406,7 +406,7 @@ After we dropped the weekends in the data, we repeat the same process like we di
 * ``TravelRestrictExit`` 
 * ``Quarantine``
 
-```{r boxcox after dropping weekend}
+```{r boxcox-after-dropping-weekend}
 mod_without_end <- lm(full_time_work_prop~., data=na.omit(factored_data_without_wd[,-c(1)]))
 boxcox(mod_without_end)
 
@@ -421,7 +421,7 @@ plot(factored_data$time_value, factored_data$full_time_work_prop^(1/2), main="Sq
 plot(factored_data_without_wd$time_value, log(factored_data_without_wd$full_time_work_prop), xlab="Time", ylab = "Full-time away home signal", main="Log mobility by time (without weekends)")
 ```
 
-```{r model selection after dropping weekend, include = FALSE}
+```{r model-selection-after-dropping-weekend, include = FALSE}
 # Null model
 none_mod <- lm(log(full_time_work_prop)~1,data=na.omit(factored_data_without_wd[,-c(1)]))
 # Full model
@@ -446,7 +446,7 @@ We now fit the data without weekend with another "best model" selected by stepwi
 Indeed, we get a higher adj. R-squared of 0.6504, whereas the previous model has adj. R-squared of 0.4438. Interestingly, ``StayAtHome`` is now even more significant compared to previous model. Also, note that once we remove weekends, ``BarRestrict`` is no longer selected by the stepwise regression procedure. Also, now we have ``TravelRestrictExit`` in the model, but not significant at 0.05 significance level. ``Quarantine`` has also become less significant. Moreover, ``OtherBusinessClose`` has become a significant variable in explaining the variation of mobility when we remove the weekends. 
 
 
-```{r summary of the model without weekends}
+```{r summary-of-the-model-without-weekends}
 # We look at the summary of the selected model
 fin_mod_without_end <- lm(formula = log(full_time_work_prop) ~ confirmed_7dav_cumulative_prop + geo_value + weekday + SchoolClose + smoothed_cli + confirmed_7dav_cumulative + deaths_7dav_incidence_num + OtherBusinessClose + StayAtHome + confirmed_7dav_incidence_num + TravelRestrictExit + Quarantine, data = na.omit(factored_data_without_wd[, -c(1)]))
 
@@ -469,7 +469,7 @@ Also, among all the interventions, ``BarRestrict`` is the most significant in ex
 On the other hand, after we drop the weekends in the data, we notice that ``confirmed_7dav_cumulative_prop`` has become even more significant. All the covidcast signals have explained the mean mobility variation more fully than the interventions. While ``BarRestrict`` is not included anymore, we see that ``SchoolClose`` has become much more significant when we compare it between two models (with and without weekends). 
 
 
-```{r anova of selected linear models}
+```{r anova-of-selected-linear-models}
 # Show the summary and compare the models
 anova(fin_mod) # with weeekends
 

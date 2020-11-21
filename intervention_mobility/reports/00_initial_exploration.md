@@ -137,7 +137,7 @@ p <- ggplot(ptime, aes(x=time_value, y=value)) +
 p
 ```
 
-![](00_initial_exploration_files/figure-html/PT away home signal line plot-1.png)<!-- -->
+![](00_initial_exploration_files/figure-html/PT-away-home-signal-line-plot-1.png)<!-- -->
 
 ## Correlation between case count and future mobility signal
 
@@ -175,7 +175,7 @@ p
 ## Warning: Removed 26 row(s) containing missing values (geom_path).
 ```
 
-![](00_initial_exploration_files/figure-html/peasrson correlation by time-1.png)<!-- -->
+![](00_initial_exploration_files/figure-html/peasrson-correlation-by-time-1.png)<!-- -->
 
 
 ### Spearman correlation (line chart)
@@ -203,7 +203,7 @@ p <- ggplot(all_scor, aes(x = time_value, y = value)) +
 p
 ```
 
-![](00_initial_exploration_files/figure-html/spearman correlation by time-1.png)<!-- -->
+![](00_initial_exploration_files/figure-html/spearman-correlation-by-time-1.png)<!-- -->
 
 ## Lag analysis on covidcast signals
 
@@ -252,7 +252,7 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
                               by_method)
 ```
 
-![](00_initial_exploration_files/figure-html/other signals-future mobility-Pearson (slicing by state)-1.png)<!-- -->
+![](00_initial_exploration_files/figure-html/other-signals-future-mobility-Pearson-slicing-by-state-1.png)<!-- -->
 
 ####  Pearson Correlation (slicing by time)
 
@@ -274,7 +274,7 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
                               by_method)
 ```
 
-![](00_initial_exploration_files/figure-html/other signals - future mobility-Pearson (slicing by time)-1.png)<!-- -->
+![](00_initial_exploration_files/figure-html/other-signals-future-mobility-Pearson-slicing-by-time-1.png)<!-- -->
 
 #### Rank correlation (slicing by state)
 
@@ -304,7 +304,7 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
                               by_method)
 ```
 
-![](00_initial_exploration_files/figure-html/other signals - future mobility-Rank (slicing by state)-1.png)<!-- -->
+![](00_initial_exploration_files/figure-html/other-signals-future-mobility-Rank-slicing-by-state-1.png)<!-- -->
 
 #### Rank correlation (slicing by time)
 
@@ -328,7 +328,7 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
                               by_method)
 ```
 
-![](00_initial_exploration_files/figure-html/other signals - future mobility-Rank (slicing by time)-1.png)<!-- -->
+![](00_initial_exploration_files/figure-html/other-signals-future-mobility-Rank-slicing-by-time-1.png)<!-- -->
 
 
 ### Rank correlation on a map (37-day-forwarded mobility signal)
@@ -352,7 +352,7 @@ plot(cor3_by_geo, title = "Correlations between 37-day shifted cases and mobilit
      range = c(-1, 1), choro_col = c("orange","lightblue", "purple"))
 ```
 
-![](00_initial_exploration_files/figure-html/pearson correlation plot in space-1.png)<!-- -->
+![](00_initial_exploration_files/figure-html/pearson-correlation-plot-in-space-1.png)<!-- -->
 
 
 ### Other signals correlate with future restaurant visit
@@ -384,7 +384,7 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
                               by_method)
 ```
 
-![](00_initial_exploration_files/figure-html/other signals correlate with future restaurant visit-Pearson (slicing by state)-1.png)<!-- -->
+![](00_initial_exploration_files/figure-html/other-signals-correlate-with-future-restaurant-visit-Pearson-slicing-by-state-1.png)<!-- -->
 
 #### Pearson correlation (slicing by time)
 
@@ -405,7 +405,7 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
                               by_method)
 ```
 
-![](00_initial_exploration_files/figure-html/other signals - future restaurant visit - Pearson (slicing by time)-1.png)<!-- -->
+![](00_initial_exploration_files/figure-html/other-signals-future-restaurant-visit-Pearson-slicing-by-time-1.png)<!-- -->
 
 #### Rank correlation (slicing by state)
 
@@ -429,7 +429,7 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
                               by_method)
 ```
 
-![](00_initial_exploration_files/figure-html/other signals - future restaurant visit-Rank (slicing by state)-1.png)<!-- -->
+![](00_initial_exploration_files/figure-html/other-signals-future-restaurant-visit-Rank-slicing-by-state-1.png)<!-- -->
 
 #### Rank correlation (slicing by time)
 
@@ -453,7 +453,7 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
                               by_method)
 ```
 
-![](00_initial_exploration_files/figure-html/other signals - future restaurant visit-Rank (slicing by time)-1.png)<!-- -->
+![](00_initial_exploration_files/figure-html/other-signals-future-restaurant-visit-Rank-slicing-by-time-1.png)<!-- -->
 
 
 
@@ -487,7 +487,7 @@ p <- ggplot(new_counts.df,aes(x= reorder(Var1,Freq),Freq)) +
 p
 ```
 
-![](00_initial_exploration_files/figure-html/Count of all policies-1.png)<!-- -->
+![](00_initial_exploration_files/figure-html/Count-of-all-policies-1.png)<!-- -->
 
 ### Filtered by mandatory policy
 
@@ -505,7 +505,7 @@ p <- ggplot(new_counts.df,aes(x= reorder(Var1,Freq),Freq, fill = `Mandate?`)) +
 p
 ```
 
-![](00_initial_exploration_files/figure-html/filtered by mandate-1.png)<!-- -->
+![](00_initial_exploration_files/figure-html/filtered-by-mandate-1.png)<!-- -->
 
 ### Distinct Count of State-wide policy across states
 
@@ -530,7 +530,7 @@ p <- ggplot(counts.df,aes(x= reorder(Var1,Freq),Freq, fill=Freq))+
 p
 ```
 
-![](00_initial_exploration_files/figure-html/count unique state policy by state-1.png)<!-- -->
+![](00_initial_exploration_files/figure-html/count-unique-state-policy-by-state-1.png)<!-- -->
 
 ## Lag analysis on number of policies and mobility
 
@@ -567,7 +567,7 @@ p <- ggplot(pearson_policy_med ,
 p
 ```
 
-![](00_initial_exploration_files/figure-html/construct government intervention signal-1.png)<!-- -->
+![](00_initial_exploration_files/figure-html/construct-government-intervention-signal-1.png)<!-- -->
 
 ```r
 # Spearman correlation between the number of policies and mobility across states
@@ -590,7 +590,7 @@ s<- ggplot(spearman_policy_med,
 s
 ```
 
-![](00_initial_exploration_files/figure-html/construct government intervention signal-2.png)<!-- -->
+![](00_initial_exploration_files/figure-html/construct-government-intervention-signal-2.png)<!-- -->
 
 ### Rank correlation in Space between number of policies and future mobility
 
@@ -628,5 +628,5 @@ for (i in idx){
 do.call(grid.arrange,ls)
 ```
 
-![](00_initial_exploration_files/figure-html/correlation based on different lags on multiple maps-1.png)<!-- -->
+![](00_initial_exploration_files/figure-html/correlation-based-on-different-lags-on-multiple-maps-1.png)<!-- -->
 

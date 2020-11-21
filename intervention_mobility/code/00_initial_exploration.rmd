@@ -118,7 +118,7 @@ smoothed_adj_cli<- data$smoothed_adj_cli
 
 We can see that full-time away home signal drops across all the states in April and gradually increase. Part-time away home signal also behave with the same trend. 
 
-```{r FT away home signal line plot}
+```{r FT-away-home-signal-line-plot}
 p <- ggplot(ftime, aes(x=time_value, y=value)) +
   geom_line(aes(color = geo_value)) + 
   labs(title = "Full-time away home signal", y= "The fraction of mobile devices that spent more than 6 hours other than home")
@@ -126,7 +126,7 @@ p
 
 ```
 
-```{r PT away home signal line plot}
+```{r PT-away-home-signal-line-plot}
 p <- ggplot(ptime, aes(x=time_value, y=value)) +
   geom_line(aes(color = geo_value)) + 
   labs(title = "Part-time away home signal", y= "The fraction of mobile devices that spent between 3 and 6 hours other than home")
@@ -170,7 +170,7 @@ p
 
 We can also look at Spearman (rank) correlation, which is a more robust measure of correlation: it's invariant to monotone transformations, and doesn't rely on any particular functional form for the dependence between two variables.
 
-```{r spearman correlation by time, warning=FALSE, message=FALSE}
+```{r spearman-correlation-by-time, warning=FALSE, message=FALSE}
 scor1 <- covidcast_cor(case_avg, ftime, by = "time_value",  method = "spearman")
 scor2 <- covidcast_cor(case_avg, ftime,  by = "time_value", dt_x = DT_X,  method = "spearman")
 scor3 <- covidcast_cor(case_avg, ftime,  by = "time_value", dt_x = 14,  method = "spearman")
@@ -210,7 +210,7 @@ In terms of slicing by state with pearson correlation, we see that
 
 * The 7-day average death case count signal is most correlated with 30-day-forwarded mobility signal and 100-day-forwarded mobility signal.
 
-```{r other signals-future mobility-Pearson (slicing by state), warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
+```{r other-signals-future-mobility-Pearson-slicing-by-state, warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
 SHIFTDAY <- 100
 corr.method <- "pearson"
 by_method <- "geo_value"
@@ -240,7 +240,7 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
 
 When we change our perspective to slicing by time, the other signals have very weak negative Pearson correlation with the future mobility signals. 
 
-```{r other signals - future mobility-Pearson (slicing by time), warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
+```{r other-signals-future-mobility-Pearson-slicing-by-time, warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
 title <- "Median Pearson correlation between other signals and future mobility (slicing by time)"
 by_method <- "time_value"
 
@@ -267,7 +267,7 @@ We note the following:
 
 * Also, the 7-day average death case count is most correlated with 100-day-forwarded mobility signal. 
 
-```{r other signals - future mobility-Rank (slicing by state), warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
+```{r other-signals-future-mobility-Rank-slicing-by-state, warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
 title <- "Median Spearman correlation between other signals and future mobility (slicing by state)"
 by_method <- "geo_value"
 corr.method <- "spearman"
@@ -288,7 +288,7 @@ In terms of slicing by time with rank correlation, we see that
 
 * The correlation is moving from negative to zero as we increase the number of shifts. 
 
-```{r other signals - future mobility-Rank (slicing by time), warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
+```{r other-signals-future-mobility-Rank-slicing-by-time, warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
 title <- "Median Spearman correlation between other signals and future mobility (slicing by time)"
 by_method <- "time_value"
 corr.method <- "spearman"
@@ -311,7 +311,7 @@ As we learn from the rank correlation slicing by state, we may be curious to kno
 
 From the plot below, we pick on cumulative 7-day averaged confirmed case count per 100,000, we can see that the signal is highly correlated with the 37-day-forwarded mobility signal across states consistently.
 
-```{r pearson correlation plot in space}
+```{r pearson-correlation-plot-in-space}
 # Set a bunch of fields so that the data frame knows how to plot itself
 cor3_by_geo <- covidcast_cor(cum_case_prop, ftime,  by = "geo_value", dt_x = 37,method = "spearman")
 
@@ -338,7 +338,7 @@ Observations:
 
 * There is one clear difference when we switch from away home signal to restuarant visit, we see that 7-day averaged death case is most correlated with 50-day forwarded restaurant visit. 
 
-```{r other signals correlate with future restaurant visit-Pearson (slicing by state), warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
+```{r other-signals-correlate-with-future-restaurant-visit-Pearson-slicing by-state, warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
 SHIFTDAY <- 100
 corr.method <- "pearson"
 by_method <- "geo_value"
@@ -359,7 +359,7 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
 
 From the plot below, we see that the Pearson correlations between other signals and future resturant visits tend to go to zero as the number of shifts increases.
 
-```{r other signals - future restaurant visit - Pearson (slicing by time), warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
+```{r other-signals-future-restaurant-visit-Pearson-slicing-by-time, warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
 by_method <- "time_value"
 title <- "Median Pearson correlation between other signals and future restaurant visit signal (slicing by time)"
 
@@ -380,7 +380,7 @@ In comparison with the Pearson correlation slicing by state, we see that the cum
 
 To continue the comparison, we see that the adjusted docotor visit, unadjusted doctor visit, and the 7-day averaged confirmed case are now more correlated with the future restaurant visit with fewer days forwarded in time. 
 
-```{r other signals - future restaurant visit-Rank (slicing by state), warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
+```{r other-signals-future-restaurant-visit-Rank-slicing-by-state, warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
 
 # Do the same for Spearman 
 corr.method <- "spearman"
@@ -404,7 +404,7 @@ Interesting, when we look at the rank correlation slicing by time, we see that
 
 * Meanwhile, the cumulative 7-day averaged confirmed case count per 100,000 remain close to 0 rank correlation with the future restaurant visit even when we change the number of shifts.
 
-```{r other signals - future restaurant visit-Rank (slicing by time), warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
+```{r other-signals-future-restaurant-visit-Rank-slicing-by-time, warning = FALSE, message=FALSE, fig.height= 15, fig.width = 15}
 
 by_method <- "time_value"
 title <- "Median Spearman correlation between other signals and future restaurant visit signal (slicing by time)"
@@ -419,7 +419,7 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
 ```
 
 
-```{r preprocess_intervention data, warning= FALSE, message=FALSE, echo=FALSE}
+```{r preprocess_intervention-data, warning= FALSE, message=FALSE, echo=FALSE}
 # Read government intervention data
 policy <- load_policy()
 
@@ -433,7 +433,7 @@ We also want to explore the policy data from University of Washington's [State-l
 
 The plot below shows the number of policies falling into different categories. Most of the policies across states are related to gathering restriction.
 
-```{r Count of all policies}
+```{r Count-of-all-policies}
 # Plot for non-distinct count and mandate distribution
 policy.by.state <- state.policy[,c("StateName",
                                    "StatePolicy", 
@@ -460,7 +460,7 @@ p
 
 We can further filter the data by looking at how many policies are mandatory. 
 
-```{r filtered by mandate}
+```{r filtered-by-mandate}
 # Show the difference by Mandate?
 p <- ggplot(new_counts.df,aes(x= reorder(Var1,Freq),Freq, fill = `Mandate?`)) +
   geom_bar(stat ="identity")+
@@ -475,7 +475,7 @@ p
 
 By filtering the data by distinct count, we can see what kind of policies that most states will enforce.
 
-```{r count unique state policy by state}
+```{r count-unique-state-policy-by-state}
 # Filter the dataframe by distrinct rows
 unique.policy.by.state <- distinct(state.policy[,c("StateName","StatePolicy")])
 # Get the count
@@ -499,7 +499,7 @@ p
 
 We may want to construct a simple signal to represent state-wide government intervention over time. To do so, we count the number of policies that has been enacted in a day and take the rolling average number within 7 days as an intervention signal.
 
-```{r construct government intervention signal, warning = FALSE, message=FALSE}
+```{r construct-government-intervention-signal, warning = FALSE, message=FALSE}
 
 policy_signal <- getSumOfPolicy(policy, STARTDATE, ENDDATE)
 
@@ -551,7 +551,7 @@ s
 
 We can also see the correlation in a map. The number of policies become more correlated with n-day forwarded mobility as n increases. 
 
-```{r correlation based on different lags on multiple maps, warning = FALSE, message=FALSE}
+```{r correlation-based-on-different-lags-on-multiple-maps, warning = FALSE, message=FALSE}
 # Set a bunch of fields so that the data frame knows how to plot itself
 ls = list()
 idx <- seq(50,125,25)

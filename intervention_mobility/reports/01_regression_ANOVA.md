@@ -143,7 +143,7 @@ We can see that some states have a particularly higher range of the mean mobilit
 plotmeans(full_time_work_prop~ geo_value,data=intervention_mobility_case, xlab="Geo_value", ylab="Mobility", main="Main effect (States)") 
 ```
 
-![](01_regression_ANOVA_files/figure-html/check main effect-1.png)<!-- -->
+![](01_regression_ANOVA_files/figure-html/check-main-effect-1.png)<!-- -->
 
 ### Interaction plots
 
@@ -178,7 +178,7 @@ for(i in policyIdx){
 }
 ```
 
-![](01_regression_ANOVA_files/figure-html/interaction plots across states-1.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction plots across states-2.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction plots across states-3.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction plots across states-4.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction plots across states-5.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction plots across states-6.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction plots across states-7.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction plots across states-8.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction plots across states-9.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction plots across states-10.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction plots across states-11.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction plots across states-12.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction plots across states-13.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction plots across states-14.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction plots across states-15.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction plots across states-16.png)<!-- -->
+![](01_regression_ANOVA_files/figure-html/interaction-plots-across-states-1.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction-plots-across-states-2.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction-plots-across-states-3.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction-plots-across-states-4.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction-plots-across-states-5.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction-plots-across-states-6.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction-plots-across-states-7.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction-plots-across-states-8.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction-plots-across-states-9.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction-plots-across-states-10.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction-plots-across-states-11.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction-plots-across-states-12.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction-plots-across-states-13.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction-plots-across-states-14.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction-plots-across-states-15.png)<!-- -->![](01_regression_ANOVA_files/figure-html/interaction plots across states-16.png)<!-- -->
 
 ### Boxplots of mobility across different levels of intervention
 
@@ -210,7 +210,7 @@ do.call(grid.arrange,p)
 ## Warning: Continuous x aesthetic -- did you forget aes(group=...)?
 ```
 
-![](01_regression_ANOVA_files/figure-html/boxplots for categorical variables-1.png)<!-- -->
+![](01_regression_ANOVA_files/figure-html/boxplots-for-categorical-variables-1.png)<!-- -->
 
 ### Distribution of mobility by various intervention across states
 
@@ -235,7 +235,7 @@ print(p)
 }
 ```
 
-![](01_regression_ANOVA_files/figure-html/mobility signal by intervention-1.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility signal by intervention-2.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility signal by intervention-3.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility signal by intervention-4.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility signal by intervention-5.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility signal by intervention-6.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility signal by intervention-7.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility signal by intervention-8.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility signal by intervention-9.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility signal by intervention-10.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility signal by intervention-11.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility signal by intervention-12.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility signal by intervention-13.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility signal by intervention-14.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility signal by intervention-15.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility signal by intervention-16.png)<!-- -->
+![](01_regression_ANOVA_files/figure-html/mobility-signal-by-intervention-1.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility-signal-by-intervention-2.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility-signal-by-intervention-3.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility-signal-by-intervention-4.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility-signal-by-intervention-5.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility-signal-by-intervention-6.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility-signal-by-intervention-7.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility-signal-by-intervention-8.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility-signal-by-intervention-9.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility-signal-by-intervention-10.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility-signal-by-intervention-11.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility-signal-by-intervention-12.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility-signal-by-intervention-13.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility-signal-by-intervention-14.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility-signal-by-intervention-15.png)<!-- -->![](01_regression_ANOVA_files/figure-html/mobility signal by intervention-16.png)<!-- -->
 
 #### Transformations of the Response Variable
 
@@ -251,7 +251,7 @@ hist(1/(factored_data$full_time_work_prop), main="Histogram of 1/response", xlab
 hist(sqrt(factored_data$full_time_work_prop), main="Histogram of squared root of response", xlab="full_time_work_prop")
 ```
 
-![](01_regression_ANOVA_files/figure-html/visualize all histogram of reponse-1.png)<!-- -->
+![](01_regression_ANOVA_files/figure-html/visualize-all-histogram-of-reponse-1.png)<!-- -->
 
 #### Histograms of all continuous variables
 
@@ -276,7 +276,7 @@ for (i in con.var.idx)
 }
 ```
 
-![](01_regression_ANOVA_files/figure-html/visualize the distributions of the continuous variables-1.png)<!-- -->
+![](01_regression_ANOVA_files/figure-html/visualize-the-distributions-of-the-continuous-variables-1.png)<!-- -->
 
 ```r
 par(mfrow=c(1,1))
@@ -336,7 +336,7 @@ lm.fit.1 <- lm(full_time_work_prop ~., data=factored_data[,-c(1)], na.action = n
 boxcox(lm.fit.1)
 ```
 
-![](01_regression_ANOVA_files/figure-html/preliminary investigation-1.png)<!-- -->
+![](01_regression_ANOVA_files/figure-html/preliminary-investigation-1.png)<!-- -->
 
 ```r
 transformed.lm.fit.1<- lm(full_time_work_prop^(1/2) ~., data=factored_data[,-c(1)], na.action = na.exclude)
@@ -349,7 +349,7 @@ plot(transformed.lm.fit.1, which=1, main="Residuals vs Fitted (after transformat
 plot(transformed.lm.fit.1, which=2, main="Normal (after transformation)") # residuals vs. fitted shows nonlinearity and nonconstant variance
 ```
 
-![](01_regression_ANOVA_files/figure-html/preliminary investigation-2.png)<!-- -->
+![](01_regression_ANOVA_files/figure-html/preliminary-investigation-2.png)<!-- -->
 
 ```r
 par(mfrow=c(1,1))
@@ -358,7 +358,7 @@ par(mfrow=c(1,1))
 plot(factored_data$time_value, factored_data$full_time_work_prop^(1/2), main="Square-root mobility by time", ylab="Square-root mobility", xlab="time")
 ```
 
-![](01_regression_ANOVA_files/figure-html/preliminary investigation-3.png)<!-- -->
+![](01_regression_ANOVA_files/figure-html/preliminary-investigation-3.png)<!-- -->
 
 
 #### Model Selection in multiple regression
@@ -495,7 +495,7 @@ p <- ggplot(factored_data, aes(x=weekday, y=full_time_work_prop)) +
 p
 ```
 
-![](01_regression_ANOVA_files/figure-html/examine weekend effects from the data-1.png)<!-- -->
+![](01_regression_ANOVA_files/figure-html/examine-weekend-effects-from-the-data-1.png)<!-- -->
 
 ```r
 # Drop the weekend
@@ -526,7 +526,7 @@ mod_without_end <- lm(full_time_work_prop~., data=na.omit(factored_data_without_
 boxcox(mod_without_end)
 ```
 
-![](01_regression_ANOVA_files/figure-html/boxcox after dropping weekend-1.png)<!-- -->
+![](01_regression_ANOVA_files/figure-html/boxcox-after-dropping-weekend-1.png)<!-- -->
 
 ```r
 log.mod_without_end <- lm(log(full_time_work_prop)~., data=na.omit(factored_data_without_wd[,-c(1)]))
@@ -537,14 +537,14 @@ log.mod_without_end <- lm(log(full_time_work_prop)~., data=na.omit(factored_data
 plot(factored_data$time_value, factored_data$full_time_work_prop^(1/2), main="Square-root mobility by time (with weekends)", ylab="Square-root mobility", xlab="time")
 ```
 
-![](01_regression_ANOVA_files/figure-html/boxcox after dropping weekend-2.png)<!-- -->
+![](01_regression_ANOVA_files/figure-html/boxcox-after-dropping-weekend-2.png)<!-- -->
 
 ```r
 # Plot the resulting mobility signal over time
 plot(factored_data_without_wd$time_value, log(factored_data_without_wd$full_time_work_prop), xlab="Time", ylab = "Full-time away home signal", main="Log mobility by time (without weekends)")
 ```
 
-![](01_regression_ANOVA_files/figure-html/boxcox after dropping weekend-3.png)<!-- -->
+![](01_regression_ANOVA_files/figure-html/boxcox-after-dropping-weekend-3.png)<!-- -->
 
 
 
