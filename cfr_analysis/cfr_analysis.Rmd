@@ -12,24 +12,6 @@ output:
 ```{r, include = FALSE}
 knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 knitr::opts_chunk$set(cache = TRUE, autodep = TRUE, cache.comments = TRUE)
-
-library(dplyr)
-library(purrr)
-library(tidyr)
-library(ggplot2) 
-theme_set(theme_bw())
-
-Min = function(x) min(x, na.rm = TRUE)
-Max = function(x) max(x, na.rm = TRUE)
-Sum = function(x) sum(x, na.rm = TRUE)
-Mean = function(x) mean(x, na.rm = TRUE)
-Median = function(x) median(x, na.rm = TRUE)
-
-quiet = function(x) { 
-  sink(tempfile()) 
-  on.exit(sink()) 
-  invisible(force(x)) 
-} 
 ```
 
 ## Fetching data 
@@ -41,12 +23,20 @@ the 7-day smoothed versions of these signals (via 7-day trailing averages).
 
 ```{r}
 library(covidcast) # https://github.com/cmu-delphi/covidcast
+library(dplyr)
+library(purrr)
+library(tidyr)
+library(ggplot2) 
+theme_set(theme_bw())
+
 start_day = "2020-03-01"
 as_of = "2020-11-16" # Fetch data "as of" the day we first did this analysis!
+
 cases = covidcast_signal(data_source = "jhu-csse",
                          signal = "confirmed_7dav_incidence_num", 
                          start_day = start_day, geo_type = "state",
                          as_of = as_of)
+
 deaths = covidcast_signal(data_source = "jhu-csse",
                           signal = "deaths_7dav_incidence_num", 
                           start_day = start_day, geo_type = "state",
@@ -60,6 +50,12 @@ of different lags for the cases signal. We restrict our attention to data after
 April 1.
 
 ```{r}
+Min = function(x) min(x, na.rm = TRUE)
+Max = function(x) max(x, na.rm = TRUE)
+Sum = function(x) sum(x, na.rm = TRUE)
+Mean = function(x) mean(x, na.rm = TRUE)
+Median = function(x) median(x, na.rm = TRUE)
+
 compute_cor = function(x, y, lags = 0:40, start_day = NULL, end_day = NULL, 
                        ...) {
   if (is.null(start_day)) start_day = Min(x$time_value)
@@ -349,13 +345,13 @@ local CFR forecaster is more competitive.
 For simplicity, we now restrict our attention to the global CFR = 1.7% model. 
 We look at forecasts 16, 22, and 28 days ahead (these the lags we use for the 
 CFR model). Below we plot the predictions along with actual deaths, and we 
-include 95% bands based on quantiles of residuals. In call cases, the black
+include 95% bands based on quantiles of residuals. In all cases, the black
 line shows the observed deaths (recall, smoothed via a 7-day trailing average).
 
 An important note: these bands have by construction 95% *historical* coverage. 
 They have not been calibrated (nor been attempted to be calibrated) to have 95%
 *future* coverage. Therefore they should be looked at with skepticism when it 
-comes to the actual forward-look predictions made by the CFR = 17.% forecaster 
+comes to the actual forward-look predictions made by the CFR = 1.7% forecaster 
 (indeed they look far too narrow here). 
 
 ```{r, fig.width = 7, fig.height = 4}
@@ -430,6 +426,13 @@ component forecasters).
 
 ```{r}
 library(covidHubUtils) # https://github.com/reichlab/covidHubUtils
+
+quiet = function(x) { 
+  sink(tempfile()) 
+  on.exit(sink()) 
+  invisible(force(x)) 
+} 
+
 ens = quiet(load_forecasts(models = "COVIDhub-ensemble",
                            types = c("point", "quantile"), 
                            location = "US",
