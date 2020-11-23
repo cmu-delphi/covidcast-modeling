@@ -30,7 +30,7 @@ signal_names = c("smoothed_adj_cli", "smoothed_cli", "smoothed_hh_cmnty_cli",
             "smoothed_adj_covid19_from_claims", "smoothed_adj_covid19_from_claims")
 pretty_names = c("Doctor visits", "Facebook CLI", "Facebook CLI-in-community", 
           "Hospitalizations", "Hospitalizations")
-target_names = c("Cases", "Cases", "Cases", , "Cases", "Deaths")
+target_names = c("Cases", "Cases", "Cases", "Cases", "Deaths")
 geo_level = "county"
 
 start_day = "2020-04-15"
