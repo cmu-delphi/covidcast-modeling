@@ -103,7 +103,7 @@ geo_values = covidcast_signal("usa-facts", "confirmed_cumulative_num",
                               geo_type = "county") %>%
   filter(value >= case_num) %>% pull(geo_value)
 
-geo_values = intersect(geo_values, geo_values_complete)
+geo_values_complete = intersect(geo_values, geo_values_complete)
 ```
 
 
@@ -146,9 +146,9 @@ append_shifts = function(df, shifts) {
 lags = 1:2 * -7 
 leads = 1:2 * 7
 
-# Filter to complete states, transform the signals, append 1-2 week lags to 
+# Filter to complete counties, transform the signals, append 1-2 week lags to 
 # all three, and also 1-2 week leads to case rates
-# Rescale all the signals to bring them down to proportions (between 0 and 1)
+# Re-scale all the signals to bring them down to proportions (between 0 and 1)
 prefixes = c("dv", "fb_cli", "fb_cli_com", "hm", "anosmia", "ageusia", "aa")
 rescale_case = 1e5 # Originally a count per 100,000 people
 
@@ -293,9 +293,9 @@ ggplot(res_med, aes(x = time_value, y = err)) +
   theme_bw() + theme(legend.pos = "bottom", legend.title = element_blank())
 ```
 
-We can see that during some time periods, median scaled error for the cases + google-symptoms (anosmia, ageusia, A+A) model is more variable than other signals at county level which is probably due to low geographical coverage (only ~100 counties available).
+We can see that during some time periods, median scaled error for the cases + google-symptoms (anosmia, ageusia, A+A) model is more variable than other signals at county level.
 
-```{r compare_media_err_over_all_time_and_states}
+```{r compare_media_err_over_all_time_and_counties}
 # Restrict to common period for all models, then calculate the scaled errors 
 # for each model, that is, the error relative to the strawman's error
 res_all = res %>%
@@ -365,7 +365,7 @@ Differences in model fit are (very) significantly different, ignoring dependence
 "To mitigate the dependence across time (which intuitively seems to matter more than that across space), we recomputed these tests in a stratified way, where for each day we run a sign test on the scaled errors between two models over all [geographic regions]. The results are plotted as histograms below", where one count corresponds to one prediction date ([source](https://delphi.cmu.edu/blog/2020/09/21/can-symptoms-surveys-improve-covid-19-forecasts/)).
 
 
-```{r calc p-values from sign test across all states for each date}
+```{r calc p-values from sign test across all counties for each date}
 # Red, blue (similar to ggplot defaults), then yellow.
 ggplot_colors = c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3",
                   "#FF7F00", "#FFFF33", "#A65628")
@@ -482,11 +482,11 @@ for (i in 1:length(signals)) {
 }
 ```
 
-```{r, warning=FALSE, message=FALSE}
+```{r, warning=FALSE, message=FALSE, cache=TRUE}
 ##### Analysis #####
-model_names = c("Cases", "Cases + DV", "Cases + FB-CLI",  "Cases + FB-CLI-community",
-                "Cases + Hospitalization", "Cases + GS-Anosmia", "Cases + GS-Ageusia",
-                "Cases + Anosmia+Ageusia")
+model_names = c("Cases", "Cases + Doctor Visits", "Cases + Survey Data:%COVID-like Illness",  "Cases + Survey Data: %COVID-like Illness in local community",
+                "Cases + Hospitalization Admissions", "Cases + Google-symptoms:Anosmia", "Cases + Google Symptoms:Ageusia",
+                "Cases + Google Symptoms:Anosmia+Ageusia")
 
 res_list = vector("list", length = length(leads)) 
 n = 14 # Number of trailing days to use for training set
@@ -590,10 +590,10 @@ ggplot(err_by_lead, aes(x = lead, y = err)) +
                filter(lead %in% 7, model == "Cases") %>% pull(err),
              linetype = 2, color = "gray") +
   labs(title = "Forecasting errors by number of days ahead",
-       subtitle = sprintf("Over all states"),
+       subtitle = sprintf("Over all counties using smoothed signals"),
        x = "Number of days ahead", y = "Median scaled error") +
   theme_bw() + theme(legend.pos = "bottom", legend.title = element_blank()) +
-  guides(color = guide_legend(nrow = 3))
+  guides(color = guide_legend(nrow = 4))
 ```
 
 
