@@ -35,7 +35,7 @@ geo_level = "county"
 
 start_day = "2020-04-15"
 end_day = NULL
-cache_fname = 'cached_data/03_heterogeneity_core_indicators.RDS'
+cache_fname = 'cached_data/10_heterogeneity_core_indicators.RDS'
 
 if (!file.exists(cache_fname)) {
   df_signals = vector("list", length(signal_names))
