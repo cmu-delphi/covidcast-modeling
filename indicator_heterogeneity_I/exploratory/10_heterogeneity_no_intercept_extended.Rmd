@@ -85,7 +85,11 @@ sensorize_time_ranges = list(
       c(-7, -1),
       c(-10, -1),
       c(-14, -1),
-      c(-21, -1))
+      c(-21, -1),
+      c(-21, -8),
+      c(-28, -8),
+      c(-35, -8),
+      c(-42, -8))
 
 for (ind_idx in 1:length(source_names)) {
   if (target_names[ind_idx] == 'Cases') {
