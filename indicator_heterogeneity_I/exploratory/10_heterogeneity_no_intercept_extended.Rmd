@@ -258,14 +258,14 @@ for (ind_idx in 1:length(source_names)) {
 
   df_cor = bind_rows(df_cor_base, sensorize_cors)
   df_cor$Indicator = stringr::str_replace(df_cor$Indicator,
-                                          'Sensorized',
-                                          "Sens'd")
+                                          'Sensorized ',
+                                          "")
   df_cor$Indicator = factor(df_cor$Indicator,
                             levels=c('Raw',
-                                     "Sens'd (Spatial)",
+                                     "(Spatial)",
                                      sapply(sensorize_time_ranges,
                                             function(x) {
-                                              sprintf("Sens'd (TS, %d:%d)",
+                                              sprintf("(TS, %d:%d)",
                                                       x[[1]], x[[2]])
                                             })))
 
