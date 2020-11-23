@@ -13082,11 +13082,11 @@ div#notebook {
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h1 id="Google-Symptoms-Dataset">Google Symptoms Dataset<a class="anchor-link" href="#Google-Symptoms-Dataset">&#182;</a></h1><h3 id="Explore-potentially-useful-symptoms-using-linear-Regression">Explore potentially useful symptoms using linear Regression<a class="anchor-link" href="#Explore-potentially-useful-symptoms-using-linear-Regression">&#182;</a></h3><p><strong>Jingjing Tang</strong>
+<h1 id="Google-Symptoms-Dataset">Google Symptoms Dataset<a class="anchor-link" href="#Google-Symptoms-Dataset">&#182;</a></h1><h3 id="Explore-potentially-useful-symptoms-using-linear-regression">Explore potentially useful symptoms using linear regression<a class="anchor-link" href="#Explore-potentially-useful-symptoms-using-linear-regression">&#182;</a></h3><p><strong>Jingjing Tang</strong>
 <strong>2020-11-19</strong></p>
 <ul>
 <li>Use county level data only</li>
-<li>Calculate time series correlations across locations (ignore nan)<ul>
+<li>Calculate time series correlations across locations (ignore nan, filter out counties with &lt;20% days available)<ul>
 <li>Since the raw data are pre-scaled using region specific maximum values at a certain time point picked by Google, they are not comparable between regions.</li>
 <li>Huge variance in geographical coverage and temporal coverage among symptoms</li>
 </ul>
@@ -13094,10 +13094,10 @@ div#notebook {
 <li>Using linear regression to see the coefficients of different symptoms<ul>
 <li>NAs are filled with 0s</li>
 <li>Note that due the time series property, actually the rows are not random samples that can we directly used for a traditional prediction</li>
-<li>We only want to see the variable important here, not trying to get good prediction result</li>
+<li>We only want to see the variable important here, not trying to get good prediction results</li>
 </ul>
 </li>
-<li>Negative correlation and negative coefficients got from linear model can be explained by the lag in time. Thus, we need to consider the symptoms with large absolute time series correlation first. Except for our current selection <code>Anosmia</code> and <code>Ageusia</code>, <code>Dysgeusia</code> is definitely another choice. Besides, respiratory related symptoms such as <code>Laryngitis</code> and <code>Tachypnea</code> are also good candidates. The difference in the sign of the correlation also raises another interesting question: the lag in time is different for different symptoms. This is some </li>
+<li>Negative correlations and negative coefficients got from linear model can be explained by the lag in time. Thus, we need to consider the symptoms with large absolute time series correlation first. Except for our current selection <code>Anosmia</code> and <code>Ageusia</code>, <code>Dysgeusia</code> is definitely another choice. Besides, respiratory related symptoms such as <code>Laryngitis</code> and <code>Tachypnea</code> are also good candidates with large negative correlations. The difference in the sign of the correlation also raises another interesting question: how the lag in time differs among symptoms. </li>
 </ul>
 
 </div>
@@ -14624,7 +14624,7 @@ Finished calculation for pancreatitis
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h4 id="Train-on-data-for-different-state-(ignore-this-part,-not-value-useful)">Train on data for different state (ignore this part, not value useful)<a class="anchor-link" href="#Train-on-data-for-different-state-(ignore-this-part,-not-value-useful)">&#182;</a></h4>
+<h4 id="Train-on-data-for-different-state-(ignore-this-part,-not-very-useful)">Train on data for different state (ignore this part, not very useful)<a class="anchor-link" href="#Train-on-data-for-different-state-(ignore-this-part,-not-very-useful)">&#182;</a></h4>
 </div>
 </div>
 </div>
