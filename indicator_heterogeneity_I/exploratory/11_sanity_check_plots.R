@@ -80,6 +80,10 @@ n_plot = 40
 plot_geo_values = sample(geo_values, n_plot)
 sample_time_values = sample(1:150, n_plot) + lubridate::ymd('2020-06-15')
 
+nr=2
+nc=2
+
+
 for (ind_idx in 1:length(source_names)) {
   if (target_names[ind_idx] == 'Cases') {
     df_target = df_cases
@@ -134,17 +138,6 @@ for (ind_idx in 1:length(source_names)) {
       time=window,
     )
 
-  sensorized_df = lapply(plot_time_range_idxs, function(tidx) {
-      sensorized_vals[[tidx]] %>% filter ( 
-        geo_value == plot_geo_value,
-        time_value == plot_time_value,
-      ) %>% mutate (
-        window = sprintf('{t%d, ..., t%d}',
-                         sensorize_time_ranges[[tidx]][1],
-                         sensorize_time_ranges[[tidx]][2])
-      )
-    }) %>% bind_rows
-
   data_df = bind_rows (
       data_df,
       sensorized_df[1, ] %>% transmute (
@@ -168,6 +161,9 @@ for (ind_idx in 1:length(source_names)) {
 
 
   linetypes = c('y~x-1'='solid', 'y~x'='dotted')
+  data_df$t_indicator = data_df$indicator * ifelse(data_df$time=='t',
+                                                   1,
+                                                   NA)
   plt = ggplot(
       data_df,
       aes(x=indicator,
@@ -198,7 +194,7 @@ for (ind_idx in 1:length(source_names)) {
       x=0,
       y=0
     ) + geom_vline (
-      xintercept = unique(sensorized_df$indicator_value)
+      aes(xintercept = t_indicator),
     ) + scale_linetype_manual(
       values=linetypes,
     ) + labs (
@@ -214,121 +210,3 @@ for (ind_idx in 1:length(source_names)) {
   # TODO: print pdf
 
 }
-
-
-ind_idx = 1
-if (target_names[ind_idx] == 'Cases') {
-	df_target = df_cases
-} else if (target_names[ind_idx] == 'Deaths') {
-	df_target = df_deaths
-} else {
-	stop(sprintf("No matching dataframe for target %s.", target_names[ind_idx]))
-}
-
-base_cor_fname = sprintf('results/10_base_cors_%s_%s_%s.RDS',
-													source_names[ind_idx], signal_names[ind_idx],
-													target_names[ind_idx])
-sensorize_fname = sprintf('results/10_sensorize_cors_%s_%s_%s.RDS',
-													source_names[ind_idx], signal_names[ind_idx],
-													target_names[ind_idx])
-sensorize_val_fname = sprintf('results/10_sensorize_vals_%s_%s_%s.RDS',
-													source_names[ind_idx], signal_names[ind_idx],
-													target_names[ind_idx])
-
-df_cor_base = readRDS(base_cor_fname)
-sensorize_cors = readRDS(sensorize_fname)
-sensorized_vals = readRDS(sensorize_val_fname)
-
-# TODO: randomly select geo_value
-# TODO: randomly select time_value
-plot_geo_value = '36061'
-plot_time_value = lubridate::ymd('2020-08-01')
-
-data_df = lapply(plot_time_range_idxs, function(tidx) {
-		df_signals[[ind_idx]] %>% filter (
-			geo_value == plot_geo_value,
-			time_value >= plot_time_value + sensorize_time_ranges[[tidx]][1],
-			time_value <= plot_time_value + sensorize_time_ranges[[tidx]][2],
-		) %>% mutate (
-			window = sprintf('{t%d, ..., t%d}',
-											 sensorize_time_ranges[[tidx]][1],
-											 sensorize_time_ranges[[tidx]][2])
-		)
-	}) %>% bind_rows (
-	) %>% select (
-		geo_value,
-		time_value,
-		indicator=value,
-		window,
-	) %>% inner_join (
-		df_target %>% select (
-			geo_value,
-			time_value,
-			target=value,
-		),
-		by=c('geo_value', 'time_value'),
-	) %>% rename (
-		time=window,
-	)
-
-sensorized_df = lapply(plot_time_range_idxs, function(tidx) {
-		sensorized_vals[[tidx]] %>% filter ( 
-			geo_value == plot_geo_value,
-			time_value == plot_time_value,
-		) %>% mutate (
-			window = sprintf('{t%d, ..., t%d}',
-											 sensorize_time_ranges[[tidx]][1],
-											 sensorize_time_ranges[[tidx]][2])
-		)
-	}) %>% bind_rows
-
-data_df = bind_rows (
-		data_df,
-		sensorized_df[1, ] %>% transmute (
-			geo_value=geo_value,
-			time_value=time_value,
-			indicator=indicator_value,
-			target=target_value,
-			time='t',
-		))
-
-data_df$time = factor(data_df$time,
-											levels=c('t',
-															 sapply(plot_time_range_idxs, function(tidx) {
-																sprintf('{t%d, ..., t%d}',
-																 sensorize_time_ranges[[tidx]][1],
-																 sensorize_time_ranges[[tidx]][2])})))
-
-
-plt = ggplot(
-		data_df,
-		aes(x=indicator,
-				y=target,
-				colour=time),
-	) + geom_point (
-		size=5,
-		alpha=0.5,
-	) + stat_smooth (
-		method='lm',
-		se=FALSE,
-		formula = y ~ x - 1,
-		fullrange=TRUE,
-	) + scale_colour_manual (
-		values = c('#000000',
-							 '#00BFC4',
-							 '#7CAE00'),
-	) + scale_alpha_manual (
-		c(0.8, 0.5, 0.5),
-	) + expand_limits (
-		x=0,
-		y=0
-	) + geom_point (
-		data=sensorized_df,
-		aes(x=indicator_value,
-				y=sensorized_value),
-		colour='black',
-		size=5,
-		alpha=0.8,
-		pch=1,
-	)
-
