@@ -54,6 +54,14 @@ geo_values = suppressWarnings(covidcast_signal("usa-facts", "confirmed_cumulativ
                               '2020-11-01')) %>%
   filter(value >= case_num) %>% pull(geo_value)
 
+county_tibble = covidcast::county_geo %>% transmute (
+      geo_value = fips,
+      county_name=county,
+      state=abbr,
+      county_name_fips = sprintf('%s, %s (%s)',
+                                 county_name, state, geo_value),
+    )
+
 sensorize_time_ranges = list(
       c(-7, -1),
       c(-10, -1),
@@ -145,7 +153,11 @@ for (ind_idx in 1:length(source_names)) {
         indicator=indicator_value,
         target=target_value,
         time='t',
-      ))
+    )) %>% inner_join (
+      county_tibble,
+      by='geo_value',
+    )
+
 
   data_df$time = factor(data_df$time,
                         levels=c('t',
@@ -172,7 +184,6 @@ for (ind_idx in 1:length(source_names)) {
       fullrange=TRUE,
     ) + stat_smooth (
       aes(linetype='y~x'),
-      #linetype='dotted',
       method='lm',
       se=FALSE,
       formula = y ~ x,
@@ -182,7 +193,7 @@ for (ind_idx in 1:length(source_names)) {
                  '#00BFC4',
                  '#7CAE00'),
     ) + scale_alpha_manual (
-      c(0.8, 0.5, 0.5),
+      c(0.7, 0.5, 0.5),
     ) + expand_limits (
       x=0,
       y=0
@@ -195,7 +206,9 @@ for (ind_idx in 1:length(source_names)) {
       y=target_names[ind_idx],
       linetype='model'
     ) + ggtitle (
-      sprintf('Location=%s, t=%s', plot_geo_value, plot_time_value)
+      sprintf('%s\n t=%s',
+              unique(data_df$county_name_fips),
+              plot_time_value)
     )
 
   # TODO: print pdf
