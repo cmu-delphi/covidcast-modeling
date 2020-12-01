@@ -23,7 +23,7 @@ for all of our core indicators.
 
 # Data setup
 
-```{r data_ingestion_county, echo = TRUE, cache=TRUE}
+```{r data_ingestion_county, echo = TRUE, cache=FALSE}
 # Fetch the following sources and signals from the API 
 # TODO: Add Google Symptoms "eventually"
 source_names = c("doctor-visits", "fb-survey", "fb-survey",
@@ -89,7 +89,7 @@ sensorize_time_ranges = list(
       c(-49, -8),
       c(-56, -8),
       c(-63, -8),
-      c(-70, -8),
+      c(-70, -8)
 )
 
 for (ind_idx in 1:length(source_names)) {
@@ -285,7 +285,7 @@ for (ind_idx in 1:length(source_names)) {
 }
 ```
 
-```{r plot_slopes, echo = TRUE, cache=TRUE}
+```{r plot_slopes, echo = TRUE, cache=FALSE}
 QUANTS = c(0.01, 0.99)
 
 # TODO: Add more "core indicators"

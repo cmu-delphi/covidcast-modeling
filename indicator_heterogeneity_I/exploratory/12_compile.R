@@ -1,5 +1,7 @@
 #!/usr/bin/Rscript
-rmarkdown::render('12_heterogeneity_longer_time_window.Rmd',
-                  params=list(geo_value='county'))
-rmarkdown::render('12_heterogeneity_longer_time_window.Rmd',
-                  params=list(geo_value='state'))
+for (geo_value_ in c('county', 'state')) {
+    rmarkdown::render('12_heterogeneity_longer_time_window.Rmd',
+                      params=list(geo_value=geo_value_),
+                      output_file=sprintf('12_heterogeneity_longer_time_window_%s.html',
+                                          geo_value_))
+}
