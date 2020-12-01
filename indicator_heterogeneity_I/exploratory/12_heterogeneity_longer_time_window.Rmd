@@ -183,7 +183,7 @@ for (ind_idx in 1:length(source_names)) {
       joiner_df = bind_rows(joiner_df_list)
 
       if (!PARCOMPUTE) {
-        ind_sensorized_lm =  ind_target %>% full_join(
+        ind_sensorized_lm =  ind_target %>% inner_join (
               joiner_df,
               on='time_value',
             ) %>%  group_by (
@@ -193,7 +193,7 @@ for (ind_idx in 1:length(source_names)) {
               ~ broom::tidy(lm(target_value ~ indicator_value, data = .x))
             ) %>% ungroup
       } else {
-        ind_grouped_list =   ind_target %>% full_join(
+        ind_grouped_list =   ind_target %>% inner_join (
               joiner_df,
               on='time_value',
             ) %>%  group_by (
@@ -227,7 +227,7 @@ for (ind_idx in 1:length(source_names)) {
             by=c('time_value'='sensorize_date',
                  'geo_value'),
           ) %>% mutate (
-            sensorized_value = indicator_value * slope,
+            sensorized_value = intercept + indicator_value * slope,
           )
       df_sensorized = ind_target_sensorized %>% transmute (
             geo_value=geo_value,
@@ -364,6 +364,91 @@ for (ind_idx in 1:length(source_names)) {
               sensorize_time_ranges[[inner_idx]][2])
     ) + ylim (
       slope_limits[[1]], slope_limits[[2]]
+    )
+    print(plt)
+  }
+}
+```
+
+```{r plot_intercepts, echo = TRUE, cache=FALSE}
+QUANTS = c(0.01, 0.99)
+
+# TODO: Add more "core indicators"
+
+for (ind_idx in 1:length(source_names)) {
+  if (target_names[ind_idx] == 'Cases') {
+    df_target = df_cases
+  } else if (target_names[ind_idx] == 'Deaths') {
+    df_target = df_deaths
+  } else {
+    stop(sprintf("No matching dataframe for target %s.", target_names[ind_idx]))
+  }
+
+  base_cor_fname = sprintf('results/12_base_cors_%s_%s_%s_%s.RDS',
+                            geo_level,
+                            source_names[ind_idx], signal_names[ind_idx],
+                            target_names[ind_idx])
+  sensorize_fname = sprintf('results/12_sensorize_cors_%s_%s_%s_%s.RDS',
+                            geo_level,
+                            source_names[ind_idx], signal_names[ind_idx],
+                            target_names[ind_idx])
+  sensorize_val_fname = sprintf('results/12_sensorize_vals_%s_%s_%s_%s.RDS',
+                            geo_level,
+                            source_names[ind_idx], signal_names[ind_idx],
+                            target_names[ind_idx])
+
+  df_cor_base = readRDS(base_cor_fname)
+  sensorize_cors = readRDS(sensorize_fname)
+  sensorized_vals = readRDS(sensorize_val_fname)
+
+  for (inner_idx in 1:length(sensorize_time_ranges)) {
+    sv = sensorized_vals[[inner_idx]]
+    print(summary(sv$intercept))
+    print(intercept_limits <- quantile(sv$intercept, QUANTS, na.rm=TRUE))
+    plt = ggplot(
+      sensorized_vals[[inner_idx]],
+      aes(x=time_value,
+          y=intercept),
+    ) + geom_point (
+      alpha=0.1,
+      size=0.5,
+    ) + geom_hline (
+      yintercept=0,
+      colour='white',
+    ) + stat_summary (
+        aes(y=intercept,
+            group=1,
+            colour='median'),
+        fun=median,
+        geom="line",
+        group=1,
+    ) + stat_summary (
+        aes(y=intercept,
+            group=1,
+            colour='+/- mad'),
+        fun=function(x) { median(x) + mad(x) },
+        geom="line",
+        group=1,
+    ) + stat_summary (
+        aes(y=intercept,
+            group=1,
+            colour='+/- mad'),
+        fun=function(x) { median(x) - mad(x) },
+        geom="line",
+        group=1,
+    ) + scale_colour_manual(
+        values=c("median"="maroon",
+                 "+/- mad"="darkgreen")
+    ) + labs(
+      colour=''
+    ) + ggtitle(
+      sprintf("Intercept distribution for %s[%s], fitted on t in %d:%d",
+              pretty_names[ind_idx],
+              target_names[ind_idx],
+              sensorize_time_ranges[[inner_idx]][1],
+              sensorize_time_ranges[[inner_idx]][2])
+    ) + ylim (
+      intercept_limits[[1]], intercept_limits[[2]]
     )
     print(plt)
   }
