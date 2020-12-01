@@ -3,6 +3,8 @@ title: "Indicator Heterogeneity I: Temporal Heterogeneity"
 author: "Addison"
 output:
   html_document
+params:
+  geo_value: 'None'
 ---
 ```{r import_statements, echo = FALSE, message = FALSE}
 library(tidyverse)
