@@ -77,7 +77,7 @@ if (geo_level == 'county') {
                                 '2020-11-01')) %>%
     filter(value >= case_num) %>% pull(geo_value)
 } else if (geo_level == 'state') {
-  geo_values = unique(df_signals$geo_value)
+  geo_values = unique(df_signals[[1]]$geo_value)
 }
 ```
 
