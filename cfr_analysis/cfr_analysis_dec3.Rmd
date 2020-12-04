@@ -118,10 +118,11 @@ ggplot(df_summary, aes(x = lag, y = value)) +
 The median and mean curves are quite different; suggesting that the distribution
 of correlations per lag (over states) is skewed, and also likely also has a big 
 spread given the gap between the median and mean. The mean curve is maximized at 
-24 days, but has very little curvature around its maximum. The median curve is
-maximized at 21 days.  These values are longer than the analysis done with with
-an as of of November 16th (which were 16 and 16, respectively).  From this 
-picture, it seems difficult to look at any one lag as the "right" one.
+**24** days, but has very little curvature around its maximum. The median curve
+is maximized at **21 days and also has very little curvature around its **
+**maximum.  These values are longer than the analysis done with with an as of**
+**of November 16th (which were 16 and 16, respectively).**  From this picture, 
+it seems difficult to look at any one lag as the "right" one.
 
 Below we plot each correlation per lag value (over states) and overlay the
 median and mean curves on top. Since the population-weighting didn't really do
@@ -144,7 +145,7 @@ ggplot(df, aes(x = lag, y = value)) +
 ```
 
 As we guessed, there's both a lot of asymmetry and a huge spread. So it seems
-pretty difficult to agree on 21 vs 24 as the "right" lag with any amount 
+pretty difficult to agree on **21 vs 24** as the "right" lag with any amount 
 of confidence.
 
 Next we look at the distribution of maximizing lags per state.
@@ -165,7 +166,7 @@ ggplot(df_argmax_by_state, aes(x = lag, y = y, label = geo_value)) +
        subtitle = subtitle)
 ```
 
-Several states have maximizing lags somewhere around 22, but there's still a
+Several states have maximizing lags somewhere around **22**, but there's still a
 huge spread. Once again, it's hard to walk away with a clear picture for the 
 "right" lag.
 
@@ -226,9 +227,10 @@ ggplot(cfr %>% filter(geo_value == "us",
 
 We can see that the CFR has come down from the scary numbers we were seeing in 
 the early stages of the pandemic and has been mostly flat since July, hovering 
-somewhere above 1.5% (the horizontal dashed line). For all lag lengths, it looks
-like the CFR is possibly dropping in early November; but it really remains to be
-seen if this is a trend lasting longer than a month, especially for longer lags.
+somewhere above 1.5% (the horizontal dashed line). **For all lag lengths, it **
+**looks like the CFR is possibly dropping in early November; but it really **
+**remains to be seen if this is a trend lasting longer than a month, **
+**especially for longer lags.**
 
 Next we zoom on on July 1 through current day.
 
@@ -326,8 +328,8 @@ plot_err(cfr_pred, geo_value = "us", start_day = "2020-07-01")
 We can see that, pretty much across the board (for any lag value), the global 
 forecaster with CFR = 1.7% is the most accurate: easily more accurate than the 
 other two global forecasters, and a little more accurate than the local one. It 
-appears that the global CFR = 1.7% forecaster is most accurate at lag 18-20, 
-that is 18 to 20 day ahead forecasts.
+appears that the global CFR = 1.7% forecaster is most accurate at **lag 18-20,** 
+**that is 18 to 20 day ahead forecasts.**
 
 Next we repeat this but restricting to forecasts made after August 15. 
 
@@ -336,9 +338,9 @@ plot_err(cfr_pred, geo_value = "us", start_day = "2020-08-15")
 ```
 
 We see that the CFR = 1.7% forecaster is still the most accurate, but the best 
-lag drifts up to somewhere close to 20-22, contributing more evidence that there
-is not one "right" lag (certainly not a fixed answer throughout time). Also, the
-local CFR forecaster is more competitive. 
+lag drifts up to somewhere close to **20-22**, contributing more evidence that 
+there is not one "right" lag (certainly not a fixed answer throughout time). 
+Also, the local CFR forecaster is more competitive. 
 
 ## Forecasting: national trajectories
 
@@ -352,9 +354,9 @@ An important note: these bands have by construction 95% *historical* coverage.
 They have not been calibrated (nor been attempted to be calibrated) to have 95%
 *future* coverage. Therefore they should be viewed with skepticism when it comes
 to the actual forward-looking predictions made by the CFR = 1.7% forecaster 
-(indeed they look far too narrow here). Note also that the sudden dip near the 
-end of the reported deaths is likely due to Thanksgiving reporting 
-irregularities.
+(indeed they look far too narrow here). **Note also that the sudden dip near **
+**the end of the reported deaths is likely due to Thanksgiving reporting **
+**irregularities.**
 
 ```{r, fig.width = 7, fig.height = 4}
 plot_pred = function(x, geo_value, dt, type, start_day = NULL, end_day = NULL) {
@@ -482,9 +484,9 @@ of today, we are asking how a CFR of 1.7% does in terms of forecast accuracy
 a true forecast) and does not enjoy the benefit of hindsight. 
 
 Here is now the comparison of forecast trajectories: moving to 14, 21, and 28
-days ahead (multiples of 7) because that is when the ensemble is available.  
-Note again that the sudden dip near the end of the reported deaths is likely due
-to Thanksgiving reporting irregularities.
+days ahead (multiples of 7) because that is when the ensemble is available. 
+**Note again that the sudden dip near the end of the reported deaths is likely **
+**due to Thanksgiving reporting irregularities.**
 
 ```{r, fig.width = 7, fig.height = 4}
 plot_pred(cfr_ens_pred, geo_value = "us", dt = 14, 
@@ -498,6 +500,6 @@ plot_pred(cfr_ens_pred, geo_value = "us", dt = 28,
 In all cases (all days ahead), the CFR-based forecaster is right at or right
 above the upper endpoint of the ensemble's prediction band. Though we can also
 see that the ensemble has been tending to underpredict in the recent weeks, 
-particularly for 21 and 28 days ahead.  In recent weeks, the CFR-based forecast 
-seems to be underpredicting as well, but the reported deaths are still within 
-the 95% band.
+particularly for 21 and 28 days ahead.  **In recent weeks, the CFR-based **
+**forecast seems to be underpredicting as well, but the reported deaths are **
+**still within the 95% band.**
