@@ -1,6 +1,6 @@
 ---
 title: "Case Fatality Ratio Analysis"
-author: "Ryan Tibshirani, [Delphi Group](https://delphi.cmu.edu) and Sarah Colquhoun, [Google]"
+author: "Ryan Tibshirani, [Delphi Group](https://delphi.cmu.edu) and Sarah Colquhoun, Google"
 date: "December 3, 2020"
 output:
   html_document:
