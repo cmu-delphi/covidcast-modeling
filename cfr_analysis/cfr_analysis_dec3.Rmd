@@ -228,7 +228,7 @@ We can see that the CFR has come down from the scary numbers we were seeing in
 the early stages of the pandemic and has been mostly flat since July, hovering 
 somewhere above 1.5% (the horizontal dashed line). For all lag lengths, it looks
 like the CFR is possibly dropping in early November; but it really remains to be
-seen if this is a trend lasting longer than a couple of weeks.
+seen if this is a trend lasting longer than a month, especially for longer lags.
 
 Next we zoom on on July 1 through current day.
 
