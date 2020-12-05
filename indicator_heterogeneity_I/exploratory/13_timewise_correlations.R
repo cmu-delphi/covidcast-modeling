@@ -18,6 +18,16 @@ df_signals = cached_data[[1]]
 df_cases = cached_data[[2]]
 df_deaths = cached_data[[3]]
 
+case_num = 500
+
+if (geo_level == 'county') {
+  geo_values = suppressWarnings(covidcast_signal("usa-facts", "confirmed_cumulative_num",
+                                '2020-11-01', 
+                                '2020-11-01')) %>%
+    filter(value >= case_num) %>% pull(geo_value)
+} else if (geo_level == 'state') {
+  geo_values = unique(df_signals[[1]]$geo_value)
+}
 
 # Read in dataframe of sensorized values
 sensorize_time_ranges = list(
@@ -41,7 +51,7 @@ ind_target_sensorized = ind_target_sensorized_list[[5]]
 correlate_llim = -42
 correlate_ulim = -8
 
-min_correlate_date = min(ind_target_sensorized$time_value) - correlate_llim
+min_correlate_date = lubridate::ymd('2020-04-15') - correlate_llim
 max_correlate_date = max(ind_target_sensorized$time_value)
 correlate_date_offsets = 0:(max_correlate_date-min_correlate_date)
 
@@ -65,11 +75,23 @@ for (ind_idx in 1:length(source_names)) {
     stop(sprintf("No matching dataframe for target %s.", target_names[ind_idx]))
 	}
 
-  base_cor_fname = sprintf('results/12_base_cors_%s_%s_%s_%s.RDS',
-                           geo_level,
-                           source_names[ind_idx], signal_names[ind_idx],
-                           target_names[ind_idx])
-	df_cor_base = readRDS(base_cor_fname)
+  ind_df = tibble(df_signals[[ind_idx]]) %>% filter(geo_value %in% geo_values)
+  ind_target = inner_join(ind_df, tibble(df_target),
+                          by=c('geo_value', 'time_value')) %>% select (
+        geo_value=geo_value,
+        time_value=time_value,
+        indicator_value=value.x,
+        target_value=value.y,
+      )
+	ind_global_sensorized =  ind_target %>% group_by (
+				geo_value,
+			) %>% group_modify ( ~ {
+				fit = lm(target_value ~ indicator_value, data =.x);
+				tibble(time_value=.x$time_value,
+							 indicator_value=.x$indicator_value,
+							 target_value=.x$target_value,
+							 sensorized_value=fit$fitted.values)
+			}) %>% ungroup
 
   sensorize_val_fname = sprintf('results/12_sensorize_vals_%s_%s_%s_%s.RDS',
                             geo_level,
@@ -81,7 +103,11 @@ for (ind_idx in 1:length(source_names)) {
       joiner_df,
       by='time_value',
     )
-  timewise_cors = ind_target_sensorized %>% group_by (
+
+  timewise_cors_raw = ind_df %>% inner_join (
+      joiner_df,
+      by='time_value',
+    )%>% group_by (
       #geo_value,
       correlate_date,
     ) %>% group_modify (
@@ -104,32 +130,92 @@ for (ind_idx in 1:length(source_names)) {
                              by='geo_value', method='spearman'))
       }
     )
-  plt = ggplot(timewise_cors,
+  timewise_cors_static = ind_global_sensorized %>% inner_join (
+      joiner_df,
+      by='time_value',
+    )%>% group_by (
+      #geo_value,
+      correlate_date,
+    ) %>% group_modify (
+      function(x, y) {
+        df_ = x %>% transmute (
+          geo_value=geo_value,
+          signal='ind_sensorized',
+          time_value=time_value,
+          direction=NA,
+          issue=lubridate::ymd('2020-11-01'),
+          lag=NA,
+          value=sensorized_value,
+          stderr=NA,
+          sample_size=NA,
+          data_source='linear_sensorization',
+        )
+        attributes(df_)$geo_type = geo_level
+        class(df_) = c("covidcast_signal", "data.frame")
+        return(covidcast_cor(df_, df_target,
+                             by='geo_value', method='spearman'))
+      }
+    )
+  timewise_cors_dynamic = ind_target_sensorized %>% group_by (
+      #geo_value,
+      correlate_date,
+    ) %>% group_modify (
+      function(x, y) {
+        df_ = x %>% transmute (
+          geo_value=geo_value,
+          signal='ind_sensorized',
+          time_value=time_value,
+          direction=NA,
+          issue=lubridate::ymd('2020-11-01'),
+          lag=NA,
+          value=sensorized_value,
+          stderr=NA,
+          sample_size=NA,
+          data_source='linear_sensorization',
+        )
+        attributes(df_)$geo_type = geo_level
+        class(df_) = c("covidcast_signal", "data.frame")
+        return(covidcast_cor(df_, df_target,
+                             by='geo_value', method='spearman'))
+      }
+    )
+  timewise_cors = bind_rows(
+      timewise_cors_raw %>% mutate(sensorization='raw'),
+      timewise_cors_static %>% mutate(sensorization='static'),
+      timewise_cors_dynamic %>% mutate(sensorization='dynamic'),
+    )
+  timewise_cors_summarized = timewise_cors %>% group_by (
+      sensorization,
+      correlate_date,
+    ) %>% summarize (
+      med = median(value, na.rm=TRUE),
+      mad = mad(value, na.rm=TRUE),
+      max = max(value, na.rm=TRUE),
+      min = min(value, na.rm=TRUE),
+    ) %>% ungroup
+
+  plt = ggplot(timewise_cors_summarized,
                aes(x=correlate_date,
-                   y=value),
-    ) + stat_summary(
-      aes(group=1,
-          colour='median'),
-      fun=median,
-      geom="line",
-      group=1,
-    ) + stat_summary(
-      aes(group=1,
-          colour='+/- mad'),
-      fun=function(x) {median(x) + mad(x)},
-      geom="line",
-      group=1,
-    ) + stat_summary(
-      aes(group=1,
-          colour='+/- mad'),
-      fun=function(x) {median(x) - mad(x)},
-      geom="line",
-      group=1,
-    ) + scale_colour_manual(
-        values=c("median"="maroon",
-                 "+/- mad"="darkgreen")
-    ) + labs(
-      colour=''
+                   colour=sensorization),
+    ) + geom_line (
+      aes(y=med,
+          linetype='median'),
+    ) + geom_line (
+      aes(y=med+mad,
+          linetype='+/- mad'),
+    ) + geom_line (
+      aes(y=med-mad,
+          linetype='+/- mad'),
+    ) + geom_line (
+      aes(y=max,
+          linetype='extrema'),
+    ) + geom_line (
+      aes(y=min,
+          linetype='extrema'),
+    ) + scale_linetype_manual(
+        values=c("median"="solid",
+                 "+/- mad"="dashed",
+                 "extrema"="dotted")
     )
 
 }
