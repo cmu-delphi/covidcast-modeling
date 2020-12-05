@@ -1,5 +1,6 @@
 library(tidyverse)
 library(covidcast)
+N_CORE = parallel::detectCores()
 
 source_names = c("doctor-visits", "fb-survey", "fb-survey",
                  "hospital-admissions", "hospital-admissions")
@@ -46,7 +47,7 @@ sensorize_val_fname = sprintf('results/12_sensorize_vals_%s_%s_%s_%s.RDS',
 													target_names[ind_idx])
 ind_target_sensorized_list = readRDS(sensorize_val_fname)
 
-ind_target_sensorized = ind_target_sensorized_list[[5]]
+ind_target_sensorized = ind_target_sensorized_list[[splot_idx]]
 
 correlate_llim = -42
 correlate_ulim = -8
@@ -99,45 +100,31 @@ for (ind_idx in 1:length(source_names)) {
                             target_names[ind_idx])
 	ind_target_sensorized_list = readRDS(sensorize_val_fname)
 
-  ind_target_sensorized = ind_target_sensorized_list[[5]] %>% inner_join (
+  ind_target_sensorized = ind_target_sensorized_list[[splot_idx]] %>% inner_join (
       joiner_df,
       by='time_value',
     )
 
-  timewise_cors_raw = ind_df %>% inner_join (
+  timewise_cors_raw = parallel::mclapply(ind_df %>% inner_join (
       joiner_df,
       by='time_value',
     )%>% group_by (
       #geo_value,
       correlate_date,
-    ) %>% group_modify (
-      function(x, y) {
-        df_ = x %>% transmute (
-          geo_value=geo_value,
-          signal='ind_sensorized',
-          time_value=time_value,
-          direction=NA,
-          issue=lubridate::ymd('2020-11-01'),
-          lag=NA,
-          value=sensorized_value,
-          stderr=NA,
-          sample_size=NA,
-          data_source='linear_sensorization',
+    ) %>% group_split, function (df) {
+        covidcast_cor(df, df_target,
+                      by='geo_value', method='spearman') %>% mutate (
+          correlate_date = unique(df$correlate_date)
         )
-        attributes(df_)$geo_type = geo_level
-        class(df_) = c("covidcast_signal", "data.frame")
-        return(covidcast_cor(df_, df_target,
-                             by='geo_value', method='spearman'))
-      }
-    )
-  timewise_cors_static = ind_global_sensorized %>% inner_join (
+    }, mc.cores=N_CORE) %>% bind_rows
+  timewise_cors_static = parallel::mclapply(
+    ind_global_sensorized %>% inner_join (
       joiner_df,
       by='time_value',
-    )%>% group_by (
+    ) %>% group_by (
       #geo_value,
       correlate_date,
-    ) %>% group_modify (
-      function(x, y) {
+    ) %>% group_split, function(x) {
         df_ = x %>% transmute (
           geo_value=geo_value,
           signal='ind_sensorized',
@@ -152,15 +139,16 @@ for (ind_idx in 1:length(source_names)) {
         )
         attributes(df_)$geo_type = geo_level
         class(df_) = c("covidcast_signal", "data.frame")
-        return(covidcast_cor(df_, df_target,
-                             by='geo_value', method='spearman'))
-      }
-    )
-  timewise_cors_dynamic = ind_target_sensorized %>% group_by (
-      #geo_value,
+        covidcast_cor(df_, df_target,
+                      by='geo_value', method='spearman') %>% mutate (
+          correlate_date = unique(df$correlate_date)
+        )
+    }, mc.cores=N_CORE) %>% bind_rows
+
+  timewise_cors_dynamic = parallel::mclapply(
+    ind_target_sensorized %>% group_by (
       correlate_date,
-    ) %>% group_modify (
-      function(x, y) {
+    ) %>% group_split, function(x) {
         df_ = x %>% transmute (
           geo_value=geo_value,
           signal='ind_sensorized',
@@ -175,10 +163,10 @@ for (ind_idx in 1:length(source_names)) {
         )
         attributes(df_)$geo_type = geo_level
         class(df_) = c("covidcast_signal", "data.frame")
-        return(covidcast_cor(df_, df_target,
-                             by='geo_value', method='spearman'))
-      }
-    )
+        covidcast_cor(df_, df_target,
+                      by='geo_value', method='spearman') %>% mutate (
+          correlate_date = unique(df$correlate_date))
+    }, mc.cores=N_CORE) %>% bind_rows
   timewise_cors = bind_rows(
       timewise_cors_raw %>% mutate(sensorization='raw'),
       timewise_cors_static %>% mutate(sensorization='static'),
@@ -193,6 +181,11 @@ for (ind_idx in 1:length(source_names)) {
       max = max(value, na.rm=TRUE),
       min = min(value, na.rm=TRUE),
     ) %>% ungroup
+
+  timewise_cor_fname = sprintf('13_timewise_cors_%s_%s_%s_%s.RDS', geo_level,
+                               source_names[ind_idx], signal_names[ind_idx],
+                               target_names[ind_idx])
+  saveRDS(list(timewise_cors, timewise_cors_summarized), timewise_cor_fname)
 
   plt = ggplot(timewise_cors_summarized,
                aes(x=correlate_date,
