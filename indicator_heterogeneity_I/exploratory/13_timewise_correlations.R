@@ -141,7 +141,7 @@ for (ind_idx in 1:length(source_names)) {
         class(df_) = c("covidcast_signal", "data.frame")
         covidcast_cor(df_, df_target,
                       by='geo_value', method='spearman') %>% mutate (
-          correlate_date = unique(df$correlate_date)
+          correlate_date = unique(x$correlate_date)
         )
     }, mc.cores=N_CORE) %>% bind_rows
 
@@ -165,7 +165,7 @@ for (ind_idx in 1:length(source_names)) {
         class(df_) = c("covidcast_signal", "data.frame")
         covidcast_cor(df_, df_target,
                       by='geo_value', method='spearman') %>% mutate (
-          correlate_date = unique(df$correlate_date))
+          correlate_date = unique(x$correlate_date))
     }, mc.cores=N_CORE) %>% bind_rows
   timewise_cors = bind_rows(
       timewise_cors_raw %>% mutate(sensorization='raw'),
@@ -182,7 +182,8 @@ for (ind_idx in 1:length(source_names)) {
       min = min(value, na.rm=TRUE),
     ) %>% ungroup
 
-  timewise_cor_fname = sprintf('13_timewise_cors_%s_%s_%s_%s.RDS', geo_level,
+  timewise_cor_fname = sprintf('results/13_timewise_cors_%s_%s_%s_%s.RDS',
+                               geo_level,
                                source_names[ind_idx], signal_names[ind_idx],
                                target_names[ind_idx])
   saveRDS(list(timewise_cors, timewise_cors_summarized), timewise_cor_fname)
