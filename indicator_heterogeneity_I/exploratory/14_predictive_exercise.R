@@ -102,211 +102,212 @@ splot_idx = 5
 
 
 
-# TODO!!!!!!!!!!!!!!!!! for loop on indicators goes here
-ind_idx = 1 #TODO Remove this!
-if (target_names[ind_idx] == 'Cases') {
-	df_target = df_cases
-} else if (target_names[ind_idx] == 'Deaths') {
-	df_target = df_deaths
-} else {
-	stop(sprintf("No matching dataframe for target %s.", target_names[ind_idx]))
-}
+for (ind_idx in 1:length(source_names)) {
+  print(pretty_names[ind_idx])
+  if (target_names[ind_idx] == 'Cases') {
+    df_target = df_cases
+  } else if (target_names[ind_idx] == 'Deaths') {
+    df_target = df_deaths
+  } else {
+    stop(sprintf("No matching dataframe for target %s.", target_names[ind_idx]))
+  }
 
-ind_df = tibble(df_signals[[ind_idx]]) %>% filter(geo_value %in% geo_values)
-ind_target = inner_join(ind_df, tibble(df_target),
-												by=c('geo_value', 'time_value')) %>% select (
-			geo_value=geo_value,
-			time_value=time_value,
-			indicator_value=value.x,
-			target_value=value.y,
-		)
-ind_global_sensorized =  ind_target %>% group_by (
-			geo_value,
-		) %>% group_modify ( ~ {
-			fit = lm(target_value ~ indicator_value, data =.x);
-			tibble(time_value=.x$time_value,
-						 indicator_value=.x$indicator_value,
-						 target_value=.x$target_value,
-						 sensorized_value=fit$fitted.values)
-		}) %>% ungroup
-
-
-sensorize_val_fname = sprintf('results/12_sensorize_vals_%s_%s_%s_%s.RDS',
-													geo_level,
-													source_names[ind_idx], signal_names[ind_idx],
-													target_names[ind_idx])
-ind_target_sensorized_list = readRDS(sensorize_val_fname)
-
-ind_target_sensorized = ind_target_sensorized_list[[splot_idx]]
+  ind_df = tibble(df_signals[[ind_idx]]) %>% filter(geo_value %in% geo_values)
+  ind_target = inner_join(ind_df, tibble(df_target),
+                          by=c('geo_value', 'time_value')) %>% select (
+        geo_value=geo_value,
+        time_value=time_value,
+        indicator_value=value.x,
+        target_value=value.y,
+      )
+  ind_global_sensorized =  ind_target %>% group_by (
+        geo_value,
+      ) %>% group_modify ( ~ {
+        fit = lm(target_value ~ indicator_value, data =.x);
+        tibble(time_value=.x$time_value,
+               indicator_value=.x$indicator_value,
+               target_value=.x$target_value,
+               sensorized_value=fit$fitted.values)
+      }) %>% ungroup
 
 
-# TODO: replace these with the sensorized 
-# Fetch county-level Google and Facebook % CLI-in-community signals, and JHU
-# confirmed case incidence proportion
-start_day = "2020-04-11"
-end_day = "2020-09-01"
+  sensorize_val_fname = sprintf('results/12_sensorize_vals_%s_%s_%s_%s.RDS',
+                            geo_level,
+                            source_names[ind_idx], signal_names[ind_idx],
+                            target_names[ind_idx])
+  ind_target_sensorized_list = readRDS(sensorize_val_fname)
 
-# TODO: add raw here
-raw = ind_df %>% select (
-    geo_value,
-    time_value,
-    value,
-  )
-static = ind_global_sensorized %>% select (
-    geo_value,
-    time_value,
-    value=sensorized_value,
-  )
-dynamic = ind_target_sensorized %>% select (
-    geo_value,
-    time_value,
-    value=sensorized_value,
-  )
-target_temp = df_target %>% filter(
-     geo_value %in% geo_values
-   ) %>% select(
-     geo_value, time_value, value
-  )
+  ind_target_sensorized = ind_target_sensorized_list[[splot_idx]]
 
-# Find "complete" counties, present in all three data signals at all times 
-geo_values_complete = intersect(intersect(intersect(raw$geo_value, static$geo_value),
-                                dynamic$geo_value),
-                                target_temp$geo_value)
 
-# Filter to complete counties, transform the signals, append 1-2 week lags to 
-# all three, and also 1-2 week leads to case rates
-lags = 1:2 * -7 
-leads = 1:2 * 7
+  # TODO: replace these with the sensorized 
+  # Fetch county-level Google and Facebook % CLI-in-community signals, and JHU
+  # confirmed case incidence proportion
+  start_day = "2020-04-11"
+  end_day = "2020-09-01"
 
-# TODO: add raw here
-raw = raw %>% filter(geo_value %in% geo_values_complete) %>% 
-  mutate(value = trans(value * rescale_ind[ind_idx])) %>% 
-  append_shifts(shifts = lags) 
-static = static %>% filter(geo_value %in% geo_values_complete) %>% 
-  mutate(value = trans(value * rescale_incidence)) %>% 
-  append_shifts(shifts = lags) 
-dynamic = dynamic %>% filter(geo_value %in% geo_values_complete) %>% 
-  mutate(value = trans(value * rescale_incidence)) %>% 
-  append_shifts(shifts = lags) 
-target_temp = target_temp %>% filter(geo_value %in% geo_values_complete) %>% 
-  mutate(value = trans(value * rescale_incidence)) %>% 
-  append_shifts(shifts = c(lags, leads))
+  # TODO: add raw here
+  raw = ind_df %>% select (
+      geo_value,
+      time_value,
+      value,
+    )
+  static = ind_global_sensorized %>% select (
+      geo_value,
+      time_value,
+      value=sensorized_value,
+    )
+  dynamic = ind_target_sensorized %>% select (
+      geo_value,
+      time_value,
+      value=sensorized_value,
+    )
+  target_temp = df_target %>% filter(
+       geo_value %in% geo_values
+     ) %>% select(
+       geo_value, time_value, value
+    )
 
-# Rename columns
-colnames(raw) = sub("^value", "raw", colnames(raw))
-colnames(static) = sub("^value", "static", colnames(static))
-colnames(dynamic) = sub("^value", "dynamic", colnames(dynamic))
-colnames(target_temp) = sub("^value", "target", colnames(target_temp))
+  # Find "complete" counties, present in all three data signals at all times 
+  geo_values_complete = intersect(intersect(intersect(raw$geo_value, static$geo_value),
+                                  dynamic$geo_value),
+                                  target_temp$geo_value)
 
-# Make one big matrix by joining these three data frames
-# TODO: Do I need data to be available in all three simultaneously?
-z = full_join(full_join(full_join(raw, static, by = c("geo_value", "time_value")),
-              dynamic, by = c("geo_value", "time_value")),
-              target_temp, by = c("geo_value", "time_value"))
+  # Filter to complete counties, transform the signals, append 1-2 week lags to 
+  # all three, and also 1-2 week leads to case rates
+  lags = 1:2 * -7 
+  leads = 1:2 * 7
 
-# TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! make sure this is correct
+  # TODO: add raw here
+  raw = raw %>% filter(geo_value %in% geo_values_complete) %>% 
+    mutate(value = trans(value * rescale_ind[ind_idx])) %>% 
+    append_shifts(shifts = lags) 
+  static = static %>% filter(geo_value %in% geo_values_complete) %>% 
+    mutate(value = trans(value * rescale_incidence)) %>% 
+    append_shifts(shifts = lags) 
+  dynamic = dynamic %>% filter(geo_value %in% geo_values_complete) %>% 
+    mutate(value = trans(value * rescale_incidence)) %>% 
+    append_shifts(shifts = lags) 
+  target_temp = target_temp %>% filter(geo_value %in% geo_values_complete) %>% 
+    mutate(value = trans(value * rescale_incidence)) %>% 
+    append_shifts(shifts = c(lags, leads))
 
-##### Analysis #####
+  # Rename columns
+  colnames(raw) = sub("^value", "raw", colnames(raw))
+  colnames(static) = sub("^value", "static", colnames(static))
+  colnames(dynamic) = sub("^value", "dynamic", colnames(dynamic))
+  colnames(target_temp) = sub("^value", "target", colnames(target_temp))
 
-# Use quantgen for LAD regression (this package supports quantile regression and
-# more; you can find it on GitHub here: https://github.com/ryantibs/quantgen)
-library(quantgen) 
+  # Make one big matrix by joining these three data frames
+  # TODO: Do I need data to be available in all three simultaneously?
+  z = full_join(full_join(full_join(raw, static, by = c("geo_value", "time_value")),
+                dynamic, by = c("geo_value", "time_value")),
+                target_temp, by = c("geo_value", "time_value"))
 
-res_list = vector("list", length = length(leads))
+  # TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! make sure this is correct
 
-# Loop over lead, forecast dates, build models and record errors (warning: this
-# computation takes a while)
-for (i in 1:length(leads)) { 
-  lead = leads[i]; if (verbose) cat("***", lead, "***\n")
-  
-  # Create a data frame to store our forecast results. Code below populates its
-  # rows in a way that breaks from typical dplyr operations, done for efficiency 
-  res_list[[i]] = z %>% 
-    filter(between(time_value, as.Date(start_day) - min(lags) + lead, 
-                   as.Date(end_day) - lead)) %>%
-    select(geo_value, time_value) %>%
-    mutate(err0 = as.double(NA), err1 = as.double(NA), err2 = as.double(NA), 
-           err3 = as.double(NA), err4 = as.double(NA), lead = lead) 
-  valid_dates = unique(res_list[[i]]$time_value)
-  
-  for (k in 1:length(valid_dates)) {
-    date = valid_dates[k]; if (verbose) cat(format(date), "... ")
+  ##### Analysis #####
+
+  # Use quantgen for LAD regression (this package supports quantile regression and
+  # more; you can find it on GitHub here: https://github.com/ryantibs/quantgen)
+  library(quantgen) 
+
+  res_list = vector("list", length = length(leads))
+
+  # Loop over lead, forecast dates, build models and record errors (warning: this
+  # computation takes a while)
+  for (i in 1:length(leads)) { 
+    lead = leads[i]; if (verbose) cat("***", lead, "***\n")
     
-    # Filter down to training set and test set
-    z_tr = z %>% filter(between(time_value, date - lead - n, date - lead))
-    z_te = z %>% filter(time_value == date)
-    inds = which(res_list[[i]]$time_value == date)
+    # Create a data frame to store our forecast results. Code below populates its
+    # rows in a way that breaks from typical dplyr operations, done for efficiency 
+    res_list[[i]] = z %>% 
+      filter(between(time_value, as.Date(start_day) - min(lags) + lead, 
+                     as.Date(end_day) - lead)) %>%
+      select(geo_value, time_value) %>%
+      mutate(err0 = as.double(NA), err1 = as.double(NA), err2 = as.double(NA), 
+             err3 = as.double(NA), err4 = as.double(NA), lead = lead) 
+    valid_dates = unique(res_list[[i]]$time_value)
     
-    # Create training and test responses
-    y_tr = z_tr %>% pull(paste0("target+", lead))
-    y_te = z_te %>% pull(paste0("target+", lead))
-    
-    # Strawman model
-    if (verbose) cat("0")
-    y_hat = z_te %>% pull(target)
-    res_list[[i]][inds,]$err0 = abs(inv_trans(y_hat) - inv_trans(y_te))
-    
-    # Cases only model
-    if (verbose) cat("1")
-    x_tr_target = z_tr %>% select(starts_with("target") & !contains("+"))
-    x_te_target = z_te %>% select(starts_with("target") & !contains("+"))
-    x_tr = x_tr_target; x_te = x_te_target # For symmetry wrt what follows 
-    ok = complete.cases(x_tr, y_tr)
-    if (sum(ok) > 0) {
-      obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
-                           lambda = 0, lp_solver = lp_solver)
-      y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
-      res_list[[i]][inds,]$err1 = abs(inv_trans(y_hat) - inv_trans(y_te))
-    }
-    
-    # Cases and Raw
-    if (verbose) cat("2")
-    x_tr_raw = z_tr %>% select(starts_with("raw"))
-    x_te_raw = z_te %>% select(starts_with("raw"))
-    x_tr = cbind(x_tr_target, x_tr_raw)
-    x_te = cbind(x_te_target, x_te_raw)
-    ok = complete.cases(x_tr, y_tr)
-    if (sum(ok) > 0) {
-      obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
-                           lambda = 0, lp_solver = lp_solver)
-      y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
-      res_list[[i]][inds,]$err2 = abs(inv_trans(y_hat) - inv_trans(y_te))
-    }
+    for (k in 1:length(valid_dates)) {
+      date = valid_dates[k]; if (verbose) cat(format(date), "... ")
+      
+      # Filter down to training set and test set
+      z_tr = z %>% filter(between(time_value, date - lead - n, date - lead))
+      z_te = z %>% filter(time_value == date)
+      inds = which(res_list[[i]]$time_value == date)
+      
+      # Create training and test responses
+      y_tr = z_tr %>% pull(paste0("target+", lead))
+      y_te = z_te %>% pull(paste0("target+", lead))
+      
+      # Strawman model
+      if (verbose) cat("0")
+      y_hat = z_te %>% pull(target)
+      res_list[[i]][inds,]$err0 = abs(inv_trans(y_hat) - inv_trans(y_te))
+      
+      # Cases only model
+      if (verbose) cat("1")
+      x_tr_target = z_tr %>% select(starts_with("target") & !contains("+"))
+      x_te_target = z_te %>% select(starts_with("target") & !contains("+"))
+      x_tr = x_tr_target; x_te = x_te_target # For symmetry wrt what follows 
+      ok = complete.cases(x_tr, y_tr)
+      if (sum(ok) > 0) {
+        obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
+                             lambda = 0, lp_solver = lp_solver)
+        y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
+        res_list[[i]][inds,]$err1 = abs(inv_trans(y_hat) - inv_trans(y_te))
+      }
+      
+      # Cases and Raw
+      if (verbose) cat("2")
+      x_tr_raw = z_tr %>% select(starts_with("raw"))
+      x_te_raw = z_te %>% select(starts_with("raw"))
+      x_tr = cbind(x_tr_target, x_tr_raw)
+      x_te = cbind(x_te_target, x_te_raw)
+      ok = complete.cases(x_tr, y_tr)
+      if (sum(ok) > 0) {
+        obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
+                             lambda = 0, lp_solver = lp_solver)
+        y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
+        res_list[[i]][inds,]$err2 = abs(inv_trans(y_hat) - inv_trans(y_te))
+      }
 
-    # Cases and Static
-    if (verbose) cat("3")
-    x_tr_static = z_tr %>% select(starts_with("static"))
-    x_te_static = z_te %>% select(starts_with("static"))
-    x_tr = cbind(x_tr_target, x_tr_static)
-    x_te = cbind(x_te_target, x_te_static)
-    ok = complete.cases(x_tr, y_tr)
-    if (sum(ok) > 0) {
-      obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
-                           lambda = 0, lp_solver = lp_solver)
-      y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
-      res_list[[i]][inds,]$err3 = abs(inv_trans(y_hat) - inv_trans(y_te))
-    }
-    
-    # Cases and Dynamic
-    if (verbose) cat("4\n")
-    x_tr_dynamic = z_tr %>% select(starts_with("dynamic"))
-    x_te_dynamic = z_te %>% select(starts_with("dynamic"))
-    x_tr = cbind(x_tr_target, x_tr_dynamic)
-    x_te = cbind(x_te_target, x_te_dynamic)
-    ok = complete.cases(x_tr, y_tr)
-    if (sum(ok) > 0) {
-      obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
-                           lambda = 0, lp_solver = lp_solver)
-      y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
-      res_list[[i]][inds,]$err4 = abs(inv_trans(y_hat) - inv_trans(y_te))
+      # Cases and Static
+      if (verbose) cat("3")
+      x_tr_static = z_tr %>% select(starts_with("static"))
+      x_te_static = z_te %>% select(starts_with("static"))
+      x_tr = cbind(x_tr_target, x_tr_static)
+      x_te = cbind(x_te_target, x_te_static)
+      ok = complete.cases(x_tr, y_tr)
+      if (sum(ok) > 0) {
+        obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
+                             lambda = 0, lp_solver = lp_solver)
+        y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
+        res_list[[i]][inds,]$err3 = abs(inv_trans(y_hat) - inv_trans(y_te))
+      }
+      
+      # Cases and Dynamic
+      if (verbose) cat("4\n")
+      x_tr_dynamic = z_tr %>% select(starts_with("dynamic"))
+      x_te_dynamic = z_te %>% select(starts_with("dynamic"))
+      x_tr = cbind(x_tr_target, x_tr_dynamic)
+      x_te = cbind(x_te_target, x_te_dynamic)
+      ok = complete.cases(x_tr, y_tr)
+      if (sum(ok) > 0) {
+        obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
+                             lambda = 0, lp_solver = lp_solver)
+        y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
+        res_list[[i]][inds,]$err4 = abs(inv_trans(y_hat) - inv_trans(y_te))
+      }
     }
   }
-}
 
-# Bind results over different leads into one big data frame, and save 
-res = do.call(rbind, res_list)
-predictive_fname = sprintf('14_predictive_%s_%s_%s_%s.RDS', geo_level,
-														 source_names[ind_idx], signal_names[ind_idx],
-														 target_names[ind_idx])
-saveRDS(res, predictive_fname)
+  # Bind results over different leads into one big data frame, and save 
+  res = do.call(rbind, res_list)
+  predictive_fname = sprintf('14_predictive_%s_%s_%s_%s.RDS', geo_level,
+                               source_names[ind_idx], signal_names[ind_idx],
+                               target_names[ind_idx])
+  saveRDS(res, predictive_fname)
+}
 
