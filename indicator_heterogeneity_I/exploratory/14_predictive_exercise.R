@@ -148,7 +148,7 @@ for (ind_idx in 1:length(source_names)) {
   # Fetch county-level Google and Facebook % CLI-in-community signals, and JHU
   # confirmed case incidence proportion
   start_day = "2020-04-11"
-  end_day = "2020-09-01"
+  end_day = "2020-11-21"
 
   # TODO: add raw here
   raw = ind_df %>% select (
