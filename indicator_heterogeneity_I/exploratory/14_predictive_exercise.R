@@ -43,67 +43,170 @@ Id = function(x) x
 trans = Logit
 inv_trans = Sigmd
 
-# TODO: How to handle this in the predictive exercise?
 # Rescale factors for our signals: bring them all down to proportions (between
 # 0 and 1)
-rescale_g = 1e-2 # Originally a percentage
-rescale_f = 1e-2 # Originally a percentage
-rescale_c = 1e-5 # Originally a count per 100,000 people
+
+rescale_percent = 1e-2 # Originally a percentage
+  # used for dv, fb
+rescale_incidence = 1e-5 # Originally a count per 100,000 people
+  # used for cases, hosp
 
 n = 14 # Number of trailing days to use for training set
-lp_solver = "glpk" # LP solver to use in quantile_lasso()
+lp_solver = "gurobi" # LP solver to use in quantile_lasso()
 verbose = TRUE # Print intermediate progress to console?
 
 #### Data #####
 
-# Consider only counties with at least 200 cumulative cases by Google's end
-case_num = 200
-geo_values = covidcast_signal("jhu-csse", "confirmed_cumulative_num",
-                              "2020-05-14", "2020-05-14") %>%
-  filter(value >= case_num) %>% pull(geo_value) 
+source_names = c("doctor-visits", "fb-survey", "fb-survey",
+                 "hospital-admissions", "hospital-admissions")
+signal_names = c("smoothed_adj_cli", "smoothed_cli", "smoothed_hh_cmnty_cli", 
+            "smoothed_adj_covid19_from_claims", "smoothed_adj_covid19_from_claims")
+pretty_names = c("Doctor visits", "Facebook CLI", "Facebook CLI-in-community", 
+          "Hospitalizations", "Hospitalizations")
+target_names = c("Cases", "Cases", "Cases", "Cases", "Deaths")
+rescale_ind = c(rescale_percent,
+                rescale_percent,
+                rescale_percent,
+                rescale_percent,
+                rescale_percent)
+geo_level = 'county'
 
+cache_fname = sprintf('cached_data/12_heterogeneity_core_indicators_%s.RDS',
+                      geo_level)
+
+cached_data = readRDS(cache_fname)
+df_signals = cached_data[[1]]
+df_cases = cached_data[[2]]
+df_deaths = cached_data[[3]]
+
+case_num = 500
+
+if (geo_level == 'county') {
+  geo_values = suppressWarnings(covidcast_signal("usa-facts", "confirmed_cumulative_num",
+                                '2020-11-01', 
+                                '2020-11-01')) %>%
+    filter(value >= case_num) %>% pull(geo_value)
+} else if (geo_level == 'state') {
+  geo_values = unique(df_signals[[1]]$geo_value)
+}
+
+# Read in dataframe of sensorized values
+sensorize_time_ranges = list(
+      c(-42, -8),
+      c(-49, -8),
+      c(-56, -8),
+      c(-63, -8),
+      c(-70, -8)
+)
+splot_idx = 5
+
+
+
+# TODO!!!!!!!!!!!!!!!!! for loop on indicators goes here
+if (target_names[ind_idx] == 'Cases') {
+	df_target = df_cases
+} else if (target_names[ind_idx] == 'Deaths') {
+	df_target = df_deaths
+} else {
+	stop(sprintf("No matching dataframe for target %s.", target_names[ind_idx]))
+}
+
+ind_df = tibble(df_signals[[ind_idx]]) %>% filter(geo_value %in% geo_values)
+ind_target = inner_join(ind_df, tibble(df_target),
+												by=c('geo_value', 'time_value')) %>% select (
+			geo_value=geo_value,
+			time_value=time_value,
+			indicator_value=value.x,
+			target_value=value.y,
+		)
+ind_global_sensorized =  ind_target %>% group_by (
+			geo_value,
+		) %>% group_modify ( ~ {
+			fit = lm(target_value ~ indicator_value, data =.x);
+			tibble(time_value=.x$time_value,
+						 indicator_value=.x$indicator_value,
+						 target_value=.x$target_value,
+						 sensorized_value=fit$fitted.values)
+		}) %>% ungroup
+
+
+ind_idx = 1 #TODO Remove this!
+sensorize_val_fname = sprintf('results/12_sensorize_vals_%s_%s_%s_%s.RDS',
+													geo_level,
+													source_names[ind_idx], signal_names[ind_idx],
+													target_names[ind_idx])
+ind_target_sensorized_list = readRDS(sensorize_val_fname)
+
+ind_target_sensorized = ind_target_sensorized_list[[splot_idx]]
+
+
+# TODO: replace these with the sensorized 
 # Fetch county-level Google and Facebook % CLI-in-community signals, and JHU
 # confirmed case incidence proportion
 start_day = "2020-04-11"
 end_day = "2020-09-01"
-g = covidcast_signal("google-survey", "smoothed_cli") %>%
-  filter(geo_value %in% geo_values) %>% 
-  select(geo_value, time_value, value) 
-f = covidcast_signal("fb-survey", "smoothed_hh_cmnty_cli", 
-                     start_day, end_day) %>%
-  filter(geo_value %in% geo_values) %>% 
-  select(geo_value, time_value, value) 
+
+# TODO: add raw here
+raw = ind_df %>% select (
+    geo_value,
+    time_value,
+    value,
+  )
+static = ind_global_sensorized %>% select (
+    geo_value,
+    time_value,
+    value=sensorized_value,
+  )
+dynamic = ind_target_sensorized %>% select (
+    geo_value,
+    time_value,
+    value=sensorized_value,
+  )
 c = covidcast_signal("jhu-csse", "confirmed_7dav_incidence_prop",
                      start_day, end_day) %>%
-  filter(geo_value %in% geo_values) %>% 
-  select(geo_value, time_value, value)
+target_temp = df_target %>% filter(
+     geo_value %in% geo_values
+   ) %>% select(
+     geo_value, time_value, value
+  )
 
 # Find "complete" counties, present in all three data signals at all times 
-geo_values_complete = intersect(intersect(g$geo_value, f$geo_value),
-                                c$geo_value)
+geo_values_complete = intersect(intersect(intersect(raw$geo_value, static$geo_value),
+                                dynamic$geo_value),
+                                target_temp$geo_value)
 
 # Filter to complete counties, transform the signals, append 1-2 week lags to 
 # all three, and also 1-2 week leads to case rates
 lags = 1:2 * -7 
 leads = 1:2 * 7
-g = g %>% filter(geo_value %in% geo_values_complete) %>% 
-  mutate(value = trans(value * rescale_g)) %>% 
+
+# TODO: add raw here
+raw = raw %>% filter(geo_value %in% geo_values_complete) %>% 
+  mutate(value = trans(value * rescale_ind[ind_idx])) %>% 
   append_shifts(shifts = lags) 
-f = f %>% filter(geo_value %in% geo_values_complete) %>% 
-  mutate(value = trans(value * rescale_f)) %>% 
+static = static %>% filter(geo_value %in% geo_values_complete) %>% 
+  mutate(value = trans(value * rescale_incidence)) %>% 
   append_shifts(shifts = lags) 
-c = c %>% filter(geo_value %in% geo_values_complete) %>%
-  mutate(value = trans(value * rescale_c)) %>% 
-  append_shifts(shifts = c(lags, leads))
+dynamic = dynamic %>% filter(geo_value %in% geo_values_complete) %>% 
+  mutate(value = trans(value * rescale_incidence)) %>% 
+  append_shifts(shifts = lags) 
+target_temp = target_temp %>% filter(geo_value %in% geo_values_complete) %>% 
+  mutate(value = trans(value * rescale_incidence)) %>% 
+  append_shifts(shifts = lags) 
 
 # Rename columns
-colnames(g) = sub("^value", "goog", colnames(g))
-colnames(f) = sub("^value", "fb", colnames(f))
-colnames(c) = sub("^value", "case", colnames(c))
+colnames(raw) = sub("^value", "raw", colnames(raw))
+colnames(static) = sub("^value", "static", colnames(static))
+colnames(dynamic) = sub("^value", "dynamic", colnames(dynamic))
+colnames(target_temp) = sub("^value", "target", colnames(target_temp))
 
 # Make one big matrix by joining these three data frames
-z = full_join(full_join(g, f, by = c("geo_value", "time_value")),
-              c, by = c("geo_value", "time_value"))
+# TODO: Do I need data to be available in all three simultaneously?
+z = full_join(full_join(full_join(raw, static, by = c("geo_value", "time_value")),
+              dynamic, by = c("geo_value", "time_value")),
+              target_temp, by = c("geo_value", "time_value"))
+
+# TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! make sure this is correct
 
 ##### Analysis #####
 
@@ -137,20 +240,20 @@ for (i in 1:length(leads)) {
     inds = which(res_list[[i]]$time_value == date)
     
     # Create training and test responses
-    y_tr = z_tr %>% pull(paste0("case+", lead))
-    y_te = z_te %>% pull(paste0("case+", lead))
+    y_tr = z_tr %>% pull(paste0("target+", lead))
+    y_te = z_te %>% pull(paste0("target+", lead))
     
     # Strawman model
     if (verbose) cat("0")
-    y_hat = z_te %>% pull(case)
+    y_hat = z_te %>% pull(target)
     res_list[[i]][inds,]$err0 = abs(inv_trans(y_hat) - inv_trans(y_te))
     
     # Cases only model
     if (verbose) cat("1")
-    x_tr_case = z_tr %>% select(starts_with("case") & !contains("+"))
-    x_te_case = z_te %>% select(starts_with("case") & !contains("+"))
-    x_tr = x_tr_case; x_te = x_te_case # For symmetry wrt what follows 
-    ok = complete.cases(x_tr, y_tr)
+    x_tr_target = z_tr %>% select(starts_with("target") & !contains("+"))
+    x_te_target = z_te %>% select(starts_with("target") & !contains("+"))
+    x_tr = x_tr_target; x_te = x_te_target # For symmetry wrt what follows 
+    ok = complete.targets(x_tr, y_tr)
     if (sum(ok) > 0) {
       obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
                            lambda = 0, lp_solver = lp_solver)
@@ -158,13 +261,13 @@ for (i in 1:length(leads)) {
       res_list[[i]][inds,]$err1 = abs(inv_trans(y_hat) - inv_trans(y_te))
     }
     
-    # Cases and Facebook model
+    # Cases and Raw
     if (verbose) cat("2")
-    x_tr_fb = z_tr %>% select(starts_with("fb"))
-    x_te_fb = z_te %>% select(starts_with("fb"))
-    x_tr = cbind(x_tr_case, x_tr_fb)
-    x_te = cbind(x_te_case, x_te_fb)
-    ok = complete.cases(x_tr, y_tr)
+    x_tr_raw = z_tr %>% select(starts_with("raw"))
+    x_te_raw = z_te %>% select(starts_with("raw"))
+    x_tr = cbind(x_tr_target, x_tr_raw)
+    x_te = cbind(x_te_target, x_te_raw)
+    ok = complete.targets(x_tr, y_tr)
     if (sum(ok) > 0) {
       obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
                            lambda = 0, lp_solver = lp_solver)
@@ -172,13 +275,13 @@ for (i in 1:length(leads)) {
       res_list[[i]][inds,]$err2 = abs(inv_trans(y_hat) - inv_trans(y_te))
     }
 
-    # Cases and Google model
+    # Cases and Static
     if (verbose) cat("3")
-    x_tr_goog = z_tr %>% select(starts_with("goog"))
-    x_te_goog = z_te %>% select(starts_with("goog"))
-    x_tr = cbind(x_tr_case, x_tr_goog)
-    x_te = cbind(x_te_case, x_te_goog)
-    ok = complete.cases(x_tr, y_tr)
+    x_tr_static = z_tr %>% select(starts_with("static"))
+    x_te_static = z_te %>% select(starts_with("static"))
+    x_tr = cbind(x_tr_target, x_tr_static)
+    x_te = cbind(x_te_target, x_te_static)
+    ok = complete.targets(x_tr, y_tr)
     if (sum(ok) > 0) {
       obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
                            lambda = 0, lp_solver = lp_solver)
@@ -186,11 +289,13 @@ for (i in 1:length(leads)) {
       res_list[[i]][inds,]$err3 = abs(inv_trans(y_hat) - inv_trans(y_te))
     }
     
-    # Cases, Facebook, and Google model
+    # Cases and Dynamic
     if (verbose) cat("4\n")
-    x_tr = cbind(x_tr_case, x_tr_fb, x_tr_goog)
-    x_te = cbind(x_te_case, x_te_fb, x_te_goog)
-    ok = complete.cases(x_tr, y_tr)
+    x_tr_dynamic = z_tr %>% select(starts_with("dynamic"))
+    x_te_dynamic = z_te %>% select(starts_with("dynamic"))
+    x_tr = cbind(x_tr_target, x_tr_dynamic)
+    x_te = cbind(x_te_target, x_te_dynamic)
+    ok = complete.targets(x_tr, y_tr)
     if (sum(ok) > 0) {
       obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
                            lambda = 0, lp_solver = lp_solver)
@@ -202,4 +307,8 @@ for (i in 1:length(leads)) {
 
 # Bind results over different leads into one big data frame, and save 
 res = do.call(rbind, res_list)
-save(list = ls(), file = "demo.rda")
+predictive_fname = sprintf('14_predictive_%s_%s_%s_%s.RDS', geo_level,
+														 source_names[ind_idx], signal_names[ind_idx],
+														 target_names[ind_idx])
+saveRDS(res, predictive_fname)
+
