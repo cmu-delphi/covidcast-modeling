@@ -103,6 +103,7 @@ splot_idx = 5
 
 
 # TODO!!!!!!!!!!!!!!!!! for loop on indicators goes here
+ind_idx = 1 #TODO Remove this!
 if (target_names[ind_idx] == 'Cases') {
 	df_target = df_cases
 } else if (target_names[ind_idx] == 'Deaths') {
@@ -130,7 +131,6 @@ ind_global_sensorized =  ind_target %>% group_by (
 		}) %>% ungroup
 
 
-ind_idx = 1 #TODO Remove this!
 sensorize_val_fname = sprintf('results/12_sensorize_vals_%s_%s_%s_%s.RDS',
 													geo_level,
 													source_names[ind_idx], signal_names[ind_idx],
