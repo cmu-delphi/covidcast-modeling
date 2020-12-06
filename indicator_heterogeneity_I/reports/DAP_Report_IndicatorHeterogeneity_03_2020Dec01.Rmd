@@ -1,0 +1,240 @@
+---
+title: "Indicator Heterogeneity I: December 7th Report"
+author: "Addison"
+output:
+  html_document:
+    toc: true
+    code_folding: hide
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(covidcast)
+
+source_names = c("doctor-visits", "fb-survey", "fb-survey",
+                 "hospital-admissions", "hospital-admissions")
+signal_names = c("smoothed_adj_cli", "smoothed_cli", "smoothed_hh_cmnty_cli", 
+            "smoothed_adj_covid19_from_claims", "smoothed_adj_covid19_from_claims")
+pretty_names = c("Doctor visits", "Facebook CLI", "Facebook CLI-in-community", 
+          "Hospitalizations", "Hospitalizations")
+target_names = c("Cases", "Cases", "Cases", "Cases", "Deaths")
+geo_level = 'county'
+```
+
+# Introduction
+
+TODO intro
+
+## What do we want from sensorization?
+
+### Improved ability to interpret an indicator across locations
+
+* **Approach.** Adjust relative scale of each indicator so that location-wise
+  comparisons are meaningful.  (This is not automatically satisfied by the
+  raw indicators; e.g.,
+  [Aaron's blog post](https://delphi.cmu.edu/blog/2020/11/05/a-syndromic-covid-19-indicator-based-on-insurance-claims-of-outpatient-visits/)
+  shows that the DV indicator exhibits different base rates in different
+  HHS regions).  In essence, we want to correct _spatial heterogeneity_.
+* **Measurement.**  Quantified by measuring (improvement in) geo-wise
+  correlation of cases (rank correlations after grouping by time $t$).
+* Note that it can be dangerous to absentmindedly maximize this quantity
+  against the target, because then it is trivially maximized by taking the 
+  target signal.  (We attempt to avoid this by using large sensorization 
+  time windows, and by setting up an validation exercise against a
+  new, unseen target).
+
+TODO: also show correction re: hhs
+
+### Improved ability to interpret an indicator within a location
+
+* This problem is essentially that of _temporal heterogeneity_.  I believe 
+  that it is more subtle and more difficult to solve.
+* If the target "trustworthy", i.e., it is not subject to reporting changes
+  or degradation, for example, then sensorization should account for this, 
+  and we would be able to measure it through timewise correlation.
+* However, I believe that the unreliability of the cases indicator
+  [requires justification] make it difficult for us to properly learn a
+  temporal adjustment [dicuss].  [Might be a good place to discuss 
+  the step change in intercept for the many indicators.]
+
+### Improved predictive ability for case rates
+
+This is measured through the "simple forecaster" setup that
+[Ryan has built](https://delphi.cmu.edu/blog/2020/09/21/can-symptoms-surveys-improve-covid-19-forecasts/).
+
+### Interpretability via an inverse mapping
+
+Deferred to future work (I believe Aaron is working on this).
+
+# Proposed sensorization scheme
+
+First, we fix notation.  Assume an indicator and target (e.g., doctors visits
+and case rate), which we suppress notationally for brevity.  Each observation
+is then represented as $(x_{t\ell}, y_{t\ell})$, where $x$ is the indicator
+value, $y$ is the target value, $t$ represents time (measured in dates),
+and $\ell$ represents location.  Let $L$ denote the set of all valid locations,
+e.g., all counties.  Let $x_{t\cdot}$ denote all the $x_{t\ell}$ collected
+across locations in $L$, and similarly for $y_{t\cdot}$.  Let
+$x_{t_1:t_2, \ell}$, $y_{t_1:t_2, \ell}$ denote the observations that fall
+within times $t_1, t_2$, endpoints included.  Finally, let $x, y$
+be the collection of all observations across time and location.
+
+Let $k_1, k_2$ denote the number of days into the past we wish to examine data
+when fitting our model.  (Smaller $k$ is "more adaptive" to temporal
+heterogeneity, but may also lead to less stable fits).
+
+We fit, for each $t, \ell$:
+$$
+y_{(t-k):(t-1), \ell} \sim x_{(t-k_1):(t-k_2), \ell} \qquad\Rightarrow
+\mathrm{Model}(\ell, t, k_1, k_2)
+$$
+and obtain the sensorized indicator values
+$$
+\tilde x_{t\ell} = \texttt{predict}(x_{t\ell}, \mathrm{Model}(\ell, t, k_1, k_2))
+$$
+We fit a linear model for each location and day, and then take the prediction
+for that day.  (Huge number of models to fit, but embarrassingly
+parallelizable).
+
+For our purposes we take $k_1, k_2$ to be $-70, -8$.  That is, we train over
+a nine-week window, without the immediately preceding week of data.
+
+# Performance of the sensorization scheme
+
+### Geo-wise correlations
+
+```{r geowise-correlations, cache=TRUE, warning=FALSE}
+sensorize_time_ranges = list(
+      c(-42, -8),
+      c(-49, -8),
+      c(-56, -8),
+      c(-63, -8),
+      c(-70, -8)
+)
+splot_idx = 5
+
+for (ind_idx in 1:length(source_names)) {
+  base_cor_fname = sprintf('results/12_base_cors_%s_%s_%s_%s.RDS',
+                           geo_level,
+                           source_names[ind_idx], signal_names[ind_idx],
+                           target_names[ind_idx])
+  df_cor_base = readRDS(base_cor_fname)
+  sensorize_fname = sprintf('results/12_sensorize_cors_%s_%s_%s_%s.RDS',
+                            geo_level,
+                            source_names[ind_idx], signal_names[ind_idx],
+                            target_names[ind_idx])
+  sensorize_val_fname = sprintf('results/12_sensorize_vals_%s_%s_%s_%s.RDS',
+                            geo_level,
+                            source_names[ind_idx], signal_names[ind_idx],
+                            target_names[ind_idx])
+  sensorize_cors = readRDS(sensorize_fname)[[splot_idx]]
+
+  df_cor = bind_rows(df_cor_base, sensorize_cors)
+  static_description = "Static Sensorization (Spatial)"
+  dynamic_description = "Dynamic Sensorization (-70:-8)"
+  df_cor$Indicator = sapply(df_cor$Indicator, function(x) {
+      if (x == 'Sensorized (Spatial)') {
+        return(static_description)
+      } else if (x == sprintf('Sensorized (TS, %d:%d)',
+                       sensorize_time_ranges[[splot_idx]][1],
+                       sensorize_time_ranges[[splot_idx]][2])) {
+        return(dynamic_description)
+      } else { return(x) }})
+  df_cor$Indicator = factor(df_cor$Indicator,
+                            levels=c('Raw',
+                                     static_description,
+                                     dynamic_description))
+  plt = ggplot(df_cor, aes(x = time_value, y = value)) +
+    geom_line(aes(color = Indicator)) +
+    labs(title = sprintf("Correlation between %s and %s",
+                         pretty_names[ind_idx],
+                         target_names[ind_idx]),
+         subtitle = "Per day",
+         x = "Date", y = "Correlation") +
+    theme(legend.position = "bottom")
+  print(plt)
+}
+
+# TODO
+# read in the sensorization results
+# plot them (grid, for different indicators)
+
+```
+
+(TODO)
+
+### Time-wise correlations
+
+```{r timewise-correlations, cache=TRUE}
+# TODO
+# TODO: write a new script taht computes timewise correlations 
+#       for the final, chosen indicator
+for (ind_idx in 1:length(source_names)) {
+  timewise_cor_fname = sprintf('results/13_timewise_cors_%s_%s_%s_%s.RDS',
+                               geo_level, source_names[ind_idx],
+                               signal_names[ind_idx], target_names[ind_idx])
+  timewise_cor_list = readRDS(timewise_cor_fname)
+  timewise_cors = timewise_cor_list[[1]]
+  timewise_cors_summarized = timewise_cor_list[[2]]
+  min_dynamic_correlate = timewise_cors %>% filter (
+      sensorization == 'dynamic',
+    ) %>% pull (
+      correlate_date,
+    ) %>% min
+  timewise_cors_summarized = timewise_cors_summarized %>% filter (
+      sensorization %in% c('raw', 'static') |
+        correlate_date >= min_dynamic_correlate+4,
+    )
+  timewise_cors_summarized$sensorization = factor(
+      timewise_cors_summarized$sensorization,
+      levels=c('raw', 'static', 'dynamic'))
+  plt = ggplot(
+      timewise_cors_summarized,
+      aes(x=correlate_date,
+          colour=sensorization),
+    ) + geom_line (
+      aes(y=med,
+          linetype='median'),
+    ) + geom_line (
+      aes(y=med+mad,
+          linetype='med±mad'),
+    ) + geom_line (
+      aes(y=med-mad,
+          linetype='med±mad'),
+    ) + geom_line (
+      aes(y=max,
+          linetype='min/max'),
+    ) + geom_line (
+      aes(y=min,
+          linetype='min/max'),
+    ) + scale_linetype_manual(
+        values=c("median"="solid",
+                 "med±mad"="dashed",
+                 "min/max"="dotted"),
+        breaks=c('median',
+                 'med±mad',
+                 'min/max'),
+    )
+  print(plt)
+}
+```
+
+(TODO)
+
+### Predictive ability
+
+```{r predictive-ability}
+# TODO: write a new script that computes the predictive results
+# 
+# TODO: plot those results here
+```
+
+(TODO)
+
+### Validation against hospitalization data
+
+```{r hospitalization-validation}
+# TODO: ingest the hospitalization data
+# TODO: compute geo-wise correlation of sensorized hospitalization 
+# signal against the hospitalization data
+```
