@@ -251,7 +251,7 @@ for (i in 1:length(leads)) {
     x_tr_target = z_tr %>% select(starts_with("target") & !contains("+"))
     x_te_target = z_te %>% select(starts_with("target") & !contains("+"))
     x_tr = x_tr_target; x_te = x_te_target # For symmetry wrt what follows 
-    ok = complete.targets(x_tr, y_tr)
+    ok = complete.cases(x_tr, y_tr)
     if (sum(ok) > 0) {
       obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
                            lambda = 0, lp_solver = lp_solver)
@@ -265,7 +265,7 @@ for (i in 1:length(leads)) {
     x_te_raw = z_te %>% select(starts_with("raw"))
     x_tr = cbind(x_tr_target, x_tr_raw)
     x_te = cbind(x_te_target, x_te_raw)
-    ok = complete.targets(x_tr, y_tr)
+    ok = complete.cases(x_tr, y_tr)
     if (sum(ok) > 0) {
       obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
                            lambda = 0, lp_solver = lp_solver)
@@ -279,7 +279,7 @@ for (i in 1:length(leads)) {
     x_te_static = z_te %>% select(starts_with("static"))
     x_tr = cbind(x_tr_target, x_tr_static)
     x_te = cbind(x_te_target, x_te_static)
-    ok = complete.targets(x_tr, y_tr)
+    ok = complete.cases(x_tr, y_tr)
     if (sum(ok) > 0) {
       obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
                            lambda = 0, lp_solver = lp_solver)
@@ -293,7 +293,7 @@ for (i in 1:length(leads)) {
     x_te_dynamic = z_te %>% select(starts_with("dynamic"))
     x_tr = cbind(x_tr_target, x_tr_dynamic)
     x_te = cbind(x_te_target, x_te_dynamic)
-    ok = complete.targets(x_tr, y_tr)
+    ok = complete.cases(x_tr, y_tr)
     if (sum(ok) > 0) {
       obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
                            lambda = 0, lp_solver = lp_solver)
