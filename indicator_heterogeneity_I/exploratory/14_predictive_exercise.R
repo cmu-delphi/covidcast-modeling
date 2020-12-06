@@ -190,7 +190,7 @@ dynamic = dynamic %>% filter(geo_value %in% geo_values_complete) %>%
   append_shifts(shifts = lags) 
 target_temp = target_temp %>% filter(geo_value %in% geo_values_complete) %>% 
   mutate(value = trans(value * rescale_incidence)) %>% 
-  append_shifts(shifts = lags) 
+  append_shifts(shifts = c(lags, leads))
 
 # Rename columns
 colnames(raw) = sub("^value", "raw", colnames(raw))
