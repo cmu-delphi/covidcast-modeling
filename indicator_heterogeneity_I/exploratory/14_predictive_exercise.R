@@ -162,8 +162,6 @@ dynamic = ind_target_sensorized %>% select (
     time_value,
     value=sensorized_value,
   )
-c = covidcast_signal("jhu-csse", "confirmed_7dav_incidence_prop",
-                     start_day, end_day) %>%
 target_temp = df_target %>% filter(
      geo_value %in% geo_values
    ) %>% select(
