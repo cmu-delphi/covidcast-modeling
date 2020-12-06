@@ -104,6 +104,10 @@ splot_idx = 5
 
 for (ind_idx in 1:length(source_names)) {
   print(pretty_names[ind_idx])
+  predictive_fname = sprintf('results/14_predictive_%s_%s_%s_%s.RDS', geo_level,
+                               source_names[ind_idx], signal_names[ind_idx],
+                               target_names[ind_idx])
+  if (file.exists(predictive_fname)) next
   if (target_names[ind_idx] == 'Cases') {
     df_target = df_cases
   } else if (target_names[ind_idx] == 'Deaths') {
@@ -305,9 +309,6 @@ for (ind_idx in 1:length(source_names)) {
 
   # Bind results over different leads into one big data frame, and save 
   res = do.call(rbind, res_list)
-  predictive_fname = sprintf('14_predictive_%s_%s_%s_%s.RDS', geo_level,
-                               source_names[ind_idx], signal_names[ind_idx],
-                               target_names[ind_idx])
   saveRDS(res, predictive_fname)
 }
 
