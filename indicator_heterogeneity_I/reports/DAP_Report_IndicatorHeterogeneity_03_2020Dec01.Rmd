@@ -22,7 +22,7 @@ pretty_names = c("Doctor visits", "Facebook CLI", "Facebook CLI-in-community",
 target_names = c("Cases", "Cases", "Cases", "Cases", "Deaths")
 geo_level = 'county'
 sensor_target_names = sapply(1:5, function(ind_idx) {
-  sprintf('%s & %s', pretty_names[ind_idx], target_names[ind_idx])
+  sprintf('%s // Sensorization target: %s', pretty_names[ind_idx], target_names[ind_idx])
          })
 ```
 
@@ -167,14 +167,15 @@ plt = ggplot(
   ) + facet_wrap (
     vars(sensor_target),
     ncol=2,
+  ) + theme_bw (
   ) + theme(
     legend.position = "bottom",
     legend.title = element_blank()
+  ) + labs (
+    x = 'Date',
+    y = 'Rank correlation (geo-wise)'
   )
 print(plt)
-# TODO
-# read in the sensorization results
-# plot them (grid, for different indicators)
 
 ```
 
@@ -242,9 +243,13 @@ plt = ggplot(
   ) + facet_wrap (
     vars(sensor_target),
     ncol=2,
+  ) + theme_bw (
   ) + theme(
     legend.position = "bottom",
     legend.title = element_blank()
+  ) + labs (
+    x='Date',
+    y='Rank correlation (time-wise, over trailing 6 weeks)'
   )
 print(plt)
 ```
@@ -356,9 +361,188 @@ print(plt)
 ### Validation against hospitalization data
 
 ```{r hospitalization-validation}
-# TODO: ingest the hospitalization data
-# TODO: compute geo-wise correlation of sensorized hospitalization 
-# signal against the hospitalization data
+hosp_cor_df = readRDS('results/15_hhs_cor_df.RDS')
+hosp_cor_df$correlate_target = stringr::str_replace(
+            hosp_cor_df$correlate_target,
+            ': ',
+            '\n')
+plt = ggplot(
+    hosp_cor_df,
+    aes(x=time_value,
+        y=value,
+        colour=sensorization)
+  ) + geom_line (
+  ) + facet_grid (
+    rows = vars(correlate_target),
+    cols = vars(sensor_target),
+  ) + theme_bw (
+  ) + theme(
+    legend.position = "bottom",
+    legend.title = element_blank()
+  ) + labs (
+    x='Date',
+    y='Rank correlation (geo-wise)'
+  )
+print(plt)
 ```
 
+### Coefficients
+
+As an extra "result", we illustrate the coefficients fitted by the
+dynamic sensorization method, as a function of time.  
+
 TODO also talk a bit about coefficients?
+```{r coefficients_analysis, cache=TRUE, message=FALSE, warning=FALSE}
+df_coef_list = vector('list', length(source_names))
+for (ind_idx in 1:length(source_names)) {
+  sensorize_val_fname = sprintf('results/12_sensorize_vals_%s_%s_%s_%s.RDS',
+                            geo_level,
+                            source_names[ind_idx], signal_names[ind_idx],
+                            target_names[ind_idx])
+  sensorize_vals = readRDS(sensorize_val_fname)[[splot_idx]]
+  df_coef = sensorize_vals %>% select(
+      geo_value,
+      time_value,
+      intercept,
+      slope,
+    )
+  df_coef$sensor_target = sensor_target_names[ind_idx]
+  df_coef_list[[ind_idx]] = df_coef
+}
+coef_df = bind_rows(df_coef_list) %>% pivot_longer (
+    cols = c(slope, intercept),
+    names_to = 'coefficient',
+    values_to = 'value',
+  )
+coef_df_summarized = coef_df %>% group_by (
+    time_value,
+    sensor_target,
+    coefficient,
+  ) %>% summarize (
+    med = median(value, na.rm=TRUE),
+    mad = mad(value, na.rm=TRUE),
+  ) %>% ungroup
+
+plt = ggplot(
+    coef_df_summarized,
+    aes(x=time_value),
+  ) + geom_line (
+    aes(y=med,
+        linetype='median'),
+  ) + geom_line (
+    aes(y=med+mad,
+        linetype='med±mad'),
+  ) + geom_line (
+    aes(y=med-mad,
+        linetype='med±mad'),
+  ) + scale_linetype_manual(
+      values=c("median"="solid",
+               "med±mad"="dashed",
+               "min/max"="dotted"),
+      breaks=c('median',
+               'med±mad',
+               'min/max'),
+  ) + facet_grid (
+    rows=vars(sensor_target),
+    cols=vars(coefficient),
+    scale='free_y',
+  )
+
+plt_intercept = ggplot(
+    coef_df_summarized %>% filter (coefficient=='intercept'),
+    aes(x=time_value),
+  ) + geom_line (
+    aes(y=med,
+        linetype='median'),
+  ) + geom_line (
+    aes(y=med+mad,
+        linetype='med±mad'),
+  ) + geom_line (
+    aes(y=med-mad,
+        linetype='med±mad'),
+  ) + scale_linetype_manual(
+      values=c("median"="solid",
+               "med±mad"="dashed",
+               "min/max"="dotted"),
+      breaks=c('median',
+               'med±mad',
+               'min/max'),
+  ) + facet_wrap (
+    vars(sensor_target),
+    ncol=1,
+    scale='free_y',
+  ) + labs (
+    y = 'Intercept'
+  ) + theme_bw (
+  ) + theme(
+    axis.title.x=element_blank(),
+    legend.position = "bottom",
+    legend.title = element_blank()
+  )
+
+plt_slope = ggplot(
+    coef_df_summarized %>% filter (coefficient=='slope'),
+    aes(x=time_value),
+  ) + geom_line (
+    aes(y=med,
+        linetype='median'),
+  ) + geom_line (
+    aes(y=med+mad,
+        linetype='med±mad'),
+  ) + geom_line (
+    aes(y=med-mad,
+        linetype='med±mad'),
+  ) + scale_linetype_manual(
+      values=c("median"="solid",
+               "med±mad"="dashed",
+               "min/max"="dotted"),
+      breaks=c('median',
+               'med±mad',
+               'min/max'),
+  ) + facet_wrap (
+    vars(sensor_target),
+    ncol=1,
+    scale='free_y',
+  ) + labs (
+    y = 'Slope'
+  ) + theme_bw (
+  ) + theme(
+    axis.title.x=element_blank(),
+    legend.position = "bottom",
+    legend.title = element_blank()
+  )
+
+gridExtra::grid.arrange(plt_intercept, plt_slope, ncol=2)
+plt_intercept2 = ggplot(
+    coef_df_summarized %>% filter (coefficient=='intercept'),
+    aes(x=time_value),
+  ) + geom_line (
+    aes(y=med,
+        linetype='median'),
+  ) + geom_line (
+    aes(y=med+mad,
+        linetype='med±mad'),
+  ) + geom_line (
+    aes(y=med-mad,
+        linetype='med±mad'),
+  ) + scale_linetype_manual(
+      values=c("median"="solid",
+               "med±mad"="dashed",
+               "min/max"="dotted"),
+      breaks=c('median',
+               'med±mad',
+               'min/max'),
+  ) + facet_wrap (
+    vars(sensor_target),
+    scale='free_y',
+  )
+    
+    
+
+```
+
+
+# Discussion
+TODO
+blah
+
