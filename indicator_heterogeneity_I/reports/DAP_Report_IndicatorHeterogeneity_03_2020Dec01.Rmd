@@ -5,6 +5,8 @@ output:
   html_document:
     toc: true
     code_folding: hide
+    fig_width: 12
+    fig_height: 7
 ---
 
 ```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
@@ -19,6 +21,9 @@ pretty_names = c("Doctor visits", "Facebook CLI", "Facebook CLI-in-community",
           "Hospitalizations", "Hospitalizations")
 target_names = c("Cases", "Cases", "Cases", "Cases", "Deaths")
 geo_level = 'county'
+sensor_target_names = sapply(1:5, function(ind_idx) {
+  sprintf('%s & %s', pretty_names[ind_idx], target_names[ind_idx])
+         })
 ```
 
 # Introduction
@@ -113,6 +118,7 @@ sensorize_time_ranges = list(
 )
 splot_idx = 5
 
+df_cor_list = vector('list', length(source_names))
 for (ind_idx in 1:length(source_names)) {
   base_cor_fname = sprintf('results/12_base_cors_%s_%s_%s_%s.RDS',
                            geo_level,
@@ -144,17 +150,28 @@ for (ind_idx in 1:length(source_names)) {
                             levels=c('Raw',
                                      static_description,
                                      dynamic_description))
-  plt = ggplot(df_cor, aes(x = time_value, y = value)) +
-    geom_line(aes(color = Indicator)) +
-    labs(title = sprintf("Correlation between %s and %s",
-                         pretty_names[ind_idx],
-                         target_names[ind_idx]),
-         subtitle = "Per day",
-         x = "Date", y = "Correlation") +
-    theme(legend.position = "bottom")
-  print(plt)
+  df_cor$sensor_target = sensor_target_names[ind_idx]
+  df_cor_list[[ind_idx]] = df_cor
 }
+df_cor = bind_rows(df_cor_list)
+df_cor$sensor_target = factor(
+    df_cor$sensor_target,
+    levels=sensor_target_names)
 
+plt = ggplot(
+    df_cor,
+    aes(x = time_value,
+        y = value,
+        color=Indicator)
+  ) + geom_line(
+  ) + facet_wrap (
+    vars(sensor_target),
+    ncol=2,
+  ) + theme(
+    legend.position = "bottom",
+    legend.title = element_blank()
+  )
+print(plt)
 # TODO
 # read in the sensorization results
 # plot them (grid, for different indicators)
@@ -169,6 +186,7 @@ for (ind_idx in 1:length(source_names)) {
 # TODO
 # TODO: write a new script taht computes timewise correlations 
 #       for the final, chosen indicator
+timewise_cors_list = vector('list', length(source_names))
 for (ind_idx in 1:length(source_names)) {
   timewise_cor_fname = sprintf('results/13_timewise_cors_%s_%s_%s_%s.RDS',
                                geo_level, source_names[ind_idx],
@@ -185,48 +203,152 @@ for (ind_idx in 1:length(source_names)) {
       sensorization %in% c('raw', 'static') |
         correlate_date >= min_dynamic_correlate+4,
     )
-  timewise_cors_summarized$sensorization = factor(
-      timewise_cors_summarized$sensorization,
-      levels=c('raw', 'static', 'dynamic'))
-  plt = ggplot(
-      timewise_cors_summarized,
-      aes(x=correlate_date,
-          colour=sensorization),
-    ) + geom_line (
-      aes(y=med,
-          linetype='median'),
-    ) + geom_line (
-      aes(y=med+mad,
-          linetype='med±mad'),
-    ) + geom_line (
-      aes(y=med-mad,
-          linetype='med±mad'),
-    ) + geom_line (
-      aes(y=max,
-          linetype='min/max'),
-    ) + geom_line (
-      aes(y=min,
-          linetype='min/max'),
-    ) + scale_linetype_manual(
-        values=c("median"="solid",
-                 "med±mad"="dashed",
-                 "min/max"="dotted"),
-        breaks=c('median',
-                 'med±mad',
-                 'min/max'),
-    )
-  print(plt)
+  timewise_cors_summarized$sensor_target = sensor_target_names[ind_idx]
+  timewise_cors_list[[ind_idx]] = timewise_cors_summarized
 }
+timewise_cors_summarized = bind_rows(timewise_cors_list)
+timewise_cors_summarized$sensor_target = factor(
+    timewise_cors_summarized$sensor_target,
+    levels = sensor_target_names)
+timewise_cors_summarized$sensorization = factor(
+    timewise_cors_summarized$sensorization,
+    levels=c('raw', 'static', 'dynamic'))
+plt = ggplot(
+    timewise_cors_summarized,
+    aes(x=correlate_date,
+        colour=sensorization),
+  ) + geom_line (
+    aes(y=med,
+        linetype='median'),
+  ) + geom_line (
+    aes(y=med+mad,
+        linetype='med±mad'),
+  ) + geom_line (
+    aes(y=med-mad,
+        linetype='med±mad'),
+  ) + geom_line (
+    aes(y=max,
+        linetype='min/max'),
+  ) + geom_line (
+    aes(y=min,
+        linetype='min/max'),
+  ) + scale_linetype_manual(
+      values=c("median"="solid",
+               "med±mad"="dashed",
+               "min/max"="dotted"),
+      breaks=c('median',
+               'med±mad',
+               'min/max'),
+  ) + facet_wrap (
+    vars(sensor_target),
+    ncol=2,
+  ) + theme(
+    legend.position = "bottom",
+    legend.title = element_blank()
+  )
+print(plt)
 ```
 
 (TODO)
 
 ### Predictive ability
 
-```{r predictive-ability}
-# TODO: write a new script that computes the predictive results
-# 
-# TODO: plot those results here
+```{r predictive-ability, cache=TRUE, warning=FALSE, message=FALSE}
+sensor_target_names = sapply(1:5, function(ind_idx) {
+  sprintf('%s\nTarget: %s', pretty_names[ind_idx], target_names[ind_idx])
+         })
+model_names = c('Targets',
+                'Targets+Raw',
+                'Targets+Static',
+                'Targets+Dynamic')
+
+lags = 1:2 * -7 
+leads = 1:2 * 7
+
+plot_df_list = vector('list', length(source_names))
+for (ind_idx in 1:length(source_names)) {
+  predictive_fname = sprintf('results/14_predictive_%s_%s_%s_%s.RDS', geo_level,
+                               source_names[ind_idx], signal_names[ind_idx],
+                               target_names[ind_idx])
+
+  res = readRDS(predictive_fname)
+
+
+  # Restrict to common period for all 4 models, then calculate the scaled errors 
+  # for each model, that is, the error relative to the strawman's error
+  res_all4 = res %>%
+  #res_all4 = res %>% filter(geo_value %in% geo_values) %>%
+    drop_na() %>%                                       # Restrict to common time
+    mutate(err1 = err1 / err0, err2 = err2 / err0,      # Compute relative error
+           err3 = err3 / err0, err4 = err4 / err0) %>%  # to strawman model
+    mutate(dif12 = err1 - err2, dif13 = err1 - err3,    # Compute differences
+           dif14 = err1 - err4) %>%                     # relative to cases model
+    ungroup() %>%
+    select(-err0) 
+           
+  # Calculate and print median errors, for all 4 models, and just 7 days ahead
+  if (ind_idx > 1) {res_all4 = rename(res_all4, lead=lead_)}
+  res_err4 = res_all4 %>% 
+    select(-starts_with("dif")) %>%
+    pivot_longer(names_to = "model", values_to = "err",
+                 cols = -c(geo_value, time_value, lead)) %>%
+    mutate(lead = factor(lead, labels = paste(leads, "days ahead")),
+           model = factor(model, labels = model_names))
+
+  plot_df = res_err4 %>% group_by(
+      model, lead, time_value
+    ) %>% summarize(
+      med = median(err),
+      mad = mad(err),
+      min = min(err),
+      max = max(err),
+    ) %>% ungroup()
+  plot_df$sensor_target = sensor_target_names[ind_idx]
+  plot_df_list[[ind_idx]] = plot_df
+}
+plot_df = bind_rows(plot_df_list)
+
+plt = ggplot(
+    plot_df,
+    aes(x=time_value,
+        colour=model)
+  ) + geom_line (
+    aes(y=med,
+        linetype='median'),
+  ) + geom_line (
+    aes(y=med+mad,
+        linetype='med±mad'),
+  ) + geom_line (
+    aes(y=med-mad,
+        linetype='med±mad'),
+  ) + scale_linetype_manual(
+      values=c("median"="solid",
+               "med±mad"="dashed"),
+      breaks=c('median', "med±mad")
+	) + scale_color_manual(
+		values = c("black",
+               '#F8766D',
+               '#00BA38',
+               '#619CFF')
+  ) + geom_hline(
+    yintercept = 1,
+    linetype = 2,
+    color = "gray"
+  ) + facet_grid(
+    cols=vars(lead),
+    rows=vars(sensor_target),
+    scales='free',
+  ) + ylim (
+    0, 2
+  ) + labs(
+    x = "Date",
+    y = "Scaled error"
+  ) + theme_bw (
+  ) + theme(
+    legend.pos = "bottom",
+    legend.title = element_blank()
+  )
+print(plt)
 ```
 
 (TODO)
@@ -238,3 +360,5 @@ for (ind_idx in 1:length(source_names)) {
 # TODO: compute geo-wise correlation of sensorized hospitalization 
 # signal against the hospitalization data
 ```
+
+TODO also talk a bit about coefficients?

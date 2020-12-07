@@ -17,23 +17,26 @@ safe_subset = function(x) {
 
 state_abbrs = covidcast::state_geo$abbr
 
+# Loop over states because Epidata only returns 3650 rows
 hhs_hosp_df = lapply(state_abbrs, function(state) {
-}
-
-
-state_df = lapply(res$epidata, function(row) {
-  tibble(
-      geo_value = row[['state']],
-      # shift date backwards because data is reported about previous day
-      time_value = lubridate::ymd(row[['date']])-1,
-      issue = lubridate::ymd(row[['issue']]),
-      adult_confirmed = safe_subset(
-            row[['previous_day_admission_adult_covid_confirmed']]),
-      adult_suspected = safe_subset(
-            row[['previous_day_admission_adult_covid_suspected']]),
-      pediatric_confirmed = safe_subset(
-            row[['previous_day_admission_pediatric_covid_confirmed']]),
-      pediatric_suspected = safe_subset(
-            row[['previous_day_admission_pediatric_covid_suspected']]),
-    )
+  res = Epidata$covid_hosp(list(state),
+                           list(date_range))
+  lapply(res$epidata, function(row) {
+    tibble(
+        geo_value = row[['state']],
+        # shift date backwards because data is reported about previous day
+        time_value = lubridate::ymd(row[['date']])-1,
+        issue = lubridate::ymd(row[['issue']]),
+        adult_confirmed = safe_subset(
+              row[['previous_day_admission_adult_covid_confirmed']]),
+        adult_suspected = safe_subset(
+              row[['previous_day_admission_adult_covid_suspected']]),
+        pediatric_confirmed = safe_subset(
+              row[['previous_day_admission_pediatric_covid_confirmed']]),
+        pediatric_suspected = safe_subset(
+              row[['previous_day_admission_pediatric_covid_suspected']]),
+      )
+  }) %>% bind_rows
 }) %>% bind_rows
+
+
