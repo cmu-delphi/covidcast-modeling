@@ -50,7 +50,7 @@ ind_target_sensorized_list = readRDS(sensorize_val_fname)
 ind_target_sensorized = ind_target_sensorized_list[[splot_idx]]
 
 correlate_llim = -42
-correlate_ulim = -8
+correlate_ulim = -1
 
 min_correlate_date = lubridate::ymd('2020-04-15') - correlate_llim
 max_correlate_date = max(ind_target_sensorized$time_value)
@@ -182,10 +182,11 @@ for (ind_idx in 1:length(source_names)) {
       min = min(value, na.rm=TRUE),
     ) %>% ungroup
 
-  timewise_cor_fname = sprintf('results/13_timewise_cors_%s_%s_%s_%s.RDS',
+  timewise_cor_fname = sprintf('results/13_timewise_cors_%s_%s_%s_%s_%d_%d.RDS',
                                geo_level,
                                source_names[ind_idx], signal_names[ind_idx],
-                               target_names[ind_idx])
+                               target_names[ind_idx],
+                               correlate_llim, correlate_ulim)
   saveRDS(list(timewise_cors, timewise_cors_summarized), timewise_cor_fname)
 
   plt = ggplot(timewise_cors_summarized,
