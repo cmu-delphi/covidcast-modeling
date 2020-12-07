@@ -221,29 +221,29 @@ for (ind_idx in 1:length(source_names)) {
   # Loop over lead, forecast dates, build models and record errors (warning: this
   # computation takes a while)
   for (i in 1:length(leads)) { 
-    lead = leads[i]; if (verbose) cat("***", lead, "***\n")
+    lead_ = leads[i]; if (verbose) cat("***", lead_, "***\n")
     
     # Create a data frame to store our forecast results. Code below populates its
     # rows in a way that breaks from typical dplyr operations, done for efficiency 
     res_list[[i]] = z %>% 
-      filter(between(time_value, as.Date(start_day) - min(lags) + lead, 
-                     as.Date(end_day) - lead)) %>%
+      filter(between(time_value, as.Date(start_day) - min(lags) + lead_, 
+                     as.Date(end_day) - lead_)) %>%
       select(geo_value, time_value) %>%
       mutate(err0 = as.double(NA), err1 = as.double(NA), err2 = as.double(NA), 
-             err3 = as.double(NA), err4 = as.double(NA), lead = lead) 
+             err3 = as.double(NA), err4 = as.double(NA), lead_ = lead_) 
     valid_dates = unique(res_list[[i]]$time_value)
     
     for (k in 1:length(valid_dates)) {
       date = valid_dates[k]; if (verbose) cat(format(date), "... ")
       
       # Filter down to training set and test set
-      z_tr = z %>% filter(between(time_value, date - lead - n, date - lead))
+      z_tr = z %>% filter(between(time_value, date - lead_ - n, date - lead_))
       z_te = z %>% filter(time_value == date)
       inds = which(res_list[[i]]$time_value == date)
       
       # Create training and test responses
-      y_tr = z_tr %>% pull(paste0("target+", lead))
-      y_te = z_te %>% pull(paste0("target+", lead))
+      y_tr = z_tr %>% pull(paste0("target+", lead_))
+      y_te = z_te %>% pull(paste0("target+", lead_))
       
       # Strawman model
       if (verbose) cat("0")
