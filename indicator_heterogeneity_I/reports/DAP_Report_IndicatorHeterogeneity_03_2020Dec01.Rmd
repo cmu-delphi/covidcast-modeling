@@ -227,19 +227,13 @@ plt = ggplot(
   ) + geom_line (
     aes(y=med-mad,
         linetype='med±mad'),
-  ) + geom_line (
-    aes(y=max,
-        linetype='min/max'),
-  ) + geom_line (
-    aes(y=min,
-        linetype='min/max'),
   ) + scale_linetype_manual(
       values=c("median"="solid",
-               "med±mad"="dashed",
-               "min/max"="dotted"),
+               "med±mad"="dashed"),
+  #             "min/max"="dotted"),
       breaks=c('median',
-               'med±mad',
-               'min/max'),
+               'med±mad'),
+              # 'min/max'),
   ) + facet_wrap (
     vars(sensor_target),
     ncol=2,
@@ -347,7 +341,7 @@ plt = ggplot(
     0, 2
   ) + labs(
     x = "Date",
-    y = "Scaled error"
+    y = "Scaled error (relative to strawman)"
   ) + theme_bw (
   ) + theme(
     legend.pos = "bottom",
@@ -393,6 +387,9 @@ dynamic sensorization method, as a function of time.
 
 TODO also talk a bit about coefficients?
 ```{r coefficients_analysis, cache=TRUE, message=FALSE, warning=FALSE}
+sensor_target_names = sapply(1:5, function(ind_idx) {
+  sprintf('%s // Sensorization target: %s', pretty_names[ind_idx], target_names[ind_idx])
+         })
 df_coef_list = vector('list', length(source_names))
 for (ind_idx in 1:length(source_names)) {
   sensorize_val_fname = sprintf('results/12_sensorize_vals_%s_%s_%s_%s.RDS',
@@ -423,9 +420,18 @@ coef_df_summarized = coef_df %>% group_by (
     mad = mad(value, na.rm=TRUE),
   ) %>% ungroup
 
-plt = ggplot(
-    coef_df_summarized,
-    aes(x=time_value),
+make_coef_plot = function(ggp) {
+  ggp + geom_rect(
+    aes(xmin = lubridate::ymd('2020-08-15'),
+        xmax = lubridate::ymd('2020-09-15'),
+        ymin = -Inf,
+        ymax = Inf),
+    alpha = 0.03,
+    fill='#E0FFFF',
+  ) + geom_hline(
+    yintercept = 0,
+    linetype = 2,
+    color = "gray"
   ) + geom_line (
     aes(y=med,
         linetype='median'),
@@ -442,103 +448,34 @@ plt = ggplot(
       breaks=c('median',
                'med±mad',
                'min/max'),
-  ) + facet_grid (
-    rows=vars(sensor_target),
-    cols=vars(coefficient),
+  ) + facet_wrap (
+    vars(sensor_target),
+    ncol=1,
     scale='free_y',
+  ) + theme_bw (
+  ) + theme(
+    axis.title.x=element_blank(),
+    legend.position = "bottom",
+    legend.title = element_blank()
   )
+}
 
 plt_intercept = ggplot(
     coef_df_summarized %>% filter (coefficient=='intercept'),
     aes(x=time_value),
-  ) + geom_line (
-    aes(y=med,
-        linetype='median'),
-  ) + geom_line (
-    aes(y=med+mad,
-        linetype='med±mad'),
-  ) + geom_line (
-    aes(y=med-mad,
-        linetype='med±mad'),
-  ) + scale_linetype_manual(
-      values=c("median"="solid",
-               "med±mad"="dashed",
-               "min/max"="dotted"),
-      breaks=c('median',
-               'med±mad',
-               'min/max'),
-  ) + facet_wrap (
-    vars(sensor_target),
-    ncol=1,
-    scale='free_y',
+  ) %>% make_coef_plot (
   ) + labs (
-    y = 'Intercept'
-  ) + theme_bw (
-  ) + theme(
-    axis.title.x=element_blank(),
-    legend.position = "bottom",
-    legend.title = element_blank()
+    y = 'Intercepts'
   )
-
 plt_slope = ggplot(
     coef_df_summarized %>% filter (coefficient=='slope'),
     aes(x=time_value),
-  ) + geom_line (
-    aes(y=med,
-        linetype='median'),
-  ) + geom_line (
-    aes(y=med+mad,
-        linetype='med±mad'),
-  ) + geom_line (
-    aes(y=med-mad,
-        linetype='med±mad'),
-  ) + scale_linetype_manual(
-      values=c("median"="solid",
-               "med±mad"="dashed",
-               "min/max"="dotted"),
-      breaks=c('median',
-               'med±mad',
-               'min/max'),
-  ) + facet_wrap (
-    vars(sensor_target),
-    ncol=1,
-    scale='free_y',
+  ) %>% make_coef_plot (
   ) + labs (
-    y = 'Slope'
-  ) + theme_bw (
-  ) + theme(
-    axis.title.x=element_blank(),
-    legend.position = "bottom",
-    legend.title = element_blank()
+    y = 'Slopes'
   )
 
 gridExtra::grid.arrange(plt_intercept, plt_slope, ncol=2)
-plt_intercept2 = ggplot(
-    coef_df_summarized %>% filter (coefficient=='intercept'),
-    aes(x=time_value),
-  ) + geom_line (
-    aes(y=med,
-        linetype='median'),
-  ) + geom_line (
-    aes(y=med+mad,
-        linetype='med±mad'),
-  ) + geom_line (
-    aes(y=med-mad,
-        linetype='med±mad'),
-  ) + scale_linetype_manual(
-      values=c("median"="solid",
-               "med±mad"="dashed",
-               "min/max"="dotted"),
-      breaks=c('median',
-               'med±mad',
-               'min/max'),
-  ) + facet_wrap (
-    vars(sensor_target),
-    scale='free_y',
-  )
-    
-    
-
 ```
 
 
