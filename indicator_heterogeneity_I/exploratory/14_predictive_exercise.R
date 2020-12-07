@@ -21,7 +21,7 @@ append_shifts = function(df, shifts) {
   
   # Load over shifts, and add lag value or lead value
   for (shift in shifts) {
-    fun = ifelse(shift < 0, lag, lead)
+    fun = ifelse(shift < 0, dplyr::lag, dplyr::lead)
     varname = sprintf("value%+d", shift)
     df = mutate(df, !!varname := fun(value, n = abs(shift)))
   }
