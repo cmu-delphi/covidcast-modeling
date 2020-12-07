@@ -234,7 +234,9 @@ somewhere above 1.5% (the horizontal dashed line). **For all lag lengths, it **
 **remains to be seen if this is a trend lasting longer than a month, **
 **especially for longer lags.**
 
-Next we zoom on on July 1 through current day.
+Next we zoom on on July 1 through current day.  The dashed vertical lines 
+indicate the date used to predict Thanksgiving death for that lag.
+Thanksgiving day indicates an anomaly in reporting due to the holiday.
 
 ```{r, fig.width = 7, fig.height = 4}
 thanksgiving_dates <- as.Date(c("2020-11-16", "2020-11-11", "2020-11-06", "2020-11-01", "2020-10-27"))
