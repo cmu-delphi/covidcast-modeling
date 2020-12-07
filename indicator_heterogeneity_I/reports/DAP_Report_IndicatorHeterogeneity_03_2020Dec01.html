@@ -780,7 +780,8 @@ print(plt)</code></pre>
 <li>Incidence of patients who were admitted to an <strong>adult or pediatric</strong> inpatient bed who had <strong>confirmed</strong> COVID-19 at the time of admission</li>
 <li>Incidence of patients who were admitted to an <strong>adult or pediatric</strong> inpatient bed who had <strong>confirmed or suspected</strong> COVID-19 at the time of admission</li>
 </ul>
-<p>Then, for two sensorized indicators (Hospitalizations, sensorized separately against Cases and Deaths), we compute the geo-wise correlations against the HHS Hospitalization indicators. The results are mixed:</p>
+<p>Note that we (1) calculate incidence within each State by normalizing by population and multiplying by 100,000; and (2) shift the <code>time_value</code> of the data by one day, because by default each date reports on the new patients for the <em>previous</em> day.</p>
+<p>For two sensorized indicators (Hospitalizations, sensorized separately against Cases and Deaths), we compute the geo-wise correlations against the HHS Hospitalization indicators. The results are mixed:</p>
 <ul>
 <li>Hospitalizations, sensorized against Cases, when correlated against HHS Hospitalizations Confirmed (adult or pediatric), starts to do better than the raw Hospitalizations around mid-October.</li>
 <li>Hospitalizations, sensorized against Cases, when correlated against HHS Hospitalizations Confirmed or Suspected (adult or pediatric), does worse or about the same as the raw Hospitalizations indicator.</li>
