@@ -1,5 +1,5 @@
 ---
-title: "Indicator Heterogeneity I: December 7th Report"
+title: "Indicator Heterogeneity I: Regression Models"
 author: "Addison"
 output:
   html_document:
@@ -28,27 +28,43 @@ sensor_target_names = sapply(1:5, function(ind_idx) {
 
 # Introduction
 
-TODO intro
+Heterogeneity in a relationship between two variables means that their
+relationship "varies" with respect to some other variable(s).  For our
+purposes, this can mean that the relationship varies in time (temporal
+heterogeneity) or it varies across locations (spatial
+heterogeneity).
+
+Aaron first [discovered](https://delphi-org.slack.com/archives/C011EU72MU2/p1599862022069500)
+heterogeneity in the doctor visits indicator, which inspired this DAP.  The
+idea of _sensorization_, which we apply in this DAP to attempt to account for
+heterogeneity, has a long history in Delphi; see
+[David's thesis](https://delphi.cmu.edu/~dfarrow/thesis.pdf) and
+[Maria's paper](https://papers.nips.cc/paper/9475-kalman-filter-sensor-fusion-and-constrained-regression-equivalences-and-insights.pdf).
+
+In this notebook, we perform a deep investigation of one particular
+sensorization procedure: a moving window regression, where we fit
+using data from 10 weeks back to 1 week back.  **We find, unfortunately,
+that even though this sensorization procedure  does improve geo-wise
+correlations, it has several shortcomings, including degraded time-wise
+correlations and some signs of overfitting.**
 
 ## What do we want from sensorization?
 
 ### Improved ability to interpret an indicator across locations
 
-* **Approach.** Adjust relative scale of each indicator so that location-wise
-  comparisons are meaningful.  (This is not automatically satisfied by the
-  raw indicators; e.g.,
+* **In what sense?** We want the relative scale of each indicator to be
+  adjusted so that location-wise comparisons are meaningful.  (This is not
+  automatically satisfied by the raw indicators; e.g.,
   [Aaron's blog post](https://delphi.cmu.edu/blog/2020/11/05/a-syndromic-covid-19-indicator-based-on-insurance-claims-of-outpatient-visits/)
   shows that the DV indicator exhibits different base rates in different
   HHS regions).  In essence, we want to correct _spatial heterogeneity_.
-* **Measurement.**  Quantified by measuring (improvement in) geo-wise
+* **How do we measure it?**  Quantified by measuring (improvement in) geo-wise
   correlation of cases (rank correlations after grouping by time $t$).
 * Note that it can be dangerous to absentmindedly maximize this quantity
   against the target, because then it is trivially maximized by taking the 
   target signal.  (We attempt to avoid this by using large sensorization 
   time windows, and by setting up an validation exercise against a
   new, unseen target).
-
-TODO: also show correction re: hhs
 
 ### Improved ability to interpret an indicator within a location
 
@@ -57,21 +73,18 @@ TODO: also show correction re: hhs
 * If the target "trustworthy", i.e., it is not subject to reporting changes
   or degradation, for example, then sensorization should account for this, 
   and we would be able to measure it through timewise correlation.
-* However, I believe that the unreliability of the cases indicator
-  [requires justification] make it difficult for us to properly learn a
-  temporal adjustment [dicuss].  [Might be a good place to discuss 
-  the step change in intercept for the many indicators.]
+* However, I believe that the instability in the cases indicator may make it
+  very difficult to "properly" learn a temporal adjustment.  We see in
+  an analysis of the [coefficients](#coefficients) that changes the cases
+  indicator can appear as "heterogeneity" simultaneously across the
+  several indicators being sensorized.
 
 ### Improved predictive ability for case rates
 
 This is measured through the "simple forecaster" setup that
 [Ryan has built](https://delphi.cmu.edu/blog/2020/09/21/can-symptoms-surveys-improve-covid-19-forecasts/).
 
-### Interpretability via an inverse mapping
-
-Deferred to future work (I believe Aaron is working on this).
-
-# Proposed sensorization scheme
+# Methods
 
 First, we fix notation.  Assume an indicator and target (e.g., doctors visits
 and case rate), which we suppress notationally for brevity.  Each observation
@@ -84,8 +97,30 @@ $x_{t_1:t_2, \ell}$, $y_{t_1:t_2, \ell}$ denote the observations that fall
 within times $t_1, t_2$, endpoints included.  Finally, let $x, y$
 be the collection of all observations across time and location.
 
+## Static sensorization (spatial only)
+
+In the basic, spatial-only form of sensorization (as computed in Aaron's
+notebook), we ignore the possibility of temporal heterogeneity and learn
+a single linear relationship between the indicator and target for
+each location.  Specifically, we learn, for each $\ell \in L$
+$$
+y_{\cdot\ell} \sim x_{\cdot\ell} \qquad\Rightarrow \mathrm{Model}(\ell)
+$$
+and obtain the sensorized indicator values
+$$
+\tilde x_{t\ell} = \texttt{predict}(x_{t\ell}, \mathrm{Model}(\ell)) = \hat y_{t\ell}.
+$$
+Originally computed merely as a point of comparison, we are now seriously
+considering some form of "static" sensorization to avoid overfitting; more
+details are given in the sequel.  It is important to note that although
+static sensorization does not allow the model to vary with time, the
+version considered in this notebook has the important advantage that sensorized
+estimates are produced in-sample.
+
+## Dynamic sensorization (spatial and temporal)
+
 Let $k_1, k_2$ denote the number of days into the past we wish to examine data
-when fitting our model.  (Smaller $k$ is "more adaptive" to temporal
+when fitting our model.  (Smaller $k_1-k_2$ is "more adaptive" to temporal
 heterogeneity, but may also lead to less stable fits).
 
 We fit, for each $t, \ell$:
@@ -95,18 +130,36 @@ y_{(t-k):(t-1), \ell} \sim x_{(t-k_1):(t-k_2), \ell} \qquad\Rightarrow
 $$
 and obtain the sensorized indicator values
 $$
-\tilde x_{t\ell} = \texttt{predict}(x_{t\ell}, \mathrm{Model}(\ell, t, k_1, k_2))
+\tilde x_{t\ell} = \texttt{predict}(x_{t\ell}, \mathrm{Model}(\ell, t, k_1, k_2)).
 $$
 We fit a linear model for each location and day, and then take the prediction
-for that day.  (Huge number of models to fit, but embarrassingly
-parallelizable).
+for that day.
 
 For our purposes we take $k_1, k_2$ to be $-70, -8$.  That is, we train over
 a nine-week window, without the immediately preceding week of data.
 
-# Performance of the sensorization scheme
+# Results 
+
+## Performance
+
+Overall, we find that geo-wise correlations improve; but time-wise correlations
+degrade; and there is little impact on predictive ability, in terms of
+including a sensorized indicator in the model with cases (or deaths).
 
 ### Geo-wise correlations
+
+For each of our sensorized indicators, we compute its geo-wise rank correlation
+against the target data.  Assuming that the target data observes the proper
+"ordering" for each day, an improvement in the geo-wise rank correlations
+in the sensorized indicators would mean that for a fixed day, the (sensorized)
+indicator's values are (more) comparable across location.  This is important,
+for example, if we want the indicator to be intuitively useful on a map.
+
+**We generally find that the geo-wise correlations are improved by
+sensorization, both dynamic and static.**  This is encouraging.  It is
+noteworthy that dynamic sensorization does essentially as well as static
+sensorization here, since this static sensorization has the added advantage
+that estimates are being produced in-sample.
 
 ```{r geowise-correlations, cache=TRUE, warning=FALSE}
 sensorize_time_ranges = list(
@@ -179,17 +232,25 @@ print(plt)
 
 ```
 
-(TODO)
-
 ### Time-wise correlations
 
+For each of our sensorized indicators, we compute time-wise correlations over
+a moving window of time 6 weeks wide.  Specifically, we iterate across time,
+and on each date and for each location, we consider take the sensorized values
+(raw, static, and dynamic) from the preceding 42 days and compute the time-wise
+correlation with the corresponding target data.  We then reduce the location
+component out of this data by taking the median (and mad) of the correlations
+for each day.
+
+We find, as previously discovered by Aaron in a Slack thread, that **the
+dynamic sensorization can actually degrade time-wise correlations over moving
+windows.** This is a very discouraging result, and motivates us to consider
+some variant of static sensorization instead.
+
 ```{r timewise-correlations, cache=TRUE}
-# TODO
-# TODO: write a new script taht computes timewise correlations 
-#       for the final, chosen indicator
 timewise_cors_list = vector('list', length(source_names))
 for (ind_idx in 1:length(source_names)) {
-  timewise_cor_fname = sprintf('results/13_timewise_cors_%s_%s_%s_%s.RDS',
+  timewise_cor_fname = sprintf('results/13_timewise_cors_%s_%s_%s_%s_-41_0.RDS',
                                geo_level, source_names[ind_idx],
                                signal_names[ind_idx], target_names[ind_idx])
   timewise_cor_list = readRDS(timewise_cor_fname)
@@ -248,9 +309,32 @@ plt = ggplot(
 print(plt)
 ```
 
-(TODO)
-
 ### Predictive ability
+
+For each (indicator, target) pair, we perform the static and dynamic
+sensorizations, and then evaluate its ability to "improve upon" the
+predictive ability of the target.  The setup is the same as in Ryan's
+forecasting notebook.  We perform 7 day ahead and 14 day ahead forecasts.
+The base model only uses the target information (cases or deaths),
+at lags of 7 days behind and 14 days behind.  The other three models
+add the raw indicator, static sensorized indicator, and dynamic sensorized
+indicator to the target (all three at the corresponding lags).
+
+The four models (for each (indicator, target) pair) are evaluated in
+terms of scaled error.  This normalizes the error by the error of the
+strawman, which propogates the previous week forward.  Scaled errors
+below 1 are desirable.
+
+**We find, on the whole, that including the sensorized indicator neither helps
+nor hurts in the prediction task.**  This is discouraging for us; we might hope
+that sensorization, when performed properly, would provide "additional
+information" beyond the target.
+
+As an aside, it is interesting to note that the scaled errors get
+smaller, and the spread of their distributions narrower, in November.
+I suspect this is because we have seen a continual surge in cases
+since October, and the consistent upward trajectory makes the prediction
+task "easier".
 
 ```{r predictive-ability, cache=TRUE, warning=FALSE, message=FALSE}
 sensor_target_names = sapply(1:5, function(ind_idx) {
@@ -350,9 +434,61 @@ plt = ggplot(
 print(plt)
 ```
 
-(TODO)
+## Validation
 
-### Validation against hospitalization data
+Our sensorization procedure runs the risk of "overfitting".  Up until now,
+we have evaluated our sensorized indicator by calculating correlations
+(or making elementary forecasts) against the very target used in the
+sensorization step.  These evaluation metrics can be trivially maximized
+by replicating the target in the sensorization, e.g., by taking an extremely
+short time window.
+
+In the sensorization procedure itself, we guard against overfitting by
+using a wide time window (9 weeks) and by ignoring the immediately preceding
+week of data (an air gap between training and evaluation data).  In the
+following subsections, we provide two validation assessments.
+
+### "Ground truth" hospitalizations data
+
+Our first validation procedure takes advantage of newly available
+"ground truth" hospitalization data,
+[provided by the Department of Health & Human Services](https://healthdata.gov/dataset/covid-19-reported-patient-impact-and-hospital-capacity-state-timeseries)
+at the State level.
+
+The idea is as follows: if the sensorized Hospitalizations indicator has been
+overfit to Cases (or Deaths), then it would observe weakened correlations
+against this ground truth hospitalizations incidence.  (Ideally, we would
+see improved correlations, as the sensorization should be "improving"
+the indicator, e.g., by correcting spatial heterogeneity).
+
+We ingest the data through [Epidata](https://cmu-delphi.github.io/delphi-epidata/api/covid_hosp.html).
+Then, we produce four target "indicators" from the data, each on the
+US State level:
+
+* Incidence of patients who were admitted to an **adult** inpatient bed who had
+  **confirmed** COVID-19 at the time of admission 
+* Incidence of patients who were admitted to an **adult** inpatient bed who had
+  **confirmed or suspected** COVID-19 at the time of admission 
+* Incidence of patients who were admitted to an **adult or pediatric** inpatient
+  bed who had **confirmed** COVID-19 at the time of admission 
+* Incidence of patients who were admitted to an **adult or pediatric** inpatient
+  bed who had **confirmed or suspected** COVID-19 at the time of admission 
+
+Then, for two sensorized indicators (Hospitalizations, sensorized separately
+against Cases and Deaths), we compute the geo-wise correlations against
+the HHS Hospitalization indicators.  The results are mixed:
+
+* Hospitalizations, sensorized against Cases, when correlated against
+  HHS Hospitalizations Confirmed (adult or pediatric), starts to do better
+  than the raw Hospitalizations around mid-October.
+* Hospitalizations, sensorized against Cases, when correlated against
+  HHS Hospitalizations Confirmed or Suspected (adult or pediatric),
+  does worse or about the same as the raw Hospitalizations indicator.
+* Hospitalizations, sensorized against Deaths, fares worse than the raw
+  Hospitalizations indicator on all fronts.
+
+**In general, the fact that the geo-wise correlations tend to be degraded
+suggest that we are running the risk of overfitting.**
 
 ```{r hospitalization-validation}
 hosp_cor_df = readRDS('results/15_hhs_cor_df.RDS')
@@ -382,10 +518,41 @@ print(plt)
 
 ### Coefficients
 
-As an extra "result", we illustrate the coefficients fitted by the
-dynamic sensorization method, as a function of time.  
+As a second form of validation, we illustrate the coefficients fitted by the
+dynamic sensorization method, as a function of time.  Examining these
+coefficients serves as a useful sanity check.  In fact, the original
+dynamic sensorization schemes originally considered, which involved short
+time windows, displayed superb improvements in the geo-wise correlations,
+but an investigation into the fitted coefficients revealed that those
+"improvements" were merely the by product of replicating cases in the
+intercept.
 
-TODO also talk a bit about coefficients?
+**The coefficient distributions leave much to be desired.**  In the perfect
+world of our "data model", the intercepts would be zero (e.g., no COVID-related
+doctor visits would correspond to no cases); and the slopes would carry the
+information, perhaps varying over time to account for temporal heterogeneity.
+
+What we see in our data is quite different.  The intercepts tend to be away
+from zero, while the slopes tend to be near zero (often, the median ± mad
+interval covers zero), despite our purposeful choice of a wide, nine-week
+wide training window to avoid trivially fitting a moving average.
+
+An additional cause for concern is the phenomenon observed from mid-August to
+mid-September (shaded in blue), in which the intercept values rise and the
+slope values fall, as though information is "shifting" from the slope terms
+into the intercept terms.  This phenomenon is especially pronounced in
+the Doctor visits, Facebook %CLI, and Hospitalizations signals when
+sensorized against Cases.
+
+Independent of the "meaning" of this simultaneous increase in the
+intercepts and decrease in the slopes, it is especially concerning that
+it happens for (nearly) all the indicators sensorized against Cases, at
+the same time.  This suggests that the shifts are due to a change in
+the behavior of Cases, as a simultaneous change in the behavior of
+the indicators is unlikely.  We should be especially mindful of this,
+i.e., that the "heterogeneity" being picked up by sensorization can be
+instability in the target data.
+
 ```{r coefficients_analysis, cache=TRUE, message=FALSE, warning=FALSE}
 sensor_target_names = sapply(1:5, function(ind_idx) {
   sprintf('%s // Sensorization target: %s', pretty_names[ind_idx], target_names[ind_idx])
@@ -480,6 +647,14 @@ gridExtra::grid.arrange(plt_intercept, plt_slope, ncol=2)
 
 
 # Discussion
-TODO
-blah
+
+Sensorization, both dynamic and static, has been found to improve the geo-wise
+correlations of the sensorized indicator against its intended target.  However,
+the degradation of moving window time-wise correlations and our validation
+procedures indicate that we may actually be overfitting to the target, despite
+the fact that our time window, 10 weeks back to 1 week back, is both wide and
+"airgapped" by a week from the date being predicted.  
+
+It may be fruitful to consider a simple, fixed static sensorization; or
+models beyond linear regression.
 
