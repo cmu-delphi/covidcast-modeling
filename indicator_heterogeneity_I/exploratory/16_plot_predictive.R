@@ -78,23 +78,6 @@ res_err4 = res_all4 %>%
          model = factor(model, labels = model_names))
 
 
-plt = ggplot(res_err4 %>% 
-         group_by(model, lead, time_value) %>%
-         summarize(err = median(err)) %>% ungroup(),
-       aes(x = time_value, y = err)) + 
-  geom_line(aes(color = model)) + 
-  scale_color_manual(values = c("black",
-                                '#F8766D',
-                                '#00BA38',
-                                '#619CFF'
-                                )) +
-  geom_hline(yintercept = 1, linetype = 2, color = "gray") +
-  facet_wrap(vars(lead)) + 
-  labs(x = "Date", y = "Median scaled error") +
-  #theme_bw() +
-  theme(legend.pos = "bottom", legend.title = element_blank())
-
-
 
 plot_df = res_err4 %>% group_by(
     model, lead, time_value
@@ -114,20 +97,14 @@ plt = ggplot(
         linetype='median'),
   ) + geom_line (
     aes(y=med+mad,
-        linetype='+/- mad'),
+        linetype='med±mad'),
   ) + geom_line (
     aes(y=med-mad,
-        linetype='+/- mad'),
-  ) + geom_line (
-    aes(y=max,
-        linetype='extrema'),
-  ) + geom_line (
-    aes(y=min,
-        linetype='extrema'),
+        linetype='med±mad'),
   ) + scale_linetype_manual(
       values=c("median"="solid",
-               "+/- mad"="dashed",
-               "extrema"="dotted")
+               "med±mad"="dashed"),
+      breaks=c('median', "med±mad")
   ) + geom_hline(
     yintercept = 1,
     linetype = 2,
@@ -136,7 +113,7 @@ plt = ggplot(
     vars(lead)
   ) + labs(
     x = "Date",
-    y = "Median scaled error"
+    y = "Scaled error"
   ) + theme(
     legend.pos = "bottom",
     legend.title = element_blank()
