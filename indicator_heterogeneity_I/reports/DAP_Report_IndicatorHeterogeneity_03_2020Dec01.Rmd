@@ -474,7 +474,12 @@ US State level:
 * Incidence of patients who were admitted to an **adult or pediatric** inpatient
   bed who had **confirmed or suspected** COVID-19 at the time of admission 
 
-Then, for two sensorized indicators (Hospitalizations, sensorized separately
+Note that we (1) calculate incidence within each State by normalizing by
+population and multiplying by 100,000; and (2) shift the `time_value` of the
+data by one day, because by default each date reports on the new patients for
+the _previous_ day.
+
+For two sensorized indicators (Hospitalizations, sensorized separately
 against Cases and Deaths), we compute the geo-wise correlations against
 the HHS Hospitalization indicators.  The results are mixed:
 
