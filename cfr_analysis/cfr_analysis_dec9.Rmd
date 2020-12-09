@@ -31,7 +31,7 @@ theme_set(theme_bw())
 
 start_day = "2020-03-01"
 original_as_of = "2020-11-16"
-as_of = "2020-12-08" # Fetch data "as of" the day we first did this analysis!
+as_of = "2020-12-09" # Fetch data "as of" the day we first did this analysis!
 
 cases = covidcast_signal(data_source = "jhu-csse",
                          signal = "confirmed_7dav_incidence_num", 
@@ -398,6 +398,8 @@ plot_pred = function(x, geo_value, dt, type, start_day = NULL, end_day = NULL) {
     geom_line(aes(y = pred, color = type)) +
     geom_line(aes(y = deaths), color = "black") +
     #scale_color_manual(values = colors) +
+    scale_x_date(date_breaks = "1 month",
+             date_labels = "%b %Y") +
     labs(x = "Date", y = "Deaths", color = "", fill = "",
          title = sprintf("%s-day-ahead forecast, %s", given_dt, 
                          toupper(geo_value)))
@@ -424,18 +426,18 @@ make_pred = function(x, given_geo_value, given_dt, given_type) {
 
 plot_pred(cfr_pred, geo_value = "us", dt = 16, type = "cfr-global: 1.7", 
           start_day = "2020-07-01") + 
-  geom_vline(xintercept=as.Date(as_of), color = "black", linetype="dashed") +
-  geom_vline(xintercept=as.Date(original_as_of), color = "black",
+  geom_vline(xintercept=as.Date(as_of)-2, color = "black", linetype="dashed") +
+  geom_vline(xintercept=as.Date(original_as_of)-2, color = "black",
              linetype="dashed")
 plot_pred(cfr_pred, geo_value = "us", dt = 22, type = "cfr-global: 1.7", 
           start_day = "2020-07-01") + 
-  geom_vline(xintercept=as.Date(as_of), color = "black", linetype="dashed") +
-  geom_vline(xintercept=as.Date(original_as_of), color = "black",
+  geom_vline(xintercept=as.Date(as_of)-2, color = "black", linetype="dashed") +
+  geom_vline(xintercept=as.Date(original_as_of)-2, color = "black",
              linetype="dashed")
 plot_pred(cfr_pred, geo_value = "us", dt = 28, type = "cfr-global: 1.7",
           start_day = "2020-07-01") + 
-  geom_vline(xintercept=as.Date(as_of), color = "black", linetype="dashed") +
-  geom_vline(xintercept=as.Date(original_as_of), color = "black",
+  geom_vline(xintercept=as.Date(as_of)-2, color = "black", linetype="dashed") +
+  geom_vline(xintercept=as.Date(original_as_of)-2, color = "black",
              linetype="dashed")
 ```
 
@@ -512,20 +514,20 @@ days ahead (multiples of 7) because that is when the ensemble is available.
 ```{r, fig.width = 7, fig.height = 4}
 plot_pred(cfr_ens_pred, geo_value = "us", dt = 14, 
           type = c("cfr-global: 1.7", "ensemble"), start_day = "2020-07-01") + 
-  geom_vline(xintercept=as.Date(as_of), color = "black", linetype="dashed") +
-  geom_vline(xintercept=as.Date(original_as_of), color = "black",
+  geom_vline(xintercept=as.Date(as_of)-2, color = "black", linetype="dashed") +
+  geom_vline(xintercept=as.Date(original_as_of)-2, color = "black",
              linetype="dashed")
 
 plot_pred(cfr_ens_pred, geo_value = "us", dt = 21, 
           type = c("cfr-global: 1.7", "ensemble"), start_day = "2020-07-01") + 
-  geom_vline(xintercept=as.Date(as_of), color = "black", linetype="dashed") +
-  geom_vline(xintercept=as.Date(original_as_of), color = "black",
+  geom_vline(xintercept=as.Date(as_of)-2, color = "black", linetype="dashed") +
+  geom_vline(xintercept=as.Date(original_as_of)-2, color = "black",
              linetype="dashed")
 
 plot_pred(cfr_ens_pred, geo_value = "us", dt = 28, 
           type = c("cfr-global: 1.7", "ensemble"), start_day = "2020-07-01") + 
-  geom_vline(xintercept=as.Date(as_of), color = "black", linetype="dashed") +
-  geom_vline(xintercept=as.Date(original_as_of), color = "black",
+  geom_vline(xintercept=as.Date(as_of)-2, color = "black", linetype="dashed") +
+  geom_vline(xintercept=as.Date(original_as_of)-2, color = "black",
              linetype="dashed")
 ```
 
