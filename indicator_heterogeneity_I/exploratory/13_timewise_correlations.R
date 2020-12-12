@@ -49,8 +49,8 @@ ind_target_sensorized_list = readRDS(sensorize_val_fname)
 
 ind_target_sensorized = ind_target_sensorized_list[[splot_idx]]
 
-correlate_llim = -42
-correlate_ulim = -1
+correlate_llim = -41
+correlate_ulim = 0
 
 min_correlate_date = lubridate::ymd('2020-04-15') - correlate_llim
 max_correlate_date = max(ind_target_sensorized$time_value)
