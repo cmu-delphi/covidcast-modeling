@@ -267,7 +267,7 @@ for (ind_idx in 1:length(source_names)) {
       if (verbose) cat("2")
       x_tr_raw = z_tr %>% select(starts_with("raw"))
       x_te_raw = z_te %>% select(starts_with("raw"))
-      x_tr = x_tr_target; x_te = x_te_target # For symmetry wrt what follows 
+      x_tr = x_tr_raw; x_te = x_te_raw # For symmetry wrt what follows 
       ok = complete.cases(x_tr, y_tr)
       if (sum(ok) > 0) {
         obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
@@ -280,7 +280,7 @@ for (ind_idx in 1:length(source_names)) {
       if (verbose) cat("3")
       x_tr_static = z_tr %>% select(starts_with("static"))
       x_te_static = z_te %>% select(starts_with("static"))
-      x_tr = x_tr_target; x_te = x_te_target # For symmetry wrt what follows 
+      x_tr = x_tr_static; x_te = x_te_static # For symmetry wrt what follows 
       ok = complete.cases(x_tr, y_tr)
       if (sum(ok) > 0) {
         obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
@@ -293,7 +293,7 @@ for (ind_idx in 1:length(source_names)) {
       if (verbose) cat("4\n")
       x_tr_dynamic = z_tr %>% select(starts_with("dynamic"))
       x_te_dynamic = z_te %>% select(starts_with("dynamic"))
-      x_tr = x_tr_target; x_te = x_te_target # For symmetry wrt what follows 
+      x_tr = x_tr_dynamic; x_te = x_te_dynamic # For symmetry wrt what follows 
       ok = complete.cases(x_tr, y_tr)
       if (sum(ok) > 0) {
         obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
