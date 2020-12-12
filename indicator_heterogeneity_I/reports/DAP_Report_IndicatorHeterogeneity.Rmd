@@ -48,7 +48,7 @@ sensorization is able to correct spatial heterogeneity (improve geo-wise
 correlations), with neutral effects on time-wise correlations and
 ability to forecast future cases/deaths.**  Validation setups suggest
 that it _may_ be possible that we are overfitting to our targets.
-I far more confident geo-wise correlation results if we get some
+I would be far more confident geo-wise correlation results if we get some
 measures of spread (e.g., bootstrap confidence intervals).
 
 ## What do we want from sensorization?
