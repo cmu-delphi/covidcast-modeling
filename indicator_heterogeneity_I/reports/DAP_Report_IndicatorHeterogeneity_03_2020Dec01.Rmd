@@ -1,6 +1,6 @@
 ---
 title: "Indicator Heterogeneity I: Regression Models"
-author: "Addison"
+author: "Addison, advised by Valerie, Larry, and Rob"
 output:
   html_document:
     toc: true
@@ -96,6 +96,10 @@ across locations in $L$, and similarly for $y_{t\cdot}$.  Let
 $x_{t_1:t_2, \ell}$, $y_{t_1:t_2, \ell}$ denote the observations that fall
 within times $t_1, t_2$, endpoints included.  Finally, let $x, y$
 be the collection of all observations across time and location.
+
+## Raw "sensorization"
+
+This is just the unsensorized indicator itself.
 
 ## Static sensorization (spatial only)
 
@@ -247,6 +251,8 @@ dynamic sensorization can actually degrade time-wise correlations over moving
 windows.** This is a very discouraging result, and motivates us to consider
 some variant of static sensorization instead.
 
+TODO: actually, not that bad, when you account for variability
+
 ```{r timewise-correlations, cache=TRUE}
 timewise_cors_list = vector('list', length(source_names))
 for (ind_idx in 1:length(source_names)) {
@@ -295,6 +301,98 @@ plt = ggplot(
       breaks=c('median',
                'med±mad'),
               # 'min/max'),
+  ) + geom_hline(
+    yintercept = 0,
+    linetype = 3,
+    color = "gray"
+  ) + facet_wrap (
+    vars(sensor_target),
+    ncol=2,
+    scale='free_y',
+  ) + theme_bw (
+  ) + theme(
+    legend.position = "bottom",
+    legend.title = element_blank()
+  ) + labs (
+    x='Date',
+    y='Rank correlation (time-wise, over trailing 6 weeks)'
+  ) + ggtitle (
+    'Timewise correlations'
+  )
+print(plt)
+```
+
+TODO: just to be sure that it's not consistently worse by a little bit county by
+county, we plot the differences.  still find that indeed, large variability even
+in the differences.  so it's good
+
+```{r timewise-correlations-compare, cache=TRUE, message=FALSE,warning=FALSE}
+timewise_cors_list = vector('list', length(source_names))
+for (ind_idx in 1:length(source_names)) {
+  timewise_cor_fname = sprintf('results/13_timewise_cors_%s_%s_%s_%s_-41_0.RDS',
+                               geo_level, source_names[ind_idx],
+                               signal_names[ind_idx], target_names[ind_idx])
+  timewise_cor_list = readRDS(timewise_cor_fname)
+  timewise_cors = timewise_cor_list[[1]]
+  min_dynamic_correlate = timewise_cors %>% filter (
+      sensorization == 'dynamic',
+    ) %>% pull (
+      correlate_date,
+    ) %>% min
+  timewise_cors_summarized = timewise_cors %>% filter (
+      sensorization %in% c('raw', 'static') |
+        correlate_date >= min_dynamic_correlate+4,
+    ) %>% pivot_wider (
+      names_from = sensorization,
+      values_from = value,
+    ) %>% mutate (
+      raw = raw - raw,
+      static = static - raw,
+      dynamic = dynamic - raw,
+    ) %>% pivot_longer (
+      cols = c(raw, static, dynamic),
+      names_to = 'sensorization',
+      values_to = 'value',
+    ) %>% group_by (
+      correlate_date,
+      sensorization,
+    ) %>% summarize (
+      med=median(value, na.rm=TRUE),
+      mad=mad(value, na.rm=TRUE),
+      min=min(value, na.rm=TRUE),
+      max=max(value, na.rm=TRUE),
+    ) %>% ungroup
+  timewise_cors_summarized$sensor_target = sensor_target_names[ind_idx]
+  timewise_cors_list[[ind_idx]] = timewise_cors_summarized
+}
+timewise_cors_summarized = bind_rows(timewise_cors_list)
+timewise_cors_summarized$sensor_target = factor(
+    timewise_cors_summarized$sensor_target,
+    levels = sensor_target_names)
+timewise_cors_summarized$sensorization = factor(
+    sapply(timewise_cors_summarized$sensorization,
+           function(x) {sprintf('(%s-raw)', x)}),
+    levels=c('(raw-raw)', '(static-raw)', '(dynamic-raw)'))
+plt = ggplot(
+    timewise_cors_summarized,
+    aes(x=correlate_date,
+        colour=sensorization),
+  ) + geom_line (
+    aes(y=med,
+        linetype='median'),
+  ) + geom_line (
+    aes(y=med+mad,
+        linetype='med±mad'),
+  ) + geom_line (
+    aes(y=med-mad,
+        linetype='med±mad'),
+  ) + scale_linetype_manual(
+      values=c("median"="solid",
+               "med±mad"="dashed"),
+  #             "min/max"="dotted"),
+      breaks=c('median',
+               'med±mad'),
+              # 'min/max'),
   ) + facet_wrap (
     vars(sensor_target),
     ncol=2,
@@ -304,7 +402,9 @@ plt = ggplot(
     legend.title = element_blank()
   ) + labs (
     x='Date',
-    y='Rank correlation (time-wise, over trailing 6 weeks)'
+    y='Change in rank correlation (time-wise, over trailing 6 weeks)'
+  ) + ggtitle (
+    'Change in timewise correlations (compared to raw indicator)'
   )
 print(plt)
 ```
@@ -329,6 +429,8 @@ below 1 are desirable.
 nor hurts in the prediction task.**  This is discouraging for us; we might hope
 that sensorization, when performed properly, would provide "additional
 information" beyond the target.
+
+TODO: also plot without cases
 
 As an aside, it is interesting to note that the scaled errors get
 smaller, and the spread of their distributions narrower, in November.
@@ -430,6 +532,108 @@ plt = ggplot(
   ) + theme(
     legend.pos = "bottom",
     legend.title = element_blank()
+  ) + ggtitle (
+  )
+print(plt)
+```
+
+We omit the "Targets" base model to reduce clutter in the model (it consistently
+gets error close to zero, as seen in the previous section.
+
+```{r appendix-predictive-ability, cache=TRUE, warning=FALSE, message=FALSE,fig_width=12,fig_height=14}
+sensor_target_names = sapply(1:5, function(ind_idx) {
+  sprintf('%s\nTarget: %s', pretty_names[ind_idx], target_names[ind_idx])
+         })
+model_names = c('Targets',
+                'Raw',
+                'Static',
+                'Dynamic')
+
+lags = 1:2 * -7 
+leads = 1:2 * 7
+
+plot_df_list = vector('list', length(source_names))
+for (ind_idx in 1:length(source_names)) {
+  predictive_fname = sprintf('results/17_predictive_%s_%s_%s_%s.RDS', geo_level,
+                               source_names[ind_idx], signal_names[ind_idx],
+                               target_names[ind_idx])
+
+  res = readRDS(predictive_fname)
+
+
+  # Restrict to common period for all 4 models, then calculate the scaled errors 
+  # for each model, that is, the error relative to the strawman's error
+  res_all4 = res %>%
+  #res_all4 = res %>% filter(geo_value %in% geo_values) %>%
+    drop_na() %>%                                       # Restrict to common time
+    mutate(err1 = err1 / err0, err2 = err2 / err0,      # Compute relative error
+           err3 = err3 / err0, err4 = err4 / err0) %>%  # to strawman model
+    mutate(dif12 = err1 - err2, dif13 = err1 - err3,    # Compute differences
+           dif14 = err1 - err4) %>%                     # relative to cases model
+    ungroup() %>%
+    select(-err0) 
+           
+  # Calculate and print median errors, for all 4 models, and just 7 days ahead
+  res_err4 = res_all4 %>% 
+    select(-starts_with("dif")) %>%
+    pivot_longer(names_to = "model", values_to = "err",
+                 cols = -c(geo_value, time_value, lead)) %>%
+    mutate(lead = factor(lead, labels = paste(leads, "days ahead")),
+           model = factor(model, labels = model_names))
+
+  plot_df = res_err4 %>% group_by(
+      model, lead, time_value
+    ) %>% summarize(
+      med = median(err),
+      mad = mad(err),
+      min = min(err),
+      max = max(err),
+    ) %>% ungroup()
+  plot_df$sensor_target = sensor_target_names[ind_idx]
+  plot_df_list[[ind_idx]] = plot_df
+}
+plot_df = bind_rows(plot_df_list)
+
+plt = ggplot(
+    plot_df %>% filter (model != 'Targets'),
+    aes(x=time_value,
+        colour=model)
+  ) + geom_line (
+    aes(y=med,
+        linetype='median'),
+  ) + geom_line (
+    aes(y=med+mad,
+        linetype='med±mad'),
+  ) + geom_line (
+    aes(y=med-mad,
+        linetype='med±mad'),
+  ) + scale_linetype_manual(
+      values=c("median"="solid",
+               "med±mad"="dashed"),
+      breaks=c('median', "med±mad")
+	) + scale_color_manual(
+		values = c(
+               '#F8766D',
+               '#00BA38',
+               '#619CFF')
+  ) + geom_hline(
+    yintercept = 1,
+    linetype = 2,
+    color = "gray"
+  ) + facet_grid(
+    cols=vars(lead),
+    rows=vars(sensor_target),
+    scales='free',
+  ) + ylim (
+#    0, 2
+    0.5, 2.5
+  ) + labs(
+    x = "Date",
+    y = "Scaled error (relative to strawman)"
+  ) + theme_bw (
+  ) + theme(
+    legend.pos = "bottom",
+    legend.title = element_blank()
   )
 print(plt)
 ```
@@ -497,6 +701,10 @@ suggest that we are running the risk of overfitting.**
 
 ```{r hospitalization-validation}
 hosp_cor_df = readRDS('results/15_hhs_cor_df.RDS')
+hosp_cor_df = hosp_cor_df %>% filter (
+    #indicator == 'Hospitalizations',
+    indicator %in% c('Doctor visits', 'Hospitalizations'),
+  )
 hosp_cor_df$correlate_target = stringr::str_replace(
             hosp_cor_df$correlate_target,
             ': ',
@@ -662,4 +870,3 @@ the fact that our time window, 10 weeks back to 1 week back, is both wide and
 
 It may be fruitful to consider a simple, fixed static sensorization; or
 models beyond linear regression.
-
