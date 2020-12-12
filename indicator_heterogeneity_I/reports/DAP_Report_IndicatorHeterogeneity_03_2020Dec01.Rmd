@@ -43,10 +43,13 @@ heterogeneity, has a long history in Delphi; see
 
 In this notebook, we perform a deep investigation of one particular
 sensorization procedure: a moving window regression, where we fit
-using data from 10 weeks back to 1 week back.  **We find, unfortunately,
-that even though this sensorization procedure  does improve geo-wise
-correlations, it has several shortcomings, including degraded time-wise
-correlations and some signs of overfitting.**
+using data from 10 weeks back to 1 week back.  **We find that dynamic
+sensorization is able to correct spatial heterogeneity (improve geo-wise
+correlations), with neutral effects on time-wise correlations and
+ability to forecast future cases/deaths.**  Validation setups suggest
+that it _may_ be possible that we are overfitting to our targets.
+I far more confident geo-wise correlation results if we get some
+measures of spread (e.g., bootstrap confidence intervals).
 
 ## What do we want from sensorization?
 
@@ -146,9 +149,8 @@ a nine-week window, without the immediately preceding week of data.
 
 ## Performance
 
-Overall, we find that geo-wise correlations improve; but time-wise correlations
-degrade; and there is little impact on predictive ability, in terms of
-including a sensorized indicator in the model with cases (or deaths).
+Overall, we find that geo-wise correlations improve; and there is neutral
+impact on time-wise correlations and usefulness in simple forecasting.
 
 ### Geo-wise correlations
 
@@ -246,12 +248,14 @@ correlation with the corresponding target data.  We then reduce the location
 component out of this data by taking the median (and mad) of the correlations
 for each day.
 
-We find, as previously discovered by Aaron in a Slack thread, that **the
-dynamic sensorization can actually degrade time-wise correlations over moving
-windows.** This is a very discouraging result, and motivates us to consider
-some variant of static sensorization instead.
-
-TODO: actually, not that bad, when you account for variability
+Previously, Aaron found (communicated on Slack) that dynamic sensorization
+appeared to degrade the time-wise correlation of Doctor visits against cases.
+I reproduced this apparent result, but also plotted the spreads of the
+time-wise correlations.  The distributions of the time-wise correlations
+are overlapping, so I am not as concerned.  I believe that the most we
+can say is that dynamic sensorization does not provide any added advantage
+in time-wise correlations, compared to static sensorization or the raw
+indicator.
 
 ```{r timewise-correlations, cache=TRUE}
 timewise_cors_list = vector('list', length(source_names))
@@ -288,6 +292,7 @@ plt = ggplot(
   ) + geom_line (
     aes(y=med,
         linetype='median'),
+    alpha=0.8,
   ) + geom_line (
     aes(y=med+mad,
         linetype='med±mad'),
@@ -322,9 +327,16 @@ plt = ggplot(
 print(plt)
 ```
 
-TODO: just to be sure that it's not consistently worse by a little bit county by
-county, we plot the differences.  still find that indeed, large variability even
-in the differences.  so it's good
+As an additional sanity check, I computed the pointwise differences
+in time-wise correlation within each location, and then took the median
+(in essense, we interchange the difference and median operations).  My
+concern was basically that the spreads of the time-wise correlations may
+be large across locations, but perhaps the dynamic sensorization fares
+consistently worse than the raw indicator by a small amount.
+
+What we find is more peculiar.  We find that the median pointwise differences
+between time-wise rank correlations of the sensorized and the raw
+indicator actually are positive.  But again, the spreads are large.
 
 ```{r timewise-correlations-compare, cache=TRUE, message=FALSE,warning=FALSE}
 timewise_cors_list = vector('list', length(source_names))
@@ -430,8 +442,6 @@ nor hurts in the prediction task.**  This is discouraging for us; we might hope
 that sensorization, when performed properly, would provide "additional
 information" beyond the target.
 
-TODO: also plot without cases
-
 As an aside, it is interesting to note that the scaled errors get
 smaller, and the spread of their distributions narrower, in November.
 I suspect this is because we have seen a continual surge in cases
@@ -532,13 +542,17 @@ plt = ggplot(
   ) + theme(
     legend.pos = "bottom",
     legend.title = element_blank()
-  ) + ggtitle (
   )
 print(plt)
 ```
 
-We omit the "Targets" base model to reduce clutter in the model (it consistently
-gets error close to zero, as seen in the previous section.
+Because the models all performed the same in the previous setup, we
+conclude that the sensorized indicators "help" the base model.  But
+how do the sensorized indicators compare against each other?
+We perform the predictive task where we train each model with only
+the sensorized indicator (without Cases/Deaths as a base covariate).
+Any differences between their performance are overwhelmed by the size
+of the spread.
 
 ```{r appendix-predictive-ability, cache=TRUE, warning=FALSE, message=FALSE,fig_width=12,fig_height=14}
 sensor_target_names = sapply(1:5, function(ind_idx) {
@@ -685,19 +699,17 @@ the _previous_ day.
 
 For two sensorized indicators (Hospitalizations, sensorized separately
 against Cases and Deaths), we compute the geo-wise correlations against
-the HHS Hospitalization indicators.  The results are mixed:
+the HHS Hospitalization indicators.  We find that:
 
-* Hospitalizations, sensorized against Cases, when correlated against
-  HHS Hospitalizations Confirmed (adult or pediatric), starts to do better
-  than the raw Hospitalizations around mid-October.
-* Hospitalizations, sensorized against Cases, when correlated against
-  HHS Hospitalizations Confirmed or Suspected (adult or pediatric),
-  does worse or about the same as the raw Hospitalizations indicator.
-* Hospitalizations, sensorized against Deaths, fares worse than the raw
-  Hospitalizations indicator on all fronts.
-
-**In general, the fact that the geo-wise correlations tend to be degraded
-suggest that we are running the risk of overfitting.**
+1. Sensorization doesn't really help the Hospitalizations indicator in terms
+   of rank correlation against the "ground truth" hospitalizations dataset.
+2. However, sensorization _does_ help the Doctors visits indicator in terms of
+   rank correlation against the "ground truth" hospitalizations dataset.  If we
+   expect that order(hospitalizations) ≈ order(cases), this gives evidence that
+   sensorization _is_ correcting spatial heterogeneity in the Doctor visits
+   indicator!
+3. It is possible that (1) is because there is not that much spatial
+   heterogeneity in the hospitalizations indicator to begin with.
 
 ```{r hospitalization-validation}
 hosp_cor_df = readRDS('results/15_hhs_cor_df.RDS')
@@ -862,11 +874,8 @@ gridExtra::grid.arrange(plt_intercept, plt_slope, ncol=2)
 # Discussion
 
 Sensorization, both dynamic and static, has been found to improve the geo-wise
-correlations of the sensorized indicator against its intended target.  However,
-the degradation of moving window time-wise correlations and our validation
-procedures indicate that we may actually be overfitting to the target, despite
-the fact that our time window, 10 weeks back to 1 week back, is both wide and
-"airgapped" by a week from the date being predicted.  
-
-It may be fruitful to consider a simple, fixed static sensorization; or
-models beyond linear regression.
+correlations of the sensorized indicator against its intended target.
+Changes in time-wise correlations and ability to forecast future are neutral.
+Validation setups suggest the spatial correction does work, with some small
+areas for concern.  Future directions include uncertainty estimates for the
+geo-wise correlations.

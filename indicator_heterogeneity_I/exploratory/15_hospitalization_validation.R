@@ -148,7 +148,7 @@ splot_idx = 5
 ind_idx = 4
 cor_idx = 1
 
-ind_idxs = 4:5
+ind_idxs = 1:5
 cor_idxs = 1:4
 
 results_list = vector('list', length(ind_idxs) * length(cor_idxs))
