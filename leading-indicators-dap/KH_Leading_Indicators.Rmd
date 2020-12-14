@@ -1,0 +1,267 @@
+---
+title: "Leading Indicators DAP"
+output: 
+  html_document:
+    code_folding: hide
+    includes:
+      after_body: VS_Leading_Indicators_DAP_v2.html
+
+---
+# <span style="color: blue;">Section 1: Cases and Masks, Kate</span>
+# <span style="color: red;">Section 2: Cases and FB cmnty CLI, Vishnu</span>
+<br/>
+<br/>
+
+## <span style="color: blue;">Section 1 Cases and Masks</span>
+## Get the case and signal data and prepare it
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=14, fig.height=8, echo=TRUE, eval=TRUE, cache=TRUE, warning=FALSE, message=FALSE)
+library(covidcast)
+library(magrittr)
+library(tidyverse)
+library(assertthat)
+library(lubridate)
+cases = covidcast_signal(data_source = "usa-facts", signal = "confirmed_7dav_incidence_num", 
+                   start_day = "2020-09-01", end_day = "2020-11-30", 
+                   geo_type = "county")
+masks = covidcast_signal(data_source = "fb-survey", signal = "smoothed_wwearing_mask", 
+                   start_day = "2020-09-01", end_day = "2020-11-30", 
+                   geo_type = "county")
+
+## Helper smoother function
+sm <- function(y, bandwidth = 2){
+  n = length(y)
+  return(ksmooth(x = 1:(n-1), y = y, bandwidth = bandwidth, x.points = 1:n, kernel="normal")$y)
+}
+```
+
+Retain only those counties that:  
+1. have over a certain amount of cases (`2000` total in this case)  
+2. have signal data for at least a certain amount of days (`50` in this case)
+```{r}
+## Split CASES into lists by geo
+geos_case = cases %>%  group_keys(geo_value) %>% unlist()
+case_list = cases %>% group_by(geo_value) %>% select(geo_value, time_value, value) %>% arrange(time_value) %>% group_split() %>% setNames(geos_case)
+
+## Split SIGNAL into lists by geo
+mask_list = masks %>% group_by(geo_value) %>% select(geo_value, time_value, value) %>% arrange(time_value) %>% group_split()
+geos_masks = lapply(mask_list, function(a) a %>% select(geo_value) %>% unlist() %>% unique()) %>% unlist()
+mask_list = mask_list %>% setNames(geos_masks)
+
+## Combine and sort by overlapping geos
+case_list = case_list[geos_masks]
+# assert_that(all(names(case_list) == names(mask_list)))
+
+## Retain only the geos averaging more than X cases a day
+# X = sum / numdays
+# X = 2000 / 91
+# X = ~22
+large_geos = names(case_list)[which(sapply(case_list, function(a) a %>% summarize(sum(value))) > 2000)]
+case_list = case_list[large_geos]
+mask_list = mask_list[large_geos]
+large_geos = names(mask_list)[which(sapply(mask_list, function(a) a %>% summarize(nrow(a))) > 50)]
+mask_list = mask_list[large_geos]
+case_list = case_list[large_geos]
+# assert_that(all(names(case_list) == names(mask_list)))
+```
+
+
+
+## Smooth and take derivatives
+1. Scale the case and signal data using `scale` function.
+1. Smooth the data using the `ksmooth` function with a chosen bandwidth (`12` in this case).
+2. Use Ryan's `estimate_deriv` function (in this case using the `ss` param) to calculate local derivatives
+3. Use the same function to calculate second derivatives
+4. Mark "rise points" for cases ("fall points" for mask signal) by finding points where
+  - the first derivative crosses a certain threshold (`0.03` for cases and `-0.0007` for masks)
+  - the second derivative is above (or below) a certain threshold (`0.0007` in this case)
+  - the first derivative is still above the threshold some days out
+  
+
+## Plot
+The plots with the red dots are cases, and the dots mark the beginning of a rise.  
+The plots with blue dots are the signal and, in this case, the dots mark the beginning of a decline in mask usage.  
+The plots come in pairs of twos, with the case plot above the mask plot for each county.
+<br/>
+
+### Here are some examples:
+```{r smooth-then-deriv, fig.width=20, fig.height=7}
+bw = 12
+deriv_1_threshold = .03
+deriv_2_threshold = 0.0007
+deriv_1_threshold_masks = -0.007
+
+smooth_case_list = case_list
+smooth_mask_list = mask_list
+smooth_case_deriv_list = vector(mode = "list", length = length(case_list))
+smooth_mask_deriv_list = vector(mode = "list", length = length(mask_list))
+
+par(mfcol = c(2,3))
+# par(mar=c(3,4,1,1))
+
+# To find rise points
+# TODO can be cleaner
+get_rise_points = function(data) {
+  point = ifelse(data$first_deriv >= deriv_1_threshold,
+      ifelse(lag(data$first_deriv) < deriv_1_threshold,
+      ifelse(data$second_deriv > deriv_2_threshold,
+      ifelse(lead(data$first_deriv, 2) > deriv_1_threshold,
+      ifelse(lead(data$first_deriv, 4) > deriv_1_threshold,
+      ifelse(lead(data$first_deriv, 6) > deriv_1_threshold,
+      ifelse(lead(data$first_deriv, 8) > deriv_1_threshold,
+      ifelse(lead(data$first_deriv, 10) > deriv_1_threshold, TRUE, FALSE), FALSE), FALSE), FALSE), FALSE), FALSE), FALSE), FALSE)
+}
+
+# To find fall point
+# TODO can be cleaner
+get_fall_points = function(data) {
+  ifelse(data$first_deriv <= deriv_1_threshold_masks,
+  ifelse(lag(data$first_deriv) > deriv_1_threshold_masks, 
+  ifelse(data$second_deriv < deriv_2_threshold, 
+  ifelse(lead(data$first_deriv, 2) < deriv_1_threshold_masks,
+  ifelse(lead(data$first_deriv, 4) < deriv_1_threshold_masks,
+  ifelse(lead(data$first_deriv, 6) < deriv_1_threshold_masks,
+  ifelse(lead(data$first_deriv, 8) < deriv_1_threshold_masks, TRUE, FALSE), FALSE), FALSE), FALSE), FALSE), FALSE), FALSE)
+}
+
+for(ii in (1:length(case_list))){
+  # Smooth cases and signal
+  smooth_case_list[[ii]]$value = case_list[[ii]] %>% mutate(value=scale(value)) %>% pull(value) %>% sm(bw)
+  smooth_mask_list[[ii]]$value = mask_list[[ii]]  %>% mutate(value=scale(value)) %>% pull(value) %>% sm(bw)
+  
+  # Create cols with first derivs for cases and signal
+  smooth_case_deriv <- modeltools::estimate_deriv(smooth_case_list[[ii]], method = "ss", col_name="first_deriv", n=28)
+  smooth_mask_deriv <- modeltools::estimate_deriv(smooth_mask_list[[ii]], method = "ss", col_name = "first_deriv", n = 28)
+  
+  # Create cols with second derivs
+  # TODO can clean up
+  smooth_case_deriv_2 <- smooth_case_deriv
+  smooth_case_deriv_2$value = smooth_case_deriv$first_deriv
+  smooth_case_deriv_2 = modeltools::estimate_deriv(smooth_case_deriv_2, method = "ss", col_name="second_deriv", n=28)
+  smooth_case_deriv = smooth_case_deriv %>% add_column(second_deriv = NA)
+  smooth_case_deriv$second_deriv = smooth_case_deriv_2$second_deriv
+  
+  smooth_mask_deriv_2 <- smooth_mask_deriv
+  smooth_mask_deriv_2$value = smooth_mask_deriv$first_deriv
+  smooth_mask_deriv_2 = modeltools::estimate_deriv(smooth_mask_deriv_2, method = "ss", col_name="second_deriv", n=28)
+  smooth_mask_deriv = smooth_mask_deriv %>% add_column(second_deriv = NA)
+  smooth_mask_deriv$second_deriv = smooth_mask_deriv_2$second_deriv
+  
+  # Mark rise points
+  smooth_case_deriv = smooth_case_deriv %>% add_column(rise_point = FALSE)
+  smooth_case_deriv$rise_point = get_rise_points(smooth_case_deriv)
+  smooth_mask_deriv = smooth_mask_deriv %>% add_column(fall_point = FALSE)
+  smooth_mask_deriv$fall_point = get_fall_points(smooth_mask_deriv)
+  
+  # Save data for next step
+  smooth_case_deriv_list[[ii]] = smooth_case_deriv
+  smooth_mask_deriv_list[[ii]] = smooth_mask_deriv
+  
+  # Plot it
+  if (ii >= 215 && ii < 230) {
+    county = smooth_case_deriv[[1, 'geo_value']]
+    smooth_case_deriv  %$% plot(x=time_value, y=value, type="l", main = county)
+    smooth_case_deriv %>% filter(rise_point) %$% points(x=time_value, y=value, col="red", lwd=10)
+  
+    county = smooth_mask_deriv[[1, 'geo_value']]
+    smooth_mask_deriv  %$% plot(x=time_value, y=value, type="l", main = county)
+    smooth_mask_deriv %>% filter(fall_point) %$% points(x=time_value, y=value, col="blue", lwd=10)
+  }
+}
+```
+
+## Calculate recall and precision
+Now that we have our method for determining points of interest, let's look at where the signal and case points of interest occur in relation to each other for each county where there is at least one point of interest for the case and the signal.
+
+We measure recall as number of counties where there is at least one signal point of interest that falls some number of days or fewer before a case point of interest divided by the number of counties where there is at least one case point of interest. When we observed a case rise, how many times did a point of interest in our signal precede it?
+
+We measure precision as number of counties where there is at least one signal point of interest that falls some number of days or fewer before a case point of interest divived by the number of counties where there is at least one signal point of interest. When we observed a point of interest in our signal, how many times did it precede a rise in cases?
+
+In this case the number of days we look at is 21 in the case of mask usage, if it has an impact on case incidence it  probably takes a few weeks. This number (along with all the other thresholding numbers in this notebook) is up for discussion.
+
+Also up for discussion is how we measure success: are we looking at the county level, or at the "rise point" level, where we perform the recall and precision calculations for all points of interest, rather than for each county? What counts as success on the county level? At least one match between case and signal (as done here), or all points matched?
+
+```{r}
+# Narrow down counties to those that have a rise point for both cases and signal
+success_count = 0
+case_total_count = 0
+mask_total_count = 0
+for (i in (1:length(smooth_case_deriv_list))) {
+  case_points = TRUE %in% smooth_case_deriv_list[[i]]$rise_point
+  if (case_points) {case_total_count = case_total_count + 1}
+  mask_points = TRUE %in% smooth_mask_deriv_list[[i]]$fall_point
+  if(mask_points){mask_total_count = mask_total_count + 1}
+  if(case_points && mask_points) {
+    case_dates = na.omit(smooth_case_deriv_list[[i]]$time_value[smooth_case_deriv_list[[i]]$rise_point==TRUE])
+    mask_dates = na.omit(smooth_mask_deriv_list[[i]]$time_value[smooth_mask_deriv_list[[i]]$fall_point==TRUE])
+    # Check if any of the mask points are <= 21 days before any of the case points
+    for (j in (1:length(mask_dates))) {
+      for (k in (1:length(case_dates))) {
+        if(case_dates[k] - mask_dates[j] <= 21 && case_dates[k] - mask_dates[j] > 0) {
+          success_count = success_count + 1
+        }
+      }
+    }
+  }
+}
+
+```
+
+Success count ('mask drop' <= 21 days before 'case rise'):
+```{r}
+success_count
+```
+
+Total number of counties with at least one 'case rise':
+```{r}
+case_total_count
+```
+
+Total number of counties with at least one 'mask drop':
+```{r}
+mask_total_count
+```
+
+#### Recall: success count / counties with 'case rise':
+``` {r}
+success_count / case_total_count
+```
+
+#### Precision: success count / counties with 'mask drop':
+``` {r}
+success_count / mask_total_count
+```
+
+## Appendix
+Some salient examples.
+Here are some good examples that show where mask usage drops before cases rise:
+```{r fig.width=20, fig.height=7}
+par(mfcol = c(2,3))
+
+# Plots a list of examples
+plot_examples = function(examples) {
+  for (i in (1:length(smooth_case_deriv_list))) {
+    if (smooth_case_deriv_list[[i]]$geo_value[1] %in% examples) {
+      county = smooth_case_deriv_list[[i]]$geo_value[1]
+      smooth_case_deriv_list[[i]] %$% plot(x=time_value, y=value, type="l", main = county)
+      smooth_case_deriv_list[[i]] %>% filter(rise_point) %$% points(x=time_value, y=value, col="red", lwd=15)
+      smooth_mask_deriv_list[[i]] %$% plot(x=time_value, y=value, type="l", main = county)
+      smooth_mask_deriv_list[[i]] %>% filter(fall_point) %$% points(x=time_value, y=value, col="blue", lwd=15)
+    }
+  }
+}
+
+# Some good examples
+good_examples = list("01101", "06059", "08059", "12015", "18057", "37119", "39025", "41005", "42011", "45083")
+plot_examples(good_examples)
+```
+Here are some bad examples that show counter examples to this trend, and also instances where the algorithm to find the rise/drop points showed some weakness:
+```{r fig.width=20, fig.height=7}
+par(mfcol = c(2,3))
+
+# Some bad examples
+bad_examples = list("12001", "12011", "21067", "28121", "29095", "34003", "45063", "48201")
+plot_examples(bad_examples)
+```
+
+# <span style="color: red;">Section 2<span>
