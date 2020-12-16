@@ -34,7 +34,7 @@ df_deaths = cached_data[[3]]
 splot_idx = 1
 
 ind_idx = 1
-sensorize_val_fname = sprintf('results/12_sensorize_vals_%s_%s_%s_%s.RDS',
+sensorize_val_fname = sprintf('results/03_sensorize_vals_%s_%s_%s_%s.RDS',
 													geo_level,
 													source_names[ind_idx], signal_names[ind_idx],
 													target_names[ind_idx])
@@ -87,7 +87,7 @@ for (ind_idx in 1:length(source_names)) {
 							 sensorized_value=fit$fitted.values)
 			}) %>% ungroup
 
-  sensorize_val_fname = sprintf('results/12_sensorize_vals_%s_%s_%s_%s.RDS',
+  sensorize_val_fname = sprintf('results/03_sensorize_vals_%s_%s_%s_%s.RDS',
                             geo_level,
                             source_names[ind_idx], signal_names[ind_idx],
                             target_names[ind_idx])
