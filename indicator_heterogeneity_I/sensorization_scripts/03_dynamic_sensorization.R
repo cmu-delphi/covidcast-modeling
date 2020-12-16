@@ -15,11 +15,7 @@ signal_names = c("smoothed_adj_cli", "smoothed_cli", "smoothed_hh_cmnty_cli",
 pretty_names = c("Doctor visits", "Facebook CLI", "Facebook CLI-in-community", 
           "Hospitalizations", "Hospitalizations")
 
-if (args[1] == 'state') {
-  geo_level = 'state'
-} else {
-  geo_level = 'county'
-}
+geo_level = args[1]
 
 ###############################################################################
 # READ IN INDICATOR AND TARGET DATA
