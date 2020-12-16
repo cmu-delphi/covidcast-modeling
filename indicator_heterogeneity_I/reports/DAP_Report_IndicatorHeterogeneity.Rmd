@@ -41,6 +41,18 @@ heterogeneity, has a long history in Delphi; see
 [David's thesis](https://delphi.cmu.edu/~dfarrow/thesis.pdf) and
 [Maria's paper](https://papers.nips.cc/paper/9475-kalman-filter-sensor-fusion-and-constrained-regression-equivalences-and-insights.pdf).
 
+In the sensorization procedure, we have two types of variables: indicators
+and targets.  Indicators are the variables that we wish to sensorize, and
+targets are the variables that the variables are sensorized "against".
+The indicators considered in this report are the smoothed versions of:
+(% COVID-19) Doctor Visits; Facebook %CLI; Facebook %CLI-in-Community;
+(% COVID-19) Hospitalizations from Claims.  The targets considered in this
+report are the smoothed versions of Cases per 100,000 population and
+Deaths per 100,000 population.  All analyses are done at the county level,
+except for the "external hosptitalization validation".
+
+TODO: Add restrictions of geo_values (500 cases by Nov 1st)
+
 In this notebook, we perform a deep investigation of one particular
 sensorization procedure: a moving window regression, where we fit
 using data from 10 weeks back to 1 week back.  **We find that dynamic
@@ -132,7 +144,7 @@ heterogeneity, but may also lead to less stable fits).
 
 We fit, for each $t, \ell$:
 $$
-y_{(t-k):(t-1), \ell} \sim x_{(t-k_1):(t-k_2), \ell} \qquad\Rightarrow
+y_{(t-k_1):(t-k_2), \ell} \sim x_{(t-k_1):(t-k_2), \ell} \qquad\Rightarrow
 \mathrm{Model}(\ell, t, k_1, k_2)
 $$
 and obtain the sensorized indicator values
@@ -142,8 +154,10 @@ $$
 We fit a linear model for each location and day, and then take the prediction
 for that day.
 
-For our purposes we take $k_1, k_2$ to be $-70, -8$.  That is, we train over
+For our purposes we take $k_1, k_2$ to be $70, 8$.  That is, we train over
 a nine-week window, without the immediately preceding week of data.
+
+TODO: Re-run, using "up to" 9 weeks of data.
 
 # Results 
 
@@ -257,6 +271,9 @@ can say is that dynamic sensorization does not provide any added advantage
 in time-wise correlations, compared to static sensorization or the raw
 indicator.
 
+TODO: Remove the static sensorize correlations, because they are the same as
+the raw ones in principle.
+
 ```{r timewise-correlations, cache=TRUE}
 timewise_cors_list = vector('list', length(source_names))
 for (ind_idx in 1:length(source_names)) {
@@ -337,6 +354,8 @@ consistently worse than the raw indicator by a small amount.
 What we find is more peculiar.  We find that the median pointwise differences
 between time-wise rank correlations of the sensorized and the raw
 indicator actually are positive.  But again, the spreads are large.
+
+TODO: Replace with mean and see what happens.
 
 ```{r timewise-correlations-compare, cache=TRUE, message=FALSE,warning=FALSE}
 timewise_cors_list = vector('list', length(source_names))
@@ -428,9 +447,10 @@ sensorizations, and then evaluate its ability to "improve upon" the
 predictive ability of the target.  The setup is the same as in Ryan's
 forecasting notebook.  We perform 7 day ahead and 14 day ahead forecasts.
 The base model only uses the target information (cases or deaths),
-at lags of 7 days behind and 14 days behind.  The other three models
+at lags of 0, 7, and 14 days behind.  The other three models
 add the raw indicator, static sensorized indicator, and dynamic sensorized
-indicator to the target (all three at the corresponding lags).
+indicator to the target (all three at the corresponding lags), i.e.,
+six features in each of the latter three models.
 
 The four models (for each (indicator, target) pair) are evaluated in
 terms of scaled error.  This normalizes the error by the error of the
