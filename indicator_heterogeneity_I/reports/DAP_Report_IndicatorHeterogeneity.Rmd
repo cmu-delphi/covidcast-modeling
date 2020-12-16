@@ -41,6 +41,16 @@ heterogeneity, has a long history in Delphi; see
 [David's thesis](https://delphi.cmu.edu/~dfarrow/thesis.pdf) and
 [Maria's paper](https://papers.nips.cc/paper/9475-kalman-filter-sensor-fusion-and-constrained-regression-equivalences-and-insights.pdf).
 
+In this notebook, we perform a deep investigation of one particular
+sensorization procedure: a moving window regression, where we fit
+using data from 10 weeks back to 1 week back.  **We find that dynamic
+sensorization is able to correct spatial heterogeneity (improve geo-wise
+correlations), with neutral effects on time-wise correlations and
+ability to forecast future cases/deaths.**  Validation setups suggest
+that it _may_ be possible that we are overfitting to our targets.
+I would be far more confident geo-wise correlation results if we get some
+measures of spread (e.g., bootstrap confidence intervals).
+
 In the sensorization procedure, we have two types of variables: indicators
 and targets.  Indicators are the variables that we wish to sensorize, and
 targets are the variables that the variables are sensorized "against".
@@ -51,17 +61,9 @@ report are the smoothed versions of Cases per 100,000 population and
 Deaths per 100,000 population.  All analyses are done at the county level,
 except for the "external hosptitalization validation".
 
-TODO: Add restrictions of geo_values (500 cases by Nov 1st)
-
-In this notebook, we perform a deep investigation of one particular
-sensorization procedure: a moving window regression, where we fit
-using data from 10 weeks back to 1 week back.  **We find that dynamic
-sensorization is able to correct spatial heterogeneity (improve geo-wise
-correlations), with neutral effects on time-wise correlations and
-ability to forecast future cases/deaths.**  Validation setups suggest
-that it _may_ be possible that we are overfitting to our targets.
-I would be far more confident geo-wise correlation results if we get some
-measures of spread (e.g., bootstrap confidence intervals).
+For the county level analysis, we only consider counties with at least 500
+cumulative cases by November 1st, 2020.  For the state level analysis, we
+consider all fifty US States and the District of Columbia.
 
 ## What do we want from sensorization?
 
@@ -157,8 +159,6 @@ for that day.
 For our purposes we take $k_1, k_2$ to be $70, 8$.  That is, we train over
 a nine-week window, without the immediately preceding week of data.
 
-TODO: Re-run, using "up to" 9 weeks of data.
-
 # Results 
 
 ## Performance
@@ -183,46 +183,34 @@ that estimates are being produced in-sample.
 
 ```{r geowise-correlations, cache=TRUE, warning=FALSE}
 sensorize_time_ranges = list(
-      c(-42, -8),
-      c(-49, -8),
-      c(-56, -8),
-      c(-63, -8),
       c(-70, -8)
 )
-splot_idx = 5
+splot_idx = 1
 
 df_cor_list = vector('list', length(source_names))
 for (ind_idx in 1:length(source_names)) {
-  base_cor_fname = sprintf('results/12_base_cors_%s_%s_%s_%s.RDS',
+  base_cor_fname = sprintf('../sensorization_scripts/results/02_base_cors_%s_%s_%s_%s.RDS',
                            geo_level,
                            source_names[ind_idx], signal_names[ind_idx],
                            target_names[ind_idx])
   df_cor_base = readRDS(base_cor_fname)
-  sensorize_fname = sprintf('results/12_sensorize_cors_%s_%s_%s_%s.RDS',
+  sensorize_fname = sprintf('../sensorization_scripts/results/03_sensorize_cors_%s_%s_%s_%s.RDS',
                             geo_level,
                             source_names[ind_idx], signal_names[ind_idx],
                             target_names[ind_idx])
-  sensorize_val_fname = sprintf('results/12_sensorize_vals_%s_%s_%s_%s.RDS',
+  sensorize_val_fname = sprintf('../sensorization_scripts/results/03_sensorize_vals_%s_%s_%s_%s.RDS',
                             geo_level,
                             source_names[ind_idx], signal_names[ind_idx],
                             target_names[ind_idx])
   sensorize_cors = readRDS(sensorize_fname)[[splot_idx]]
 
   df_cor = bind_rows(df_cor_base, sensorize_cors)
-  static_description = "Static Sensorization (Spatial)"
-  dynamic_description = "Dynamic Sensorization (-70:-8)"
-  df_cor$Indicator = sapply(df_cor$Indicator, function(x) {
-      if (x == 'Sensorized (Spatial)') {
-        return(static_description)
-      } else if (x == sprintf('Sensorized (TS, %d:%d)',
-                       sensorize_time_ranges[[splot_idx]][1],
-                       sensorize_time_ranges[[splot_idx]][2])) {
-        return(dynamic_description)
-      } else { return(x) }})
+  df_cor$Indicator[df_cor$Indicator == sprintf('Sensorized (TS, %d:%d)',
+                                       sensorize_time_ranges[[splot_idx]][1],
+                                       sensorize_time_ranges[[splot_idx]][2])
+    ] = 'dynamic'
   df_cor$Indicator = factor(df_cor$Indicator,
-                            levels=c('Raw',
-                                     static_description,
-                                     dynamic_description))
+                            levels=c('raw', 'static', 'dynamic'))
   df_cor$sensor_target = sensor_target_names[ind_idx]
   df_cor_list[[ind_idx]] = df_cor
 }
@@ -269,7 +257,12 @@ time-wise correlations.  The distributions of the time-wise correlations
 are overlapping, so I am not as concerned.  I believe that the most we
 can say is that dynamic sensorization does not provide any added advantage
 in time-wise correlations, compared to static sensorization or the raw
-indicator.
+indicator.  
+
+In the following figure, we omit the 'static sensorized' correlations,
+because the are the same as the raw timewise correlations (merely a
+linear shift and rescaling within each location, which does not affect
+the orderings).
 
 TODO: Remove the static sensorize correlations, because they are the same as
 the raw ones in principle.
@@ -296,6 +289,9 @@ for (ind_idx in 1:length(source_names)) {
   timewise_cors_list[[ind_idx]] = timewise_cors_summarized
 }
 timewise_cors_summarized = bind_rows(timewise_cors_list)
+#timewise_cors_summarized = timewise_cors_summarized %>% filter (
+#      sensorization != 'static',
+#    )
 timewise_cors_summarized$sensor_target = factor(
     timewise_cors_summarized$sensor_target,
     levels = sensor_target_names)
@@ -371,15 +367,15 @@ for (ind_idx in 1:length(source_names)) {
       correlate_date,
     ) %>% min
   timewise_cors_summarized = timewise_cors %>% filter (
-      sensorization %in% c('raw', 'static') |
+      sensorization %in% c('raw') |
         correlate_date >= min_dynamic_correlate+4,
     ) %>% pivot_wider (
       names_from = sensorization,
       values_from = value,
     ) %>% mutate (
-      raw = raw - raw,
       static = static - raw,
       dynamic = dynamic - raw,
+      raw = raw - raw,
     ) %>% pivot_longer (
       cols = c(raw, static, dynamic),
       names_to = 'sensorization',
@@ -424,6 +420,87 @@ plt = ggplot(
       breaks=c('median',
                'med±mad'),
               # 'min/max'),
+  ) + facet_wrap (
+    vars(sensor_target),
+    ncol=2,
+  ) + theme_bw (
+  ) + theme(
+    legend.position = "bottom",
+    legend.title = element_blank()
+  ) + labs (
+    x='Date',
+    y='Change in rank correlation (time-wise, over trailing 6 weeks)'
+  ) + ggtitle (
+    'Change in timewise correlations (compared to raw indicator)'
+  )
+print(plt)
+```
+
+```{r timewise-correlations-compare-mean, cache=TRUE, message=FALSE,warning=FALSE}
+timewise_cors_list = vector('list', length(source_names))
+for (ind_idx in 1:length(source_names)) {
+  timewise_cor_fname = sprintf('results/13_timewise_cors_%s_%s_%s_%s_-41_0.RDS',
+                               geo_level, source_names[ind_idx],
+                               signal_names[ind_idx], target_names[ind_idx])
+  timewise_cor_list = readRDS(timewise_cor_fname)
+  timewise_cors = timewise_cor_list[[1]]
+  min_dynamic_correlate = timewise_cors %>% filter (
+      sensorization == 'dynamic',
+    ) %>% pull (
+      correlate_date,
+    ) %>% min
+  timewise_cors_summarized = timewise_cors %>% filter (
+      sensorization %in% c('raw') |
+        correlate_date >= min_dynamic_correlate+4,
+    ) %>% pivot_wider (
+      names_from = sensorization,
+      values_from = value,
+    ) %>% mutate (
+      static = static - raw,
+      dynamic = dynamic - raw,
+      raw = raw - raw,
+    ) %>% pivot_longer (
+      cols = c(raw, static, dynamic),
+      names_to = 'sensorization',
+      values_to = 'value',
+    ) %>% group_by (
+      correlate_date,
+      sensorization,
+    ) %>% summarize (
+      mean=mean(value, na.rm=TRUE),
+      sd=sd(value, na.rm=TRUE),
+      min=min(value, na.rm=TRUE),
+      max=max(value, na.rm=TRUE),
+    ) %>% ungroup
+  timewise_cors_summarized$sensor_target = sensor_target_names[ind_idx]
+  timewise_cors_list[[ind_idx]] = timewise_cors_summarized
+}
+timewise_cors_summarized = bind_rows(timewise_cors_list)
+timewise_cors_summarized$sensor_target = factor(
+    timewise_cors_summarized$sensor_target,
+    levels = sensor_target_names)
+timewise_cors_summarized$sensorization = factor(
+    sapply(timewise_cors_summarized$sensorization,
+           function(x) {sprintf('(%s-raw)', x)}),
+    levels=c('(raw-raw)', '(static-raw)', '(dynamic-raw)'))
+plt = ggplot(
+    timewise_cors_summarized,
+    aes(x=correlate_date,
+        colour=sensorization),
+  ) + geom_line (
+    aes(y=mean,
+        linetype='mean'),
+  ) + geom_line (
+    aes(y=mean+sd,
+        linetype='mean±sd'),
+  ) + geom_line (
+    aes(y=mean-sd,
+        linetype='mean±sd'),
+  ) + scale_linetype_manual(
+      values=c("mean"="solid",
+               "mean±sd"="dashed"),
+      breaks=c('mean',
+               'mean±sd'),
   ) + facet_wrap (
     vars(sensor_target),
     ncol=2,
@@ -804,7 +881,7 @@ sensor_target_names = sapply(1:5, function(ind_idx) {
          })
 df_coef_list = vector('list', length(source_names))
 for (ind_idx in 1:length(source_names)) {
-  sensorize_val_fname = sprintf('results/12_sensorize_vals_%s_%s_%s_%s.RDS',
+  sensorize_val_fname = sprintf('../sensorization_scripts/results/03_sensorize_vals_%s_%s_%s_%s.RDS',
                             geo_level,
                             source_names[ind_idx], signal_names[ind_idx],
                             target_names[ind_idx])
