@@ -69,7 +69,7 @@ for (ind_idx in 1:length(source_names)) {
     stop(sprintf("No matching dataframe for target %s.", target_names[ind_idx]))
 	}
 
-  ind_df = tibble(df_signals[[ind_idx]]) %>% filter(geo_value %in% geo_values)
+  ind_df = tibble(df_signals[[ind_idx]])
   ind_target = inner_join(ind_df, tibble(df_target),
                           by=c('geo_value', 'time_value')) %>% select (
         geo_value=geo_value,
