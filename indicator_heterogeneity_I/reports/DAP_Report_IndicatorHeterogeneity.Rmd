@@ -186,7 +186,9 @@ for example, if we want the indicator to be intuitively useful on a map.
 sensorization, both dynamic and static.**  This is encouraging.  It is
 noteworthy that dynamic sensorization does essentially as well as static
 sensorization here, since this static sensorization has the added advantage
-that estimates are being produced in-sample.
+that estimates are being produced in-sample.  (Why do we see a temporary dip
+in the rank correlation during June for any indicator dynamically sensorized
+against Cases?)
 
 ```{r geowise-correlations, cache=TRUE, warning=FALSE}
 sensorize_time_ranges = list(
@@ -458,7 +460,8 @@ nor hurts in the prediction task.**  This is discouraging for us; we might hope
 that sensorization, when performed properly, would provide "additional
 information" beyond the target.  We display the median scaled errors over time
 (with the ±mad beyond the y-axis range), followed by a table of the median scaled
-errors over all time.
+errors over all time.  Although there are minute differences between the
+different sensorization techniques, neither static nor dynamic reigns supreme.
 
 As an aside, it is interesting to note that the scaled errors get
 smaller, and the spread of their distributions narrower, in November.
@@ -513,7 +516,8 @@ for (ind_idx in 1:length(source_names)) {
 	table_list[[ind_idx]] = res_err4 %>%
 								 select(-starts_with("dif")) %>%
 								 group_by(model, lead) %>%
-								 summarize(err = median(err), n = length(unique(time_value))) %>%
+								 summarize(err = median(err, na.rm=TRUE),
+                           n = length(unique(time_value))) %>%
 								 arrange(lead) %>% ungroup() %>%
 								 rename("Model" = model, "Median scaled error" = err,
 												"Target" = lead, "Test days" = n) %>%
@@ -540,16 +544,17 @@ plt = ggplot(
   ) + geom_line (
     aes(y=med,
         linetype='median'),
-  ) + geom_line (
-    aes(y=med+mad,
-        linetype='med±mad'),
-  ) + geom_line (
-    aes(y=med-mad,
-        linetype='med±mad'),
+  #) + geom_line (
+  #  aes(y=med+mad,
+  #      linetype='med±mad'),
+  #) + geom_line (
+  #  aes(y=med-mad,
+  #      linetype='med±mad'),
   ) + scale_linetype_manual(
-      values=c("median"="solid",
-               "med±mad"="dashed"),
-      breaks=c('median', "med±mad")
+  #    values=c("median"="solid",
+  #             "med±mad"="dashed"),
+  #    breaks=c('median', "med±mad")
+      values=c("median"="solid")
 	) + scale_color_manual(
 		values = c("black",
                '#F8766D',
@@ -563,10 +568,10 @@ plt = ggplot(
     cols=vars(lead),
     rows=vars(sensor_target),
     scales='free',
-  ) + ylim (
-#    0, 2
-#    0.5, 1.5
-    0.75, 1.25
+  ) + coord_cartesian (
+    #0.5, 2
+    #0.5, 1.5
+    ylim = c(0.60, 1.1)
   ) + labs(
     x = "Date",
     y = "Scaled error (relative to strawman)"
@@ -586,14 +591,15 @@ knitr::kable(table_df %>% select(-`Ind // Target`),
 
 ```
 
+<br/> 
 Because the models all performed the same in the previous setup, we
 conclude that the sensorized indicators "do not help" the base (Target only)
 model.  But how do the sensorized indicators compare against each other?
 We perform the predictive task where we train each model with only
 the sensorized indicator (without Cases/Deaths as a base covariate).
 Any differences between their performance are overwhelmed by the size
-of the spread.  Since the difference in the pointwise medians is apparent,
-we do not provide the full tableof resuls.
+of the spread (outside the plot limits).  Since the difference in the pointwise
+medians is apparent, we do not provide the full table of resuls.
 
 ```{r appendix-predictive-ability, cache=TRUE, warning=FALSE, message=FALSE,fig_width=12,fig_height=14}
 model_names = c('Targets',
@@ -606,7 +612,9 @@ leads = 1:2 * 7
 
 plot_df_list = vector('list', length(source_names))
 for (ind_idx in 1:length(source_names)) {
-  predictive_fname = sprintf('results/17_predictive_%s_%s_%s_%s.RDS', geo_level,
+  predictive_fname = sprintf(
+    '../sensorization_scripts/results/06_predictive_reduced_models_%s_%s_%s_%s.RDS',
+                               geo_level,
                                source_names[ind_idx], signal_names[ind_idx],
                                target_names[ind_idx])
 
