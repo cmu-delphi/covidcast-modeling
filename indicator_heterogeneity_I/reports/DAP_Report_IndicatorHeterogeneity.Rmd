@@ -358,7 +358,8 @@ a bit "reassuring".
 ```{r timewise-correlations-compare, cache=TRUE, message=FALSE,warning=FALSE}
 timewise_cors_list = vector('list', length(source_names))
 for (ind_idx in 1:length(source_names)) {
-  timewise_cor_fname = sprintf('results/13_timewise_cors_%s_%s_%s_%s_-41_0.RDS',
+  timewise_cor_fname = sprintf(
+    '../sensorization_scripts/results/04_timewise_cors_%s_%s_%s_%s_-41_0.RDS',
                                geo_level, source_names[ind_idx],
                                signal_names[ind_idx], target_names[ind_idx])
   timewise_cor_list = readRDS(timewise_cor_fname)
@@ -466,8 +467,9 @@ different sensorization techniques, neither static nor dynamic reigns supreme.
 As an aside, it is interesting to note that the scaled errors get
 smaller, and the spread of their distributions narrower, in November.
 I suspect this is because we have seen a continual surge in cases
-since October, and the consistent upward trajectory makes the prediction
-task "easier".
+since October, and the consistent upward trajectory is harder for the
+strawman to capture (but scaled error spikes - presumably related to
+Thanksgiving reporting irregularities).
 
 ```{r predictive-ability, cache=TRUE, warning=FALSE, message=FALSE}
 model_names = c('Targets',
@@ -574,7 +576,7 @@ plt = ggplot(
     ylim = c(0.60, 1.1)
   ) + labs(
     x = "Date",
-    y = "Scaled error (relative to strawman)"
+    y = "Median scaled error (relative to strawman)"
   ) + theme_bw (
   ) + theme(
     legend.pos = "bottom",
@@ -596,10 +598,18 @@ Because the models all performed the same in the previous setup, we
 conclude that the sensorized indicators "do not help" the base (Target only)
 model.  But how do the sensorized indicators compare against each other?
 We perform the predictive task where we train each model with only
-the sensorized indicator (without Cases/Deaths as a base covariate).
-Any differences between their performance are overwhelmed by the size
-of the spread (outside the plot limits).  Since the difference in the pointwise
-medians is apparent, we do not provide the full table of resuls.
+the (0, 7, 14 day lagged versions of the) sensorized indicator (without
+lagged Cases/Deaths as base covariates).
+
+In the pointwise medians, it appears that the static sensorization 
+consistently edges out dynamic sensorization.  Perhaps dynamic sensorization
+is overfitting?  However,
+any differences between their performance are overwhelmed by the size
+of the (pointwise) spread (outside the plot limits).  Since the difference in
+the pointwise medians is apparent, we do not provide the full table of resuls.
+Interestingly, we do not see the same spike in scaled error as before --
+my guess is this is Cases/Deaths is omitted from these models, so the
+irregularities aren't "seen" by the models.
 
 ```{r appendix-predictive-ability, cache=TRUE, warning=FALSE, message=FALSE,fig_width=12,fig_height=14}
 model_names = c('Targets',
@@ -661,16 +671,6 @@ plt = ggplot(
   ) + geom_line (
     aes(y=med,
         linetype='median'),
-  ) + geom_line (
-    aes(y=med+mad,
-        linetype='med±mad'),
-  ) + geom_line (
-    aes(y=med-mad,
-        linetype='med±mad'),
-  ) + scale_linetype_manual(
-      values=c("median"="solid",
-               "med±mad"="dashed"),
-      breaks=c('median', "med±mad")
 	) + scale_color_manual(
 		values = c(
                '#F8766D',
@@ -684,12 +684,11 @@ plt = ggplot(
     cols=vars(lead),
     rows=vars(sensor_target),
     scales='free',
-  ) + ylim (
-#    0, 2
-    0.5, 2.5
+  ) + coord_cartesian (
+    ylim = c(0.5, 2.5)
   ) + labs(
     x = "Date",
-    y = "Scaled error (relative to strawman)"
+    y = "Median scaled error (relative to strawman)"
   ) + theme_bw (
   ) + theme(
     legend.pos = "bottom",
@@ -717,7 +716,8 @@ following subsections, we provide two validation assessments.
 Our first validation procedure takes advantage of newly available
 "ground truth" hospitalization data,
 [provided by the Department of Health & Human Services](https://healthdata.gov/dataset/covid-19-reported-patient-impact-and-hospital-capacity-state-timeseries)
-at the State level.
+at the State level, with consistent nationwide coverage beginning in
+mid-July.
 
 The idea is as follows: if the sensorized Hospitalizations indicator has been
 overfit to Cases (or Deaths), then it would observe weakened correlations
@@ -758,7 +758,7 @@ the HHS Hospitalization indicators.  We find that:
    heterogeneity in the hospitalizations indicator to begin with.
 
 ```{r hospitalization-validation}
-hosp_cor_df = readRDS('results/15_hhs_cor_df.RDS')
+hosp_cor_df = readRDS('../sensorization_scripts/results/07_hhs_cor_df.RDS')
 hosp_cor_df = hosp_cor_df %>% filter (
     #indicator == 'Hospitalizations',
     indicator %in% c('Doctor visits', 'Hospitalizations'),
