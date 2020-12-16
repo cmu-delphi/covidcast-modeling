@@ -24,6 +24,12 @@ geo_level = 'county'
 sensor_target_names = sapply(1:5, function(ind_idx) {
   sprintf('%s // Sensorization target: %s', pretty_names[ind_idx], target_names[ind_idx])
          })
+sensor_target_names_newline = sapply(1:5, function(ind_idx) {
+  sprintf('%s\nTarget: %s', pretty_names[ind_idx], target_names[ind_idx])
+         })
+sensor_target_names_short = sapply(1:5, function(ind_idx) {
+  sprintf('%s // %s', pretty_names[ind_idx], target_names[ind_idx])
+         })
 ```
 
 # Introduction
@@ -59,7 +65,8 @@ The indicators considered in this report are the smoothed versions of:
 (% COVID-19) Hospitalizations from Claims.  The targets considered in this
 report are the smoothed versions of Cases per 100,000 population and
 Deaths per 100,000 population.  All analyses are done at the county level,
-except for the "external hosptitalization validation".
+except for the
+["ground truth" hospitalizations validation](#ground-truth-hospitalizations-data).
 
 For the county level analysis, we only consider counties with at least 500
 cumulative cases by November 1st, 2020.  For the state level analysis, we
@@ -259,18 +266,16 @@ can say is that dynamic sensorization does not provide any added advantage
 in time-wise correlations, compared to static sensorization or the raw
 indicator.  
 
-In the following figure, we omit the 'static sensorized' correlations,
-because the are the same as the raw timewise correlations (merely a
-linear shift and rescaling within each location, which does not affect
-the orderings).
-
-TODO: Remove the static sensorize correlations, because they are the same as
-the raw ones in principle.
+In the following figure, the rank correlations for the static sensorized
+estimates should be the same as those for the raw indicator; but small
+discrepancies in county-level data availability yield very small
+differences.
 
 ```{r timewise-correlations, cache=TRUE}
 timewise_cors_list = vector('list', length(source_names))
 for (ind_idx in 1:length(source_names)) {
-  timewise_cor_fname = sprintf('results/13_timewise_cors_%s_%s_%s_%s_-41_0.RDS',
+  timewise_cor_fname = sprintf(
+    '../sensorization_scripts/results/04_timewise_cors_%s_%s_%s_%s_-41_0.RDS',
                                geo_level, source_names[ind_idx],
                                signal_names[ind_idx], target_names[ind_idx])
   timewise_cor_list = readRDS(timewise_cor_fname)
@@ -289,9 +294,6 @@ for (ind_idx in 1:length(source_names)) {
   timewise_cors_list[[ind_idx]] = timewise_cors_summarized
 }
 timewise_cors_summarized = bind_rows(timewise_cors_list)
-#timewise_cors_summarized = timewise_cors_summarized %>% filter (
-#      sensorization != 'static',
-#    )
 timewise_cors_summarized$sensor_target = factor(
     timewise_cors_summarized$sensor_target,
     levels = sensor_target_names)
@@ -347,11 +349,9 @@ concern was basically that the spreads of the time-wise correlations may
 be large across locations, but perhaps the dynamic sensorization fares
 consistently worse than the raw indicator by a small amount.
 
-What we find is more peculiar.  We find that the median pointwise differences
-between time-wise rank correlations of the sensorized and the raw
-indicator actually are positive.  But again, the spreads are large.
+Fortunately, the variability across locations still covers zero, which is
+a bit "reassuring".
 
-TODO: Replace with mean and see what happens.
 
 ```{r timewise-correlations-compare, cache=TRUE, message=FALSE,warning=FALSE}
 timewise_cors_list = vector('list', length(source_names))
@@ -436,87 +436,6 @@ plt = ggplot(
 print(plt)
 ```
 
-```{r timewise-correlations-compare-mean, cache=TRUE, message=FALSE,warning=FALSE}
-timewise_cors_list = vector('list', length(source_names))
-for (ind_idx in 1:length(source_names)) {
-  timewise_cor_fname = sprintf('results/13_timewise_cors_%s_%s_%s_%s_-41_0.RDS',
-                               geo_level, source_names[ind_idx],
-                               signal_names[ind_idx], target_names[ind_idx])
-  timewise_cor_list = readRDS(timewise_cor_fname)
-  timewise_cors = timewise_cor_list[[1]]
-  min_dynamic_correlate = timewise_cors %>% filter (
-      sensorization == 'dynamic',
-    ) %>% pull (
-      correlate_date,
-    ) %>% min
-  timewise_cors_summarized = timewise_cors %>% filter (
-      sensorization %in% c('raw') |
-        correlate_date >= min_dynamic_correlate+4,
-    ) %>% pivot_wider (
-      names_from = sensorization,
-      values_from = value,
-    ) %>% mutate (
-      static = static - raw,
-      dynamic = dynamic - raw,
-      raw = raw - raw,
-    ) %>% pivot_longer (
-      cols = c(raw, static, dynamic),
-      names_to = 'sensorization',
-      values_to = 'value',
-    ) %>% group_by (
-      correlate_date,
-      sensorization,
-    ) %>% summarize (
-      mean=mean(value, na.rm=TRUE),
-      sd=sd(value, na.rm=TRUE),
-      min=min(value, na.rm=TRUE),
-      max=max(value, na.rm=TRUE),
-    ) %>% ungroup
-  timewise_cors_summarized$sensor_target = sensor_target_names[ind_idx]
-  timewise_cors_list[[ind_idx]] = timewise_cors_summarized
-}
-timewise_cors_summarized = bind_rows(timewise_cors_list)
-timewise_cors_summarized$sensor_target = factor(
-    timewise_cors_summarized$sensor_target,
-    levels = sensor_target_names)
-timewise_cors_summarized$sensorization = factor(
-    sapply(timewise_cors_summarized$sensorization,
-           function(x) {sprintf('(%s-raw)', x)}),
-    levels=c('(raw-raw)', '(static-raw)', '(dynamic-raw)'))
-plt = ggplot(
-    timewise_cors_summarized,
-    aes(x=correlate_date,
-        colour=sensorization),
-  ) + geom_line (
-    aes(y=mean,
-        linetype='mean'),
-  ) + geom_line (
-    aes(y=mean+sd,
-        linetype='mean±sd'),
-  ) + geom_line (
-    aes(y=mean-sd,
-        linetype='mean±sd'),
-  ) + scale_linetype_manual(
-      values=c("mean"="solid",
-               "mean±sd"="dashed"),
-      breaks=c('mean',
-               'mean±sd'),
-  ) + facet_wrap (
-    vars(sensor_target),
-    ncol=2,
-  ) + theme_bw (
-  ) + theme(
-    legend.position = "bottom",
-    legend.title = element_blank()
-  ) + labs (
-    x='Date',
-    y='Change in rank correlation (time-wise, over trailing 6 weeks)'
-  ) + ggtitle (
-    'Change in timewise correlations (compared to raw indicator)'
-  )
-print(plt)
-```
-
 ### Predictive ability
 
 For each (indicator, target) pair, we perform the static and dynamic
@@ -537,7 +456,9 @@ below 1 are desirable.
 **We find, on the whole, that including the sensorized indicator neither helps
 nor hurts in the prediction task.**  This is discouraging for us; we might hope
 that sensorization, when performed properly, would provide "additional
-information" beyond the target.
+information" beyond the target.  We display the median scaled errors over time
+(with the ±mad beyond the y-axis range), followed by a table of the median scaled
+errors over all time.
 
 As an aside, it is interesting to note that the scaled errors get
 smaller, and the spread of their distributions narrower, in November.
@@ -546,9 +467,6 @@ since October, and the consistent upward trajectory makes the prediction
 task "easier".
 
 ```{r predictive-ability, cache=TRUE, warning=FALSE, message=FALSE}
-sensor_target_names = sapply(1:5, function(ind_idx) {
-  sprintf('%s\nTarget: %s', pretty_names[ind_idx], target_names[ind_idx])
-         })
 model_names = c('Targets',
                 'Targets+Raw',
                 'Targets+Static',
@@ -558,8 +476,12 @@ lags = 1:2 * -7
 leads = 1:2 * 7
 
 plot_df_list = vector('list', length(source_names))
+table_list = vector('list', length(source_names))
+min_time_value = Inf
+max_time_value = -Inf
 for (ind_idx in 1:length(source_names)) {
-  predictive_fname = sprintf('results/14_predictive_%s_%s_%s_%s.RDS', geo_level,
+  predictive_fname = sprintf(
+    '../sensorization_scripts/results/05_predictive_full_models_%s_%s_%s_%s.RDS', geo_level,
                                source_names[ind_idx], signal_names[ind_idx],
                                target_names[ind_idx])
 
@@ -579,13 +501,23 @@ for (ind_idx in 1:length(source_names)) {
     select(-err0) 
            
   # Calculate and print median errors, for all 4 models, and just 7 days ahead
-  if (ind_idx > 1) {res_all4 = rename(res_all4, lead=lead_)}
   res_err4 = res_all4 %>% 
     select(-starts_with("dif")) %>%
     pivot_longer(names_to = "model", values_to = "err",
                  cols = -c(geo_value, time_value, lead)) %>%
     mutate(lead = factor(lead, labels = paste(leads, "days ahead")),
            model = factor(model, labels = model_names))
+
+  min_time_value = min(res_err4$time_value, min_time_value)
+  max_time_value = max(res_err4$time_value, max_time_value)
+	table_list[[ind_idx]] = res_err4 %>%
+								 select(-starts_with("dif")) %>%
+								 group_by(model, lead) %>%
+								 summarize(err = median(err), n = length(unique(time_value))) %>%
+								 arrange(lead) %>% ungroup() %>%
+								 rename("Model" = model, "Median scaled error" = err,
+												"Target" = lead, "Test days" = n) %>%
+                 mutate(`Ind // Target` = sensor_target_names_short[[ind_idx]])
 
   plot_df = res_err4 %>% group_by(
       model, lead, time_value
@@ -595,10 +527,11 @@ for (ind_idx in 1:length(source_names)) {
       min = min(err),
       max = max(err),
     ) %>% ungroup()
-  plot_df$sensor_target = sensor_target_names[ind_idx]
+  plot_df$sensor_target = sensor_target_names_newline[ind_idx]
   plot_df_list[[ind_idx]] = plot_df
 }
 plot_df = bind_rows(plot_df_list)
+table_df = bind_rows(table_list)
 
 plt = ggplot(
     plot_df,
@@ -631,7 +564,9 @@ plt = ggplot(
     rows=vars(sensor_target),
     scales='free',
   ) + ylim (
-    0, 2
+#    0, 2
+#    0.5, 1.5
+    0.75, 1.25
   ) + labs(
     x = "Date",
     y = "Scaled error (relative to strawman)"
@@ -641,20 +576,26 @@ plt = ggplot(
     legend.title = element_blank()
   )
 print(plt)
+
+knitr::kable(table_df %>% select(-`Ind // Target`),
+             caption = paste("Test period:", min_time_value, "to",
+                             max_time_value),
+             format = "html", table.attr = "style='width:70%;'") %>%
+      kableExtra::pack_rows(index=table(forcats::fct_inorder(
+                                        table_df[['Ind // Target']])))
+
 ```
 
 Because the models all performed the same in the previous setup, we
-conclude that the sensorized indicators "help" the base model.  But
-how do the sensorized indicators compare against each other?
+conclude that the sensorized indicators "do not help" the base (Target only)
+model.  But how do the sensorized indicators compare against each other?
 We perform the predictive task where we train each model with only
 the sensorized indicator (without Cases/Deaths as a base covariate).
 Any differences between their performance are overwhelmed by the size
-of the spread.
+of the spread.  Since the difference in the pointwise medians is apparent,
+we do not provide the full tableof resuls.
 
 ```{r appendix-predictive-ability, cache=TRUE, warning=FALSE, message=FALSE,fig_width=12,fig_height=14}
-sensor_target_names = sapply(1:5, function(ind_idx) {
-  sprintf('%s\nTarget: %s', pretty_names[ind_idx], target_names[ind_idx])
-         })
 model_names = c('Targets',
                 'Raw',
                 'Static',
@@ -700,7 +641,7 @@ for (ind_idx in 1:length(source_names)) {
       min = min(err),
       max = max(err),
     ) %>% ungroup()
-  plot_df$sensor_target = sensor_target_names[ind_idx]
+  plot_df$sensor_target = sensor_target_names_newline[ind_idx]
   plot_df_list[[ind_idx]] = plot_df
 }
 plot_df = bind_rows(plot_df_list)
@@ -876,9 +817,6 @@ i.e., that the "heterogeneity" being picked up by sensorization can be
 instability in the target data.
 
 ```{r coefficients_analysis, cache=TRUE, message=FALSE, warning=FALSE}
-sensor_target_names = sapply(1:5, function(ind_idx) {
-  sprintf('%s // Sensorization target: %s', pretty_names[ind_idx], target_names[ind_idx])
-         })
 df_coef_list = vector('list', length(source_names))
 for (ind_idx in 1:length(source_names)) {
   sensorize_val_fname = sprintf('../sensorization_scripts/results/03_sensorize_vals_%s_%s_%s_%s.RDS',
