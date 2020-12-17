@@ -486,7 +486,7 @@ min_time_value = Inf
 max_time_value = -Inf
 for (ind_idx in 1:length(source_names)) {
   predictive_fname = sprintf(
-    '../sensorization_scripts/results/08_predictive_full_models_%s_%s_%s_%s.RDS', geo_level,
+    '../sensorization_scripts/results/05_predictive_full_models_%s_%s_%s_%s.RDS', geo_level,
                                source_names[ind_idx], signal_names[ind_idx],
                                target_names[ind_idx])
 
@@ -613,7 +613,7 @@ min_time_value = Inf
 max_time_value = -Inf
 for (ind_idx in 1:length(source_names)) {
   predictive_fname = sprintf(
-    '../sensorization_scripts/results/05_predictive_full_models_%s_%s_%s_%s.RDS', geo_level,
+    '../sensorization_scripts/results/08_predictive_full_models_%s_%s_%s_%s.RDS', geo_level,
                                source_names[ind_idx], signal_names[ind_idx],
                                target_names[ind_idx])
 
