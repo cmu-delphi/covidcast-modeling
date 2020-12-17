@@ -83,7 +83,7 @@ splot_idx = 1
 
 for (ind_idx in 1:length(source_names)) {
   print(pretty_names[ind_idx])
-  predictive_fname = sprintf('results/06_predictive_reduced_models_%s_%s_%s_%s.RDS',
+  predictive_fname = sprintf('results/08_predictive_reduced_models_%s_%s_%s_%s.RDS',
                              geo_level,
                                source_names[ind_idx], signal_names[ind_idx],
                                target_names[ind_idx])
