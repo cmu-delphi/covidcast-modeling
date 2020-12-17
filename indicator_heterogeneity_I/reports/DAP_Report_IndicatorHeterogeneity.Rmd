@@ -607,7 +607,7 @@ model_names = c('Targets',
                 'Targets+Static',
                 'Targets+Dynamic')
 
-plot_df_list = vector('list', length(source_names))
+leads = 5:20
 table_list = vector('list', length(source_names))
 min_time_value = Inf
 max_time_value = -Inf
@@ -637,8 +637,7 @@ for (ind_idx in 1:length(source_names)) {
     select(-starts_with("dif")) %>%
     pivot_longer(names_to = "model", values_to = "err",
                  cols = -c(geo_value, time_value, lead)) %>%
-    mutate(lead = factor(lead, labels = paste(leads, "days ahead")),
-           model = factor(model, labels = model_names))
+    mutate(model = factor(model, labels = model_names))
 
   min_time_value = min(res_err4$time_value, min_time_value)
   max_time_value = max(res_err4$time_value, max_time_value)
@@ -649,32 +648,31 @@ for (ind_idx in 1:length(source_names)) {
                            n = length(unique(time_value))) %>%
 								 arrange(lead) %>% ungroup() %>%
 								 rename("Model" = model, "Median scaled error" = err,
-												"Target" = lead, "Test days" = n) %>%
+												"days_ahead" = lead, "Test days" = n) %>%
                  mutate(`Ind // Target` = sensor_target_names_short[[ind_idx]])
 
 }
 table_df = bind_rows(table_list)
 
-# TODO: Change below to plot scaled errors over multiple leads
-# Faceted on Ind//Target
-table_df = table_df %>% mutate (ITT = sprintf('%s, %s',
-                                   `Ind // Target`, Target))
-table_df$ridx = 1:nrow(table_df)
-min_idxs = table_df %>% group_by(
-    ITT
-  ) %>% slice(
-    which.min(`Median scaled error`)
-  ) %>% ungroup %>% pull (
-    ridx
+plt = ggplot(table_df,
+             aes(x=days_ahead,
+                 y=`Median scaled error`,
+                 color=Model)
+  ) + geom_line (
+  ) + geom_point (
+  ) + facet_wrap (
+    vars(`Ind // Target`),
+    ncol=2
+	) + scale_color_manual(
+		values = c("black",
+               '#F8766D',
+               '#00BA38',
+               '#619CFF')
+  ) + theme_bw (
+  ) + theme(
+    legend.pos = "bottom",
+    legend.title = element_blank()
   )
-knitr::kable(table_df %>% select(-c(`Ind // Target`, Target, ITT, ridx)),
-             caption = paste("Test period:", min_time_value, "to",
-                             max_time_value),
-             format = "html", table.attr = "style='width:70%;'") %>%
-      kableExtra::row_spec(min_idxs, bold=T, color='black',
-                           background='lightgreen') %>%
-      kableExtra::pack_rows(index=table(forcats::fct_inorder(
-                                        table_df[['ITT']]))) 
 
 ```
 
