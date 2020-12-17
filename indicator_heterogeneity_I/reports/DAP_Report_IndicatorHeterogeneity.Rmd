@@ -584,12 +584,24 @@ plt = ggplot(
   )
 print(plt)
 
-knitr::kable(table_df %>% select(-`Ind // Target`),
+table_df = table_df %>% mutate (ITT = sprintf('%s, %s',
+                                   `Ind // Target`, Target))
+table_df$ridx = 1:nrow(table_df)
+min_idxs = table_df %>% group_by(
+    ITT
+  ) %>% slice(
+    which.min(`Median scaled error`)
+  ) %>% ungroup %>% pull (
+    ridx
+  )
+knitr::kable(table_df %>% select(-c(`Ind // Target`, Target, ITT, ridx)),
              caption = paste("Test period:", min_time_value, "to",
                              max_time_value),
              format = "html", table.attr = "style='width:70%;'") %>%
+      kableExtra::row_spec(min_idxs, bold=T, color='black',
+                           background='lightgreen') %>%
       kableExtra::pack_rows(index=table(forcats::fct_inorder(
-                                        table_df[['Ind // Target']])))
+                                        table_df[['ITT']]))) 
 
 ```
 
