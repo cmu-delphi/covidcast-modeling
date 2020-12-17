@@ -546,16 +546,7 @@ plt = ggplot(
   ) + geom_line (
     aes(y=med,
         linetype='median'),
-  #) + geom_line (
-  #  aes(y=med+mad,
-  #      linetype='med±mad'),
-  #) + geom_line (
-  #  aes(y=med-mad,
-  #      linetype='med±mad'),
   ) + scale_linetype_manual(
-  #    values=c("median"="solid",
-  #             "med±mad"="dashed"),
-  #    breaks=c('median', "med±mad")
       values=c("median"="solid")
 	) + scale_color_manual(
 		values = c("black",
