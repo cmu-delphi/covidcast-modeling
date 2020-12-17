@@ -486,7 +486,7 @@ min_time_value = Inf
 max_time_value = -Inf
 for (ind_idx in 1:length(source_names)) {
   predictive_fname = sprintf(
-    '../sensorization_scripts/results/05_predictive_full_models_%s_%s_%s_%s.RDS', geo_level,
+    '../sensorization_scripts/results/08_predictive_full_models_%s_%s_%s_%s.RDS', geo_level,
                                source_names[ind_idx], signal_names[ind_idx],
                                target_names[ind_idx])
 
@@ -597,6 +597,90 @@ knitr::kable(table_df %>% select(-c(`Ind // Target`, Target, ITT, ridx)),
 ```
 
 <br/> 
+
+We extend the above analysis to multiple leads, from 5 days ahead to
+20 days ahead.
+
+```{r predictive-ability-extended, cache=TRUE, warning=FALSE, message=FALSE}
+model_names = c('Targets',
+                'Targets+Raw',
+                'Targets+Static',
+                'Targets+Dynamic')
+
+plot_df_list = vector('list', length(source_names))
+table_list = vector('list', length(source_names))
+min_time_value = Inf
+max_time_value = -Inf
+for (ind_idx in 1:length(source_names)) {
+  predictive_fname = sprintf(
+    '../sensorization_scripts/results/05_predictive_full_models_%s_%s_%s_%s.RDS', geo_level,
+                               source_names[ind_idx], signal_names[ind_idx],
+                               target_names[ind_idx])
+
+  res = readRDS(predictive_fname)
+
+
+  # Restrict to common period for all 4 models, then calculate the scaled errors 
+  # for each model, that is, the error relative to the strawman's error
+  res_all4 = res %>%
+  #res_all4 = res %>% filter(geo_value %in% geo_values) %>%
+    drop_na() %>%                                       # Restrict to common time
+    mutate(err1 = err1 / err0, err2 = err2 / err0,      # Compute relative error
+           err3 = err3 / err0, err4 = err4 / err0) %>%  # to strawman model
+    mutate(dif12 = err1 - err2, dif13 = err1 - err3,    # Compute differences
+           dif14 = err1 - err4) %>%                     # relative to cases model
+    ungroup() %>%
+    select(-err0) 
+           
+  # Calculate and print median errors, for all 4 models, and just 7 days ahead
+  res_err4 = res_all4 %>% 
+    select(-starts_with("dif")) %>%
+    pivot_longer(names_to = "model", values_to = "err",
+                 cols = -c(geo_value, time_value, lead)) %>%
+    mutate(lead = factor(lead, labels = paste(leads, "days ahead")),
+           model = factor(model, labels = model_names))
+
+  min_time_value = min(res_err4$time_value, min_time_value)
+  max_time_value = max(res_err4$time_value, max_time_value)
+	table_list[[ind_idx]] = res_err4 %>%
+								 select(-starts_with("dif")) %>%
+								 group_by(model, lead) %>%
+								 summarize(err = median(err, na.rm=TRUE),
+                           n = length(unique(time_value))) %>%
+								 arrange(lead) %>% ungroup() %>%
+								 rename("Model" = model, "Median scaled error" = err,
+												"Target" = lead, "Test days" = n) %>%
+                 mutate(`Ind // Target` = sensor_target_names_short[[ind_idx]])
+
+}
+table_df = bind_rows(table_list)
+
+# TODO: Change below to plot scaled errors over multiple leads
+# Faceted on Ind//Target
+table_df = table_df %>% mutate (ITT = sprintf('%s, %s',
+                                   `Ind // Target`, Target))
+table_df$ridx = 1:nrow(table_df)
+min_idxs = table_df %>% group_by(
+    ITT
+  ) %>% slice(
+    which.min(`Median scaled error`)
+  ) %>% ungroup %>% pull (
+    ridx
+  )
+knitr::kable(table_df %>% select(-c(`Ind // Target`, Target, ITT, ridx)),
+             caption = paste("Test period:", min_time_value, "to",
+                             max_time_value),
+             format = "html", table.attr = "style='width:70%;'") %>%
+      kableExtra::row_spec(min_idxs, bold=T, color='black',
+                           background='lightgreen') %>%
+      kableExtra::pack_rows(index=table(forcats::fct_inorder(
+                                        table_df[['ITT']]))) 
+
+```
+
+
+
+TODO: revise after doing multiple leads
 Because the models all performed the same in the previous setup, we
 conclude that the sensorized indicators "do not help" the base (Target only)
 model.  But how do the sensorized indicators compare against each other?
@@ -619,9 +703,6 @@ model_names = c('Targets',
                 'Raw',
                 'Static',
                 'Dynamic')
-
-lags = 1:2 * -7 
-leads = 1:2 * 7
 
 plot_df_list = vector('list', length(source_names))
 for (ind_idx in 1:length(source_names)) {
