@@ -603,15 +603,12 @@ We extend the above analysis to multiple leads, from 5 days ahead to
 we compute the medians, owing to
 [Ryan's observation that different approaches achieve different performance depending on the behavior of cases (e.g., a surge)](https://cmu-delphi.github.io/covidcast/talks/copss-niss/talk.html#(35)).
 
-Disappointingly, the models with the static sensorized estimates do best, while
-the ones with the dynamically
-sensorized estimates tend to do worse than with just the raw indicator (!).  
-(This is disappointing because the static sensorized estimates are "cheating",
-i.e., in sample, and the dynamic sensorized ones are more "realistic" because
-they are computed in an online fashion).  Perhaps this can be viewed in
-light of the fact that dynamic sensorization tends to degrade time-wise
-correlations -- and this notion of "proper ordering across time" is important
-for forecasting.  (Evidence of overfitting?)
+The results are mixed, and I'm not sure how to interpret them.  Before
+October 15th, the models which used static sensorized features almost always
+performed the best.  After October 15th, sometimes dynamic sensorization
+provides the most benefit, sometimes static sensorization.  Disappointingly,
+dynamic sensorization always fares worse for Doctor Visits, the indicator
+that stands to benefit the most from sensorization.
 
 ```{r predictive-ability-extended, cache=TRUE, warning=FALSE, message=FALSE}
 model_names = c('Targets',
@@ -675,10 +672,10 @@ table_df = bind_rows(table_list)
 make_scaled_err_plot = function(ggp) {
   ggp + geom_line (
   ) + geom_point (
-  ) + geom_hline(
-    yintercept = 1,
-    linetype = 2,
-    color = "gray"
+  #) + geom_hline(
+  #  yintercept = 1,
+  #  linetype = 2,
+  #  color = "gray"
   ) + facet_wrap (
     vars(`Ind // Target`),
     ncol=1,
@@ -708,7 +705,7 @@ plt_pre = ggplot(
     y = 'Median scaled error'
   )
 plt_post = ggplot(
-    table_df %>% filter (time_period == 'Before October 15th'),
+    table_df %>% filter (time_period == 'October 15th onward'),
     aes(x=days_ahead,
         y=`Median scaled error`,
         color=Model),
