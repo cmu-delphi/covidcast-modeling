@@ -643,7 +643,13 @@ for (ind_idx in 1:length(source_names)) {
   max_time_value = max(res_err4$time_value, max_time_value)
 	table_list[[ind_idx]] = res_err4 %>%
 								 select(-starts_with("dif")) %>%
-								 group_by(model, lead) %>%
+                 mutate(time_period = factor(sapply(time_value, function(x)
+                            ifelse(x < lubridate::ymd('2020-10-15'),
+                                   'Before October 15th',
+                                   'October 15th onward')),
+                            labels=c('Before October 15th',
+                                     'October 15th onward'))) %>%
+								 group_by(model, lead, time_period) %>%
 								 summarize(err = median(err, na.rm=TRUE),
                            n = length(unique(time_value))) %>%
 								 arrange(lead) %>% ungroup() %>%
@@ -660,9 +666,11 @@ plt = ggplot(table_df,
                  color=Model)
   ) + geom_line (
   ) + geom_point (
-  ) + facet_wrap (
-    vars(`Ind // Target`),
-    ncol=2
+  ) + facet_grid (
+    rows=vars(`Ind // Target`),
+    cols=vars(time_period),
+    scales='free',
+    #ncol=2
 	) + scale_color_manual(
 		values = c("black",
                '#F8766D',
@@ -673,7 +681,7 @@ plt = ggplot(table_df,
     legend.pos = "bottom",
     legend.title = element_blank()
   )
-
+print(plt)
 ```
 
 
@@ -702,6 +710,7 @@ model_names = c('Targets',
                 'Static',
                 'Dynamic')
 
+leads = 1:2 * 7
 plot_df_list = vector('list', length(source_names))
 for (ind_idx in 1:length(source_names)) {
   predictive_fname = sprintf(
