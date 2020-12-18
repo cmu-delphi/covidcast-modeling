@@ -599,7 +599,19 @@ knitr::kable(table_df %>% select(-c(`Ind // Target`, Target, ITT, ridx)),
 <br/> 
 
 We extend the above analysis to multiple leads, from 5 days ahead to
-20 days ahead.
+20 days ahead.  We also split the data into two time ranges over which
+we compute the medians, owing to
+[Ryan's observation that different approaches achieve different performance depending on the behavior of cases (e.g., a surge)](https://cmu-delphi.github.io/covidcast/talks/copss-niss/talk.html#(35)).
+
+Disappointingly, the models with the static sensorized estimates do best, while
+the ones with the dynamically
+sensorized estimates tend to do worse than with just the raw indicator (!).  
+(This is disappointing because the static sensorized estimates are "cheating",
+i.e., in sample, and the dynamic sensorized ones are more "realistic" because
+they are computed in an online fashion).  Perhaps this can be viewed in
+light of the fact that dynamic sensorization tends to degrade time-wise
+correlations -- and this notion of "proper ordering across time" is important
+for forecasting.  (Evidence of overfitting?)
 
 ```{r predictive-ability-extended, cache=TRUE, warning=FALSE, message=FALSE}
 model_names = c('Targets',
@@ -643,10 +655,10 @@ for (ind_idx in 1:length(source_names)) {
   max_time_value = max(res_err4$time_value, max_time_value)
 	table_list[[ind_idx]] = res_err4 %>%
 								 select(-starts_with("dif")) %>%
-                 mutate(time_period = factor(sapply(time_value, function(x)
-                            ifelse(x < lubridate::ymd('2020-10-15'),
+                 mutate(time_period = 
+                            factor(ifelse(time_value < lubridate::ymd('2020-10-15'),
                                    'Before October 15th',
-                                   'October 15th onward')),
+                                   'October 15th onward'),
                             labels=c('Before October 15th',
                                      'October 15th onward'))) %>%
 								 group_by(model, lead, time_period) %>%
@@ -660,17 +672,17 @@ for (ind_idx in 1:length(source_names)) {
 }
 table_df = bind_rows(table_list)
 
-plt = ggplot(table_df,
-             aes(x=days_ahead,
-                 y=`Median scaled error`,
-                 color=Model)
-  ) + geom_line (
+make_scaled_err_plot = function(ggp) {
+  ggp + geom_line (
   ) + geom_point (
-  ) + facet_grid (
-    rows=vars(`Ind // Target`),
-    cols=vars(time_period),
+  ) + geom_hline(
+    yintercept = 1,
+    linetype = 2,
+    color = "gray"
+  ) + facet_wrap (
+    vars(`Ind // Target`),
+    ncol=1,
     scales='free',
-    #ncol=2
 	) + scale_color_manual(
 		values = c("black",
                '#F8766D',
@@ -681,111 +693,33 @@ plt = ggplot(table_df,
     legend.pos = "bottom",
     legend.title = element_blank()
   )
-print(plt)
-```
-
-
-
-TODO: revise after doing multiple leads
-Because the models all performed the same in the previous setup, we
-conclude that the sensorized indicators "do not help" the base (Target only)
-model.  But how do the sensorized indicators compare against each other?
-We perform the predictive task where we train each model with only
-the (0, 7, 14 day lagged versions of the) sensorized indicator (without
-lagged Cases/Deaths as base covariates).
-
-In the pointwise medians, it appears that the static sensorization 
-consistently edges out dynamic sensorization.  Perhaps dynamic sensorization
-is overfitting?  However,
-any differences between their performance are overwhelmed by the size
-of the (pointwise) spread (outside the plot limits).  Since the difference in
-the pointwise medians is apparent, we do not provide the full table of resuls.
-Interestingly, we do not see the same spike in scaled error as before --
-my guess is this is Cases/Deaths is omitted from these models, so the
-irregularities aren't "seen" by the models.
-
-```{r appendix-predictive-ability, cache=TRUE, warning=FALSE, message=FALSE,fig_width=12,fig_height=14}
-model_names = c('Targets',
-                'Raw',
-                'Static',
-                'Dynamic')
-
-leads = 1:2 * 7
-plot_df_list = vector('list', length(source_names))
-for (ind_idx in 1:length(source_names)) {
-  predictive_fname = sprintf(
-    '../sensorization_scripts/results/06_predictive_reduced_models_%s_%s_%s_%s.RDS',
-                               geo_level,
-                               source_names[ind_idx], signal_names[ind_idx],
-                               target_names[ind_idx])
-
-  res = readRDS(predictive_fname)
-
-
-  # Restrict to common period for all 4 models, then calculate the scaled errors 
-  # for each model, that is, the error relative to the strawman's error
-  res_all4 = res %>%
-  #res_all4 = res %>% filter(geo_value %in% geo_values) %>%
-    drop_na() %>%                                       # Restrict to common time
-    mutate(err1 = err1 / err0, err2 = err2 / err0,      # Compute relative error
-           err3 = err3 / err0, err4 = err4 / err0) %>%  # to strawman model
-    mutate(dif12 = err1 - err2, dif13 = err1 - err3,    # Compute differences
-           dif14 = err1 - err4) %>%                     # relative to cases model
-    ungroup() %>%
-    select(-err0) 
-           
-  # Calculate and print median errors, for all 4 models, and just 7 days ahead
-  res_err4 = res_all4 %>% 
-    select(-starts_with("dif")) %>%
-    pivot_longer(names_to = "model", values_to = "err",
-                 cols = -c(geo_value, time_value, lead)) %>%
-    mutate(lead = factor(lead, labels = paste(leads, "days ahead")),
-           model = factor(model, labels = model_names))
-
-  plot_df = res_err4 %>% group_by(
-      model, lead, time_value
-    ) %>% summarize(
-      med = median(err),
-      mad = mad(err),
-      min = min(err),
-      max = max(err),
-    ) %>% ungroup()
-  plot_df$sensor_target = sensor_target_names_newline[ind_idx]
-  plot_df_list[[ind_idx]] = plot_df
 }
-plot_df = bind_rows(plot_df_list)
 
-plt = ggplot(
-    plot_df %>% filter (model != 'Targets'),
-    aes(x=time_value,
-        colour=model)
-  ) + geom_line (
-    aes(y=med,
-        linetype='median'),
-	) + scale_color_manual(
-		values = c(
-               '#F8766D',
-               '#00BA38',
-               '#619CFF')
-  ) + geom_hline(
-    yintercept = 1,
-    linetype = 2,
-    color = "gray"
-  ) + facet_grid(
-    cols=vars(lead),
-    rows=vars(sensor_target),
-    scales='free',
-  ) + coord_cartesian (
-    ylim = c(0.5, 2.5)
-  ) + labs(
-    x = "Date",
-    y = "Median scaled error (relative to strawman)"
-  ) + theme_bw (
-  ) + theme(
-    legend.pos = "bottom",
-    legend.title = element_blank()
+
+plt_pre = ggplot(
+    table_df %>% filter (time_period == 'Before October 15th'),
+    aes(x=days_ahead,
+        y=`Median scaled error`,
+        color=Model),
+  ) %>% make_scaled_err_plot (
+  ) + ggtitle (
+    'Before October 15th'
+  ) + labs (
+    y = 'Median scaled error'
   )
-print(plt)
+plt_post = ggplot(
+    table_df %>% filter (time_period == 'Before October 15th'),
+    aes(x=days_ahead,
+        y=`Median scaled error`,
+        color=Model),
+  ) %>% make_scaled_err_plot (
+  ) + ggtitle (
+    'October 15th onward'
+  ) + labs (
+    y = 'Median scaled error'
+  )
+
+gridExtra::grid.arrange(plt_pre, plt_post, ncol=2)
 ```
 
 ## Validation
@@ -1013,3 +947,107 @@ Changes in time-wise correlations and ability to forecast future are neutral.
 Validation setups suggest the spatial correction does work, with some small
 areas for concern.  Future directions include uncertainty estimates for the
 geo-wise correlations.
+
+# Appendix
+## Predictive exercise, with only the sensors
+
+In the context of the predictive exercise, how do the sensorized indicators
+compare against each other?
+We perform the predictive task where we train each model with only
+the (0, 7, 14 day lagged versions of the) sensorized indicator (without
+lagged Cases/Deaths as base covariates).
+
+In the pointwise medians, it appears that the static sensorization 
+consistently edges out dynamic sensorization.  Perhaps dynamic sensorization
+is overfitting?  However,
+any differences between their performance are overwhelmed by the size
+of the (pointwise) spread (outside the plot limits).  Since the difference in
+the pointwise medians is apparent, we do not provide the full table of resuls.
+Interestingly, we do not see the same spike in scaled error as before --
+my guess is this is Cases/Deaths is omitted from these models, so the
+irregularities aren't "seen" by the models.
+
+```{r appendix-predictive-ability, cache=TRUE, warning=FALSE, message=FALSE,fig_width=12,fig_height=14}
+model_names = c('Targets',
+                'Raw',
+                'Static',
+                'Dynamic')
+
+leads = 1:2 * 7
+plot_df_list = vector('list', length(source_names))
+for (ind_idx in 1:length(source_names)) {
+  predictive_fname = sprintf(
+    '../sensorization_scripts/results/06_predictive_reduced_models_%s_%s_%s_%s.RDS',
+                               geo_level,
+                               source_names[ind_idx], signal_names[ind_idx],
+                               target_names[ind_idx])
+
+  res = readRDS(predictive_fname)
+
+
+  # Restrict to common period for all 4 models, then calculate the scaled errors 
+  # for each model, that is, the error relative to the strawman's error
+  res_all4 = res %>%
+  #res_all4 = res %>% filter(geo_value %in% geo_values) %>%
+    drop_na() %>%                                       # Restrict to common time
+    mutate(err1 = err1 / err0, err2 = err2 / err0,      # Compute relative error
+           err3 = err3 / err0, err4 = err4 / err0) %>%  # to strawman model
+    mutate(dif12 = err1 - err2, dif13 = err1 - err3,    # Compute differences
+           dif14 = err1 - err4) %>%                     # relative to cases model
+    ungroup() %>%
+    select(-err0) 
+           
+  # Calculate and print median errors, for all 4 models, and just 7 days ahead
+  res_err4 = res_all4 %>% 
+    select(-starts_with("dif")) %>%
+    pivot_longer(names_to = "model", values_to = "err",
+                 cols = -c(geo_value, time_value, lead)) %>%
+    mutate(lead = factor(lead, labels = paste(leads, "days ahead")),
+           model = factor(model, labels = model_names))
+
+  plot_df = res_err4 %>% group_by(
+      model, lead, time_value
+    ) %>% summarize(
+      med = median(err),
+      mad = mad(err),
+      min = min(err),
+      max = max(err),
+    ) %>% ungroup()
+  plot_df$sensor_target = sensor_target_names_newline[ind_idx]
+  plot_df_list[[ind_idx]] = plot_df
+}
+plot_df = bind_rows(plot_df_list)
+
+plt = ggplot(
+    plot_df %>% filter (model != 'Targets'),
+    aes(x=time_value,
+        colour=model)
+  ) + geom_line (
+    aes(y=med,
+        linetype='median'),
+	) + scale_color_manual(
+		values = c(
+               '#F8766D',
+               '#00BA38',
+               '#619CFF')
+  ) + geom_hline(
+    yintercept = 1,
+    linetype = 2,
+    color = "gray"
+  ) + facet_grid(
+    cols=vars(lead),
+    rows=vars(sensor_target),
+    scales='free',
+  ) + coord_cartesian (
+    ylim = c(0.5, 2.5)
+  ) + labs(
+    x = "Date",
+    y = "Median scaled error (relative to strawman)"
+  ) + theme_bw (
+  ) + theme(
+    legend.pos = "bottom",
+    legend.title = element_blank()
+  )
+print(plt)
+```
+
