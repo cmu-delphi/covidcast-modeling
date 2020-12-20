@@ -302,7 +302,7 @@ timewise_cors_summarized$sensor_target = factor(
 timewise_cors_summarized$sensorization = factor(
     timewise_cors_summarized$sensorization,
     levels=c('raw', 'static', 'dynamic'))
-plt = ggplot(
+timewise_base_plt = ggplot(
     timewise_cors_summarized,
     aes(x=correlate_date,
         colour=sensorization),
@@ -327,10 +327,6 @@ plt = ggplot(
     yintercept = 0,
     linetype = 3,
     color = "gray"
-  ) + facet_wrap (
-    vars(sensor_target),
-    ncol=2,
-    scale='free_y',
   ) + theme_bw (
   ) + theme(
     legend.position = "bottom",
@@ -341,6 +337,11 @@ plt = ggplot(
   ) + ggtitle (
     'Timewise correlations'
   )
+
+plt = timewise_base_plt + facet_wrap (
+    vars(sensor_target),
+    ncol=2,
+    scale='free_y',
 print(plt)
 ```
 
@@ -598,17 +599,24 @@ knitr::kable(table_df %>% select(-c(`Ind // Target`, Target, ITT, ridx)),
 
 <br/> 
 
-We extend the above analysis to multiple leads, from 5 days ahead to
-20 days ahead.  We also split the data into two time ranges over which
+The story becomes more information when we
+extend the above analysis to multiple leads, to a range of 5 to 20 days
+ahead.  (We also split the data into two time ranges over which
 we compute the medians, owing to
-[Ryan's observation that different approaches achieve different performance depending on the behavior of cases (e.g., a surge)](https://cmu-delphi.github.io/covidcast/talks/copss-niss/talk.html#(35)).
+[Ryan's observation that different approaches achieve different performance depending on the behavior of cases (e.g., a surge)](https://cmu-delphi.github.io/covidcast/talks/copss-niss/talk.html#(35))).
 
-The results are mixed, and I'm not sure how to interpret them.  Before
-October 15th, the models which used static sensorized features almost always
-performed the best.  After October 15th, sometimes dynamic sensorization
-provides the most benefit, sometimes static sensorization.  Disappointingly,
-dynamic sensorization always fares worse for Doctor Visits, the indicator
-that stands to benefit the most from sensorization.
+We see that when we aggregate prior to October 15th, static sensorization
+consistently does better than dynamic sensorization.  After October 15th,
+sometimes static sensorization does better, sometimes dynamic sensorization
+does better.  What gives?  Our hypothesis is that dynamic sensorization's
+ability to change the scale of the sensorized estimates over time is its
+folly.  When we separately fit models over time, we lose a consistent meaning
+temporally, which hampers our ability to perform forecasting (which seeks
+to make a statement about a relative point in time, specifically, the
+future).  This hypothesis is supported by the fact that the portions of
+time where dynamic sensorization suffers relative to static sensorization
+is precisely the portions of time where the time-wise correlations
+of the dynamic sensorized estimates are degraded.
 
 ```{r predictive-ability-extended, cache=TRUE, warning=FALSE, message=FALSE}
 model_names = c('Targets',
@@ -715,8 +723,17 @@ plt_post = ggplot(
   ) + labs (
     y = 'Median scaled error'
   )
+plt_timewise = timewise_base_plt + facet_wrap (
+    vars(sensor_target),
+    ncol=1,
+    scale='free_y',
+  ) + geom_vline(
+    xintercept = lubridate::ymd('2020-10-15'),
+    linetype = 2,
+    color = "gray"
+  )
 
-gridExtra::grid.arrange(plt_pre, plt_post, ncol=2)
+gridExtra::grid.arrange(plt_pre, plt_post, plt_timewise, ncol=3)
 ```
 
 ## Validation
