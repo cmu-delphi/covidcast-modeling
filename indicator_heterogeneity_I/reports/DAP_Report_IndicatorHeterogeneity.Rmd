@@ -1,6 +1,9 @@
 ---
 title: "Indicator Heterogeneity I: Regression Models"
-author: "Addison, advised by Valerie, Larry, and Rob"
+author: 
+  - "Analyst: Addison"
+  - "Advisors: Valerie, Larry, and Rob"
+  - "Stakeholder: Ryan"
 output:
   html_document:
     toc: true
@@ -372,7 +375,8 @@ plt = ggplot(
   )
 
 timewise_plt_vertical = ggplot(
-    timewise_cors_summarized,
+    timewise_cors_summarized %>% filter (
+      sensor_target != 'Hospitalizations // Sensorization target: Cases'),
     aes(x=correlate_date,
         colour=sensorization),
   ) + geom_line (
@@ -554,6 +558,7 @@ table_list = vector('list', length(source_names))
 min_time_value = Inf
 max_time_value = -Inf
 for (ind_idx in 1:length(source_names)) {
+  if (ind_idx == 4) next
   predictive_fname = sprintf(
     '../sensorization_scripts/results/08_predictive_full_models_%s_%s_%s_%s.RDS', geo_level,
                                source_names[ind_idx], signal_names[ind_idx],
@@ -620,7 +625,7 @@ make_scaled_err_plot = function(ggp) {
   ) + facet_wrap (
     vars(`Ind // Target`),
     ncol=1,
-    scales='free',
+    scales='free_y',
 	) + scale_color_manual(
 		values = c("black",
                '#F8766D',
@@ -933,6 +938,7 @@ table_list = vector('list', length(source_names))
 min_time_value = Inf
 max_time_value = -Inf
 for (ind_idx in 1:length(source_names)) {
+  if (ind_idx == 4) next
   predictive_fname = sprintf(
     '../sensorization_scripts/results/05_predictive_full_models_%s_%s_%s_%s.RDS', geo_level,
                                source_names[ind_idx], signal_names[ind_idx],
@@ -1073,6 +1079,7 @@ model_names = c('Targets',
 leads = 1:2 * 7
 plot_df_list = vector('list', length(source_names))
 for (ind_idx in 1:length(source_names)) {
+  if (ind_idx == 4) next
   predictive_fname = sprintf(
     '../sensorization_scripts/results/06_predictive_reduced_models_%s_%s_%s_%s.RDS',
                                geo_level,
