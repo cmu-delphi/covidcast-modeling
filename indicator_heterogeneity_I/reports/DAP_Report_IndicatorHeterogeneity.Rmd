@@ -331,7 +331,7 @@ timewise_cors_summarized$sensor_target = factor(
 timewise_cors_summarized$sensorization = factor(
     timewise_cors_summarized$sensorization,
     levels=c('raw', 'static', 'dynamic'))
-timewise_base_plt = ggplot(
+plt = ggplot(
     timewise_cors_summarized,
     aes(x=correlate_date,
         colour=sensorization),
@@ -356,6 +356,10 @@ timewise_base_plt = ggplot(
     yintercept = 0,
     linetype = 3,
     color = "gray"
+  ) + facet_wrap (
+    vars(sensor_target),
+    ncol=2,
+    scale='free_y',
   ) + theme_bw (
   ) + theme(
     legend.position = "bottom",
@@ -367,10 +371,36 @@ timewise_base_plt = ggplot(
     'Timewise correlations'
   )
 
-plt = timewise_base_plt + facet_wrap (
+timewise_plt_vertical = ggplot(
+    timewise_cors_summarized,
+    aes(x=correlate_date,
+        colour=sensorization),
+  ) + geom_line (
+    aes(y=med),
+    alpha=0.8,
+  ) + geom_hline(
+    yintercept = 0,
+    linetype = 3,
+    color = "gray"
+  ) + geom_vline(
+    xintercept = lubridate::ymd('2020-10-15'),
+    linetype = 2,
+    color = "gray"
+  ) + facet_wrap (
     vars(sensor_target),
-    ncol=2,
+    ncol=1,
     scale='free_y',
+  ) + theme_bw (
+  ) + theme(
+    legend.position = "bottom",
+    legend.title = element_blank()
+  ) + labs (
+    x='Date',
+    y='Rank correlation (time-wise, over trailing 6 weeks)'
+  ) + ggtitle (
+    'Timewise correlations'
+  )
+
 print(plt)
 ```
 
@@ -510,7 +540,8 @@ to make a statement about a relative point in time, specifically, the
 future).  This hypothesis is supported by the fact that the portions of
 time where dynamic sensorization suffers relative to static sensorization
 is precisely the portions of time where the time-wise correlations
-of the dynamic sensorized estimates are degraded.
+of the dynamic sensorized estimates are severely degraded relative to
+the those of the static sensorized estimates.
 
 ```{r predictive-ability-extended, cache=TRUE, warning=FALSE, message=FALSE}
 model_names = c('Targets',
@@ -570,6 +601,14 @@ for (ind_idx in 1:length(source_names)) {
 
 }
 table_df = bind_rows(table_list)
+table_df$Model = stringr::str_replace(table_df$Model,
+                                      'Targets\\+',
+                                      'T+')
+table_df$Model = factor(table_df$Model,
+                        levels=c('Targets',
+                                 'T+Raw',
+                                 'T+Static',
+                                 'T+Dynamic'))
 
 make_scaled_err_plot = function(ggp) {
   ggp + geom_line (
@@ -617,15 +656,7 @@ plt_post = ggplot(
   ) + labs (
     y = 'Median scaled error'
   )
-plt_timewise = timewise_base_plt + facet_wrap (
-    vars(sensor_target),
-    ncol=1,
-    scale='free_y',
-  ) + geom_vline(
-    xintercept = lubridate::ymd('2020-10-15'),
-    linetype = 2,
-    color = "gray"
-  )
+plt_timewise = timewise_plt_vertical
 
 gridExtra::grid.arrange(plt_pre, plt_post, plt_timewise, ncol=3)
 ```
