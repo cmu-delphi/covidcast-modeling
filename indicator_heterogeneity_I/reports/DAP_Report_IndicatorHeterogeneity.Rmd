@@ -57,6 +57,15 @@ that it _may_ be possible that we are overfitting to our targets.
 I would be far more confident geo-wise correlation results if we get some
 measures of spread (e.g., bootstrap confidence intervals).
 
+In this notebook, we perform a comparative analysis of two sensorization
+scheme.  The first is a _static_ sensorization, in which we fit, for each
+location, a single, global regression.  Importantly, the sensorized estimates
+are produced in-sample, so in a sense this is a "cheating".  The second is
+a _dynamic_ sensorization, in which we fit, for each location and for each
+time, a moving window regression that uses data over a window of 10 weeks
+in the past to 1 week in the past.  We also include the _raw_ indicators
+as a baseline.
+
 In the sensorization procedure, we have two types of variables: indicators
 and targets.  Indicators are the variables that we wish to sensorize, and
 targets are the variables that the variables are sensorized "against".
@@ -71,6 +80,26 @@ except for the
 For the county level analysis, we only consider counties with at least 500
 cumulative cases by November 1st, 2020.  For the state level analysis, we
 consider all fifty US States and the District of Columbia.
+
+**Our recommendation.**
+We find that both static and dynamic sensorization the improve spatial
+interpretation
+of the indicators, but dynamic sensorization can hurt temporal interpretation
+(and predictive ability) because the fitting of separate models in a
+moving window fashion can disrupt consistency of magnitude over time.  (Notions
+of "spatial interpretation", "temporal interpretation",
+and "predictive ability" will be formalized in the sequel).  We recommend
+a solution that attempts the "best of both worlds": on each day, we
+re-sensorize the entire past, using data up until the recent past (e.g.,
+1 week in the past) to guard against the instability of recent data due
+to backfill.  More precisely, (for each location) on each day $t$, we would fit
+a linear model by regressing the targets $y_1, y_2, \dotsc, y_{t-k}$ on
+the indicator values $x_1, x_2, \dotsc, x_{t-k}$, and we use this model
+to produce sensorized values
+$\tilde x_1^{(t)}, \tilde x_2^{(t)}, \dotsc, \tilde x_t^{(t)}$.  Therfore,
+at each time $t$, we re-sensorize the entire indicator.  This allows us to
+partake in the spatial interpretation benefits of sensorization without
+suffering from unnecessarily degradation of the timewise interpretation.
 
 ## What do we want from sensorization?
 
@@ -445,165 +474,30 @@ print(plt)
 For each (indicator, target) pair, we perform the static and dynamic
 sensorizations, and then evaluate its ability to "improve upon" the
 predictive ability of the target.  The setup is the same as in Ryan's
-forecasting notebook.  We perform 7 day ahead and 14 day ahead forecasts.
+forecasting notebook.  We perform forecasts for 5 days ahead through
+20 days ahead; each of these models is trained separately.
 The base model only uses the target information (cases or deaths),
 at lags of 0, 7, and 14 days behind.  The other three models
 add the raw indicator, static sensorized indicator, and dynamic sensorized
 indicator to the target (all three at the corresponding lags), i.e.,
-six features in each of the latter three models.
+six features in each of the latter three models.  The prediction targets
+are the same as the sensorized target, for each (indicator, target)
+pair.
 
 The four models (for each (indicator, target) pair) are evaluated in
 terms of scaled error.  This normalizes the error by the error of the
-strawman, which propogates the previous week forward.  Scaled errors
+strawman, which propagates the previous week forward.  Scaled errors
 below 1 are desirable.
 
-**We find, on the whole, that including the sensorized indicator neither helps
-nor hurts in the prediction task.**  This is discouraging for us; we might hope
-that sensorization, when performed properly, would provide "additional
-information" beyond the target.  We display the median scaled errors over time
-(with the ±mad beyond the y-axis range), followed by a table of the median scaled
-errors over all time.  Although there are minute differences between the
-different sensorization techniques, neither static nor dynamic reigns supreme.
+An initial predictive exercise, which examines the 7 day ahead and 14 day
+ahead errors of different models over time, is not very interesting,
+and those results are moved to the Appendix.
 
-As an aside, it is interesting to note that the scaled errors get
-smaller, and the spread of their distributions narrower, in November.
-I suspect this is because we have seen a continual surge in cases
-since October, and the consistent upward trajectory is harder for the
-strawman to capture (but scaled error spikes - presumably related to
-Thanksgiving reporting irregularities).
-
-```{r predictive-ability, cache=TRUE, warning=FALSE, message=FALSE}
-model_names = c('Targets',
-                'Targets+Raw',
-                'Targets+Static',
-                'Targets+Dynamic')
-
-lags = 1:2 * -7 
-leads = 1:2 * 7
-
-plot_df_list = vector('list', length(source_names))
-table_list = vector('list', length(source_names))
-min_time_value = Inf
-max_time_value = -Inf
-for (ind_idx in 1:length(source_names)) {
-  predictive_fname = sprintf(
-    '../sensorization_scripts/results/05_predictive_full_models_%s_%s_%s_%s.RDS', geo_level,
-                               source_names[ind_idx], signal_names[ind_idx],
-                               target_names[ind_idx])
-
-  res = readRDS(predictive_fname)
-
-
-  # Restrict to common period for all 4 models, then calculate the scaled errors 
-  # for each model, that is, the error relative to the strawman's error
-  res_all4 = res %>%
-  #res_all4 = res %>% filter(geo_value %in% geo_values) %>%
-    drop_na() %>%                                       # Restrict to common time
-    mutate(err1 = err1 / err0, err2 = err2 / err0,      # Compute relative error
-           err3 = err3 / err0, err4 = err4 / err0) %>%  # to strawman model
-    mutate(dif12 = err1 - err2, dif13 = err1 - err3,    # Compute differences
-           dif14 = err1 - err4) %>%                     # relative to cases model
-    ungroup() %>%
-    select(-err0) 
-           
-  # Calculate and print median errors, for all 4 models, and just 7 days ahead
-  res_err4 = res_all4 %>% 
-    select(-starts_with("dif")) %>%
-    pivot_longer(names_to = "model", values_to = "err",
-                 cols = -c(geo_value, time_value, lead)) %>%
-    mutate(lead = factor(lead, labels = paste(leads, "days ahead")),
-           model = factor(model, labels = model_names))
-
-  min_time_value = min(res_err4$time_value, min_time_value)
-  max_time_value = max(res_err4$time_value, max_time_value)
-	table_list[[ind_idx]] = res_err4 %>%
-								 select(-starts_with("dif")) %>%
-								 group_by(model, lead) %>%
-								 summarize(err = median(err, na.rm=TRUE),
-                           n = length(unique(time_value))) %>%
-								 arrange(lead) %>% ungroup() %>%
-								 rename("Model" = model, "Median scaled error" = err,
-												"Target" = lead, "Test days" = n) %>%
-                 mutate(`Ind // Target` = sensor_target_names_short[[ind_idx]])
-
-  plot_df = res_err4 %>% group_by(
-      model, lead, time_value
-    ) %>% summarize(
-      med = median(err),
-      mad = mad(err),
-      min = min(err),
-      max = max(err),
-    ) %>% ungroup()
-  plot_df$sensor_target = sensor_target_names_newline[ind_idx]
-  plot_df_list[[ind_idx]] = plot_df
-}
-plot_df = bind_rows(plot_df_list)
-table_df = bind_rows(table_list)
-
-plt = ggplot(
-    plot_df,
-    aes(x=time_value,
-        colour=model)
-  ) + geom_line (
-    aes(y=med,
-        linetype='median'),
-  ) + scale_linetype_manual(
-      values=c("median"="solid")
-	) + scale_color_manual(
-		values = c("black",
-               '#F8766D',
-               '#00BA38',
-               '#619CFF')
-  ) + geom_hline(
-    yintercept = 1,
-    linetype = 2,
-    color = "gray"
-  ) + facet_grid(
-    cols=vars(lead),
-    rows=vars(sensor_target),
-    scales='free',
-  ) + coord_cartesian (
-    #0.5, 2
-    #0.5, 1.5
-    ylim = c(0.60, 1.1)
-  ) + labs(
-    x = "Date",
-    y = "Median scaled error (relative to strawman)"
-  ) + theme_bw (
-  ) + theme(
-    legend.pos = "bottom",
-    legend.title = element_blank()
-  )
-print(plt)
-
-table_df = table_df %>% mutate (ITT = sprintf('%s, %s',
-                                   `Ind // Target`, Target))
-table_df$ridx = 1:nrow(table_df)
-min_idxs = table_df %>% group_by(
-    ITT
-  ) %>% slice(
-    which.min(`Median scaled error`)
-  ) %>% ungroup %>% pull (
-    ridx
-  )
-knitr::kable(table_df %>% select(-c(`Ind // Target`, Target, ITT, ridx)),
-             caption = paste("Test period:", min_time_value, "to",
-                             max_time_value),
-             format = "html", table.attr = "style='width:70%;'") %>%
-      kableExtra::row_spec(min_idxs, bold=T, color='black',
-                           background='lightgreen') %>%
-      kableExtra::pack_rows(index=table(forcats::fct_inorder(
-                                        table_df[['ITT']]))) 
-
-```
-
-<br/> 
-
-The story becomes more information when we
-extend the above analysis to multiple leads, to a range of 5 to 20 days
-ahead.  (We also split the data into two time ranges over which
-we compute the medians, owing to
-[Ryan's observation that different approaches achieve different performance depending on the behavior of cases (e.g., a surge)](https://cmu-delphi.github.io/covidcast/talks/copss-niss/talk.html#(35))).
+Here, we report the median scaled errors as aggregated over time
+(and location), over two time windows; prior to October 15, 2020, and
+October 15, 2020 onward.  The choice of this time partitioning is
+inspired by
+[Ryan's observation that different approaches achieve different performance depending on the behavior of cases (e.g., a surge)](https://cmu-delphi.github.io/covidcast/talks/copss-niss/talk.html#(35)).
 
 We see that when we aggregate prior to October 15th, static sensorization
 consistently does better than dynamic sensorization.  After October 15th,
@@ -957,12 +851,170 @@ gridExtra::grid.arrange(plt_intercept, plt_slope, ncol=2)
 
 Sensorization, both dynamic and static, has been found to improve the geo-wise
 correlations of the sensorized indicator against its intended target.
-Changes in time-wise correlations and ability to forecast future are neutral.
-Validation setups suggest the spatial correction does work, with some small
-areas for concern.  Future directions include uncertainty estimates for the
-geo-wise correlations.
+Dynamic sensorization is more susceptible to degraded time-wise correlations
+and predictive ability; both are due to the fact that dynamic sensorization
+fits separate models over time, potentially disrupting temporal consistency.
+We propose that the implemented sensorization scheme blend static and
+dynamic sensorization.  Specifically, the entire history of an indicator
+(for a fixed location) would be re-sensorized at every time $t$, using data
+from time $1, \dotsc, t-k$.  This would yield the benefits of improved
+spatial interpretation without having to worry about degrading the
+timewise consistency of the data.
 
 # Appendix
+## Predictive exercise, 7 day ahead and 14 day ahead
+
+Here, we discuss the results of the original iteration of the predictive
+exercise, in which we examine the scaled errors of each of the methods over
+time for two leads: 7 day ahead and 14 day ahead.  The results of this
+section and the subsequent section are superceded by the results in the
+main text, which finds that degraded performance in the prediction task
+of the dynamic sensorized indicator appears to correspond with degraded
+timewise correlations of the dynamic sensorized indicator (versus the
+static sensorized indicator).
+
+**We find, on the whole, that including the sensorized indicator neither helps
+nor hurts in the prediction task.**  This is discouraging for us; we might hope
+that sensorization, when performed properly, would provide "additional
+information" beyond the target.  We display the median scaled errors over time
+(with the ±mad beyond the y-axis range), followed by a table of the median scaled
+errors over all time.  Although there are minute differences between the
+different sensorization techniques, neither static nor dynamic reigns supreme.
+
+As an aside, it is interesting to note that the scaled errors get
+smaller, and the spread of their distributions narrower, in November.
+I suspect this is because we have seen a continual surge in cases
+since October, and the consistent upward trajectory is harder for the
+strawman to capture (but scaled error spikes - presumably related to
+Thanksgiving reporting irregularities).
+
+```{r predictive-ability, cache=TRUE, warning=FALSE, message=FALSE}
+model_names = c('Targets',
+                'Targets+Raw',
+                'Targets+Static',
+                'Targets+Dynamic')
+
+lags = 1:2 * -7 
+leads = 1:2 * 7
+
+plot_df_list = vector('list', length(source_names))
+table_list = vector('list', length(source_names))
+min_time_value = Inf
+max_time_value = -Inf
+for (ind_idx in 1:length(source_names)) {
+  predictive_fname = sprintf(
+    '../sensorization_scripts/results/05_predictive_full_models_%s_%s_%s_%s.RDS', geo_level,
+                               source_names[ind_idx], signal_names[ind_idx],
+                               target_names[ind_idx])
+
+  res = readRDS(predictive_fname)
+
+
+  # Restrict to common period for all 4 models, then calculate the scaled errors 
+  # for each model, that is, the error relative to the strawman's error
+  res_all4 = res %>%
+  #res_all4 = res %>% filter(geo_value %in% geo_values) %>%
+    drop_na() %>%                                       # Restrict to common time
+    mutate(err1 = err1 / err0, err2 = err2 / err0,      # Compute relative error
+           err3 = err3 / err0, err4 = err4 / err0) %>%  # to strawman model
+    mutate(dif12 = err1 - err2, dif13 = err1 - err3,    # Compute differences
+           dif14 = err1 - err4) %>%                     # relative to cases model
+    ungroup() %>%
+    select(-err0) 
+           
+  # Calculate and print median errors, for all 4 models, and just 7 days ahead
+  res_err4 = res_all4 %>% 
+    select(-starts_with("dif")) %>%
+    pivot_longer(names_to = "model", values_to = "err",
+                 cols = -c(geo_value, time_value, lead)) %>%
+    mutate(lead = factor(lead, labels = paste(leads, "days ahead")),
+           model = factor(model, labels = model_names))
+
+  min_time_value = min(res_err4$time_value, min_time_value)
+  max_time_value = max(res_err4$time_value, max_time_value)
+	table_list[[ind_idx]] = res_err4 %>%
+								 select(-starts_with("dif")) %>%
+								 group_by(model, lead) %>%
+								 summarize(err = median(err, na.rm=TRUE),
+                           n = length(unique(time_value))) %>%
+								 arrange(lead) %>% ungroup() %>%
+								 rename("Model" = model, "Median scaled error" = err,
+												"Target" = lead, "Test days" = n) %>%
+                 mutate(`Ind // Target` = sensor_target_names_short[[ind_idx]])
+
+  plot_df = res_err4 %>% group_by(
+      model, lead, time_value
+    ) %>% summarize(
+      med = median(err),
+      mad = mad(err),
+      min = min(err),
+      max = max(err),
+    ) %>% ungroup()
+  plot_df$sensor_target = sensor_target_names_newline[ind_idx]
+  plot_df_list[[ind_idx]] = plot_df
+}
+plot_df = bind_rows(plot_df_list)
+table_df = bind_rows(table_list)
+
+plt = ggplot(
+    plot_df,
+    aes(x=time_value,
+        colour=model)
+  ) + geom_line (
+    aes(y=med,
+        linetype='median'),
+  ) + scale_linetype_manual(
+      values=c("median"="solid")
+	) + scale_color_manual(
+		values = c("black",
+               '#F8766D',
+               '#00BA38',
+               '#619CFF')
+  ) + geom_hline(
+    yintercept = 1,
+    linetype = 2,
+    color = "gray"
+  ) + facet_grid(
+    cols=vars(lead),
+    rows=vars(sensor_target),
+    scales='free',
+  ) + coord_cartesian (
+    #0.5, 2
+    #0.5, 1.5
+    ylim = c(0.60, 1.1)
+  ) + labs(
+    x = "Date",
+    y = "Median scaled error (relative to strawman)"
+  ) + theme_bw (
+  ) + theme(
+    legend.pos = "bottom",
+    legend.title = element_blank()
+  )
+print(plt)
+
+table_df = table_df %>% mutate (ITT = sprintf('%s, %s',
+                                   `Ind // Target`, Target))
+table_df$ridx = 1:nrow(table_df)
+min_idxs = table_df %>% group_by(
+    ITT
+  ) %>% slice(
+    which.min(`Median scaled error`)
+  ) %>% ungroup %>% pull (
+    ridx
+  )
+knitr::kable(table_df %>% select(-c(`Ind // Target`, Target, ITT, ridx)),
+             caption = paste("Test period:", min_time_value, "to",
+                             max_time_value),
+             format = "html", table.attr = "style='width:70%;'") %>%
+      kableExtra::row_spec(min_idxs, bold=T, color='black',
+                           background='lightgreen') %>%
+      kableExtra::pack_rows(index=table(forcats::fct_inorder(
+                                        table_df[['ITT']]))) 
+
+```
+
+<br/> 
+
 ## Predictive exercise, with only the sensors
 
 In the context of the predictive exercise, how do the sensorized indicators
