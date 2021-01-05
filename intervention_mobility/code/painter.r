@@ -83,9 +83,14 @@ plotRD <- function(mobility.df,
                    policy.df,
                    policyName,
                    stateName,
+                   countyName,
                    STARTDATE,
                    ENDDATE,
-                   plotMultiple=F){
+                   policy.firstday,
+                   dropDaysAfterIntervention,
+                   showMultiplePolicies,
+                   plotMultiple=F,
+                   count=NULL){
   
   # filter mobility by the specified state
   mobility.df <- mobility.df %>% filter(geo_value == stateName)
@@ -104,50 +109,130 @@ plotRD <- function(mobility.df,
   df <- left_join(mobility.df, policy_signal, by = "time_value")
   
   # drop all the weekends in the data
-  df.noweekend <- df %>% 
+  filtered.df <- df %>% 
     mutate(weekday= weekdays(as.Date(time_value)))%>% 
-    filter(!weekday %in% c("Saturday", "Sunday")) 
+    filter(weekday %in% c("Saturday", "Sunday"))
   
-  # filter the dataframe
-  filtered.df <- df.noweekend[,c("time_value","value", policyName)]
+  # Drop 2-weeks of data to account for the lag 
+  if(dropDaysAfterIntervention){
+    
+    # Define the 2 weeks time interval 
+    drop_period <- seq(as.Date(policy.firstday), 
+        as.Date(policy.firstday)+14, by="days")
+    
+    # Filter the dataframe
+    filtered.df<- filtered.df %>% 
+      filter(!(time_value %in% drop_period))
+  }
   
+  # Compute the difference in means of the matched samples.
+  diff <- as.numeric(as.Date(policy.firstday)-as.Date("2020-01-05"))
+  
+  first_sample_period <- seq(as.Date("2020-01-05"), 
+                             as.Date(policy.firstday), by="days")
+  
+  first_sample <- filtered.df %>%
+    filter(time_value %in% first_sample_period)
+  
+  num_data_points <- nrow(first_sample)
+  
+  idx <- which(filtered.df$time_value > as.Date(policy.firstday))
+  
+  selected_idx <- idx[1:num_data_points]
+
+  second_sample <- filtered.df[selected_idx,]
+  
+  print("The number of data points:")
+  print(num_data_points)
+  print(t.test(first_sample$value, second_sample$value, paired=F))
+  
+  test.result <- t.test(first_sample$value, second_sample$value, paired=F)
+  
+  # Get the mean difference
+  mean.diff <- as.numeric(test.result$estimate[1]-test.result$estimate[2])
+  
+  LCI <- test.result$conf.int[1]
+  UCI <- test.result$conf.int[2]
+    
   if(plotMultiple){
-    # Plot the RD 
-    p <- filtered.df %>% 
-      mutate(intervention= as.factor(eval(parse(text=policyName)))) %>% 
-      ggplot(aes(x = time_value, 
-                 y = value, 
-                 color = intervention)) +
-      geom_point() + 
-      geom_smooth(method = "lm")+
-      labs(title = paste(toupper(stateName)))+ 
-      theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank(),
-        axis.title.y=element_blank(),
-        axis.text.y=element_blank(),
-        axis.ticks.y=element_blank(),
-        legend.position = "none")
+    if(showMultiplePolicies){
+      # Plot the RD 
+      p <- filtered.df %>% 
+        mutate(intervention= as.factor(total.num.policy)) %>%
+        ggplot(aes(x = time_value, 
+                   y = value, 
+                   color = intervention)) +
+        geom_point() + 
+        geom_smooth(method = "lm")+
+        labs(title = as.character(count))+ 
+        theme(axis.title.x=element_blank(),
+              axis.text.x=element_blank(),
+              axis.ticks.x=element_blank(),
+              axis.title.y=element_blank(),
+              axis.text.y=element_blank(),
+              axis.ticks.y=element_blank(),
+              legend.position = "none")
+    }else{
+      # Plot the RD 
+      p <- filtered.df %>% 
+        mutate(intervention= as.factor(eval(parse(text=policyName)))) %>%
+        ggplot(aes(x = time_value, 
+                   y = value, 
+                   color = intervention)) +
+        geom_point() + 
+        geom_smooth(method = "lm")+
+        labs(title = as.character(count))+ 
+        theme(axis.title.x=element_blank(),
+              axis.text.x=element_blank(),
+              axis.ticks.x=element_blank(),
+              axis.title.y=element_blank(),
+              axis.text.y=element_blank(),
+              axis.ticks.y=element_blank(),
+              legend.position = "none")
+    }
     
   }else{
+    if(showMultiplePolicies){
+      # Plot the RD 
+      p <- filtered.df %>% 
+        mutate(intervention= as.factor(total.num.policy)) %>%
+        ggplot(aes(x = time_value, y = value, color = intervention)) +
+        geom_point() + 
+        geom_smooth(method = "lm")+
+        labs(title = paste(" Mobility ~ time (", 
+                           stateName,
+                           "-",
+                           countyName,
+                           ")",
+                           ",", 
+                           policyName,
+                           ";",
+                           as.numeric(ENDDATE-STARTDATE)," day(s)"), 
+             x = "Time", 
+             y =  mobilityName)
+    }else{
+      # Plot the RD 
+      p <- filtered.df %>% 
+        mutate(intervention= as.factor(eval(parse(text=policyName)))) %>%
+        ggplot(aes(x = time_value, y = value, color = intervention)) +
+        geom_point() + 
+        geom_smooth(method = "lm")+
+        labs(title = paste(" Mobility ~ time (", 
+                           stateName,
+                           "-",
+                           countyName,
+                           ")",
+                           ",", 
+                           policyName,
+                           ";",
+                           as.numeric(ENDDATE-STARTDATE)," day(s)"), 
+             x = "Time", 
+             y =  mobilityName)
+    }
 
-    # Plot the RD 
-    p <- filtered.df %>% 
-      mutate(intervention= as.factor(eval(parse(text=policyName)))) %>% 
-      ggplot(aes(x = time_value, y = value, color = intervention)) +
-      geom_point() + 
-      geom_smooth(method = "lm")+
-      labs(title = paste(" Mobility ~ time (", 
-                         stateName,
-                         ")",
-                         ",", 
-                         policyName), 
-           x = "Time", 
-           y =  mobilityName)
-    
   }
 
   
-  return(p)
+  return(list(p=p, mean.difference=mean.diff, LCI=LCI, UCI=UCI))
   
 }

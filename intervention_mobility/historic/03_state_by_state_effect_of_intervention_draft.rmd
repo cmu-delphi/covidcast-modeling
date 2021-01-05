@@ -1,0 +1,1229 @@
+---
+title: "Estimating the causal effect of interventions in a state-level"
+author: "Kenneth Lee"
+date: "10/11/2020"
+output:
+  html_document:
+    code_folding: hide
+    keep_md: yes
+    toc: yes
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
+---
+
+# Introduction
+
+In this notebook, our goal is to estimate the causal effect of different state policies on mobility signal in a state-level. 
+
+We will look at a number of states that have enforced the same type of policies, both mandatory and non-mandatory, and see if the effect of the same intervention may vary from state to state. The mobility signals are from [Delphi Epidata API](https://cmu-delphi.github.io/delphi-epidata/api/covidcast-signals/safegraph.html), which include ``full_time_work_prop``, ``part_time_work_prop``, ``completely_home_prop``, and ``median_home_dwell_time``.
+
+The policy data is from University of Washington's [State-level social distancing policies](https://github.com/COVID19StatePolicy/SocialDistancing) as we will use it in model building. For the definition of the policy, please refer to the [codebooks](https://github.com/COVID19StatePolicy/SocialDistancing/blob/master/codebooks/State%20COVID-19%20policy%20documentation%2C%20Fall%202020.pdf).
+
+Based on exploratory data analysis, there is a significant decrase in mobility signal during weekends, we will drop all the weekends in the data throughout this analysis. 
+
+```{r import packages, warning = FALSE, message = FALSE}
+library(ggplot2)
+library (readr)
+library(tidyverse)
+library(dplyr)
+library(covidcast)
+library(lubridate)
+library(ggpubr)
+library(reshape2)
+library(tidyr)
+library(viridis)
+library(gridExtra)
+library(zoo)
+library(cowplot)
+library(gplots)
+library(car)
+library(nortest)
+library(mgcv)
+#library(MASS)
+
+source("code/painter.r")
+source("code/loader.r")
+source("code/parser.r")
+```
+
+```{r global-variables,  warning = FALSE, message=FALSE}
+STARTDATE <- "2019-01-01"
+ENDDATE <- lubridate::today()
+GEO_TYPE = "county" # county-level
+# Select two counties from blue state, two counties from red state
+# GEO_VALUE = c("06003","06113","06075","06071","49035", "17089") 
+
+# Get all fips code
+library(tidycensus)
+data(fips_codes)
+ca.county.codes <- fips_codes[fips_codes$state=="CA",]$county_code
+GEO_VALUE <- paste("06",ca.county.codes,sep="")
+
+# select some counties, use fips_to_name() to find the name of the county
+
+```
+
+```{r load data,  warning = FALSE, message=FALSE}
+# Full time away home mobility
+ftime <- covidcast_signal(data_source = "safegraph", 
+                            signal ="full_time_work_prop",
+                            start_day = STARTDATE, 
+                            end_day = ENDDATE,
+                            geo_type = GEO_TYPE, 
+                            geo_values = GEO_VALUE)
+
+# Create a new column
+ftime$county <- fips_to_name(ftime$geo_value)
+
+# Turn the geo value into state postal for future data processing with policy
+ftime[which(ftime$geo_value %in% GEO_VALUE), "geo_value"] <- "ca"
+#ftime[which(ftime$geo_value %in% c("49035", "17089")), "geo_value"] <- "ut"
+
+rest <- covidcast_signal(data_source = "safegraph", 
+                            signal ="restaurants_visit_prop",
+                            start_day = STARTDATE, 
+                            end_day = ENDDATE,
+                            geo_type = GEO_TYPE, 
+                            geo_values = GEO_VALUE)
+
+# Create a new column
+rest$county <- fips_to_name(rest$geo_value)
+rest[which(rest$geo_value %in% GEO_VALUE), "geo_value"] <- "ca"
+
+# The fraction of mobile devices that did not leave the immediate area of their home (SafeGraph’s completely_home_device_count / device_count)
+chome <- covidcast_signal(data_source = "safegraph", 
+                            signal ="completely_home_prop",
+                            start_day = STARTDATE, 
+                            end_day = ENDDATE,
+                            geo_type = GEO_TYPE, 
+                            geo_values = GEO_VALUE)
+
+# Create a new column
+chome$county <- fips_to_name(chome$geo_value)
+
+# Turn the geo value into state postal for future data processing with policy
+chome[which(chome$geo_value %in% c("06003","06113","06075","06071")), "geo_value"] <- "ca"
+chome[which(chome$geo_value %in% c("49035", "17089")), "geo_value"] <- "ut"
+
+
+# The median time spent at home for all devices at this location for this time period, in minutes
+mhome<- covidcast_signal(data_source = "safegraph", 
+                            signal ="median_home_dwell_time",
+                            start_day = STARTDATE, 
+                            end_day = ENDDATE,
+                            geo_type = GEO_TYPE, 
+                            geo_values = GEO_VALUE)
+
+# Create a new column
+mhome$county <- fips_to_name(mhome$geo_value)
+
+
+# Turn the geo value into state postal for future data processing with policy
+mhome[which(mhome$geo_value %in% c("06003","06113","06075","06071")), "geo_value"] <- "ca"
+mhome[which(mhome$geo_value %in% c("49035", "17089")), "geo_value"] <- "ut"
+
+# Read the california data
+ca.population <- read.delim("~/Documents/GitHub/covidcast-modeling/intervention_mobility/data/ca_county_population.csv", stringsAsFactors=FALSE)
+
+ca.demographics <- read.csv("~/Documents/GitHub/covidcast-modeling/intervention_mobility/ca.demographic.csv")
+
+# Read government intervention data
+policy <- load_policy()
+```
+
+
+# Analysis
+
+We would like to look at policies that have been implemented by all the states: school closure, restaurant restriction, emergency declaration, and bar restriction. The full list of policies are listed below (please refer to the [codebooks](https://github.com/COVID19StatePolicy/SocialDistancing/blob/master/codebooks/State%20COVID-19%20policy%20documentation%2C%20Fall%202020.pdf) for detailed definitions):
+
+* ``EmergDec``: Emergency declaration; currently includes State of Emergency, Public Health Emergency, Public Health Disaster declarations, Civil Emergency declarations, and other permutations of state‐level declarations of emergency in response to COVID‐19.
+
+* ``SchoolClose``: Formal closing of (at minimum) public K‐12 schools. 
+
+* ``BarRestrict``: Restriction or limitation of bars, breweries,wineries, tasting rooms, and/or other venues where alcoholic beverages are consumed on‐premises and sales of on‐site alcohol consumption is the primary function of the venue (i.e., bars/bar areas contained within restaurants are coded within RestaurantRestrict, as are venues that may be called bars, pubs, etc. but have food licenses)
+
+* ``GathRestrict``: gathering restriction       
+
+* ``OtherBusinessClose``: Mandate to close or substantially reduce operations of any category of business that are not classified under restaurants or bars.
+
+* ``RestaurantRestrict`` : Restriction or limitation of restaurants and other venues where food is consumed on‐premises. Establishments where alcohol is served and may be called a bar or like venue but have a food license are coded within the RestaurantRestrict policy category as they are viewed as operating more like a restaurant than a bar.
+
+* ``CaseIsolation``: Policy that requires individuals with confirmed coronavirus infection (via testing) or suspected infection to self‐isolate for a specified period of time, or when they no longer test positive for infection.  
+
+* ``StayAtHome``: Policy instructing individuals to stay at home for all non‐essential activities. Coding a case as a stay‐at‐home order mandate requires the executive order to using phrasing indicative of a mandate (e.g., "must stay at home"); otherwise it is coded as 0 for the "Mandate" variable if it uses advisory phrasing.        
+
+* ``PublicMask``: Policy that recommends or requires individuals to wear masks or other mouth and nose coverings when they are outside their places of residence in the public.
+
+* ``Quarantine``: Quarantines mandated for people entering the state, requiring a period of self‐isolation. Quarantines may be imposed on all people entering the state, out‐of‐ state residents, or travelers from a particular state or city.
+
+* ``NEBusinessClose``: Mandate to close all non‐essential businesses. Coding a case as a closure order requires the executive order to use phrasing indicative of a mandate (e.g., "non‐essential businesses are required to close", "non‐essential businesses must cease
+operations by date"). 
+
+* ``TravelRestrictIntra``: Restrictions on travel within the state.
+
+* ``TravelRestrictEntry``: Travel restriction mandates that limit non‐residents from entering a given state.
+
+* ``SchoolMask``: Policy that involves requiring students to wear masks or other mouth and nose coverings while at school.   
+
+* ``TravelRestrictExit``: Policies which prohibit residents of a state from leaving the state.
+
+* ``BusinessMask``: Policy that involves requiring employees to wear masks or other mouth and nose coverings as part of business operations. 
+
+Then, we focus on a number of states, in which some of them enforce one of the policies as mandatory, and some of them implement the policy as a recommendation. 
+
+```{r intervention preprocessing}
+# We filter down to only state wide mandate policy 
+policy <- policy %>% 
+  filter(StateWide ==  1 & Mandate == 1)
+# Filter policy
+ca.policy <- policy %>% filter(StatePostal == "ca")
+ut.policy <- policy %>% filter(StatePostal == "ut")
+tx.policy <- policy %>% filter(StatePostal == "tx")
+
+```
+
+## Regression Discontinuity Design
+
+First, we look at the simplest regression discontinuty (RD) design by regressing mobility on time in different states.
+
+```{r ca-policy-start-end-dates , warning=FALSE, message=FALSE}
+policy_with_sum_of_policy <- getSumOfPolicy(ca.policy, STARTDATE, ENDDATE)
+
+# Check which intervention has ended 
+for (p in unique(policy$StatePolicy)){
+  print(p)
+  out<- tryCatch({
+    getFirstDayOfIntervention(policy_with_sum_of_policy, "ca", p)
+    
+  },error=function(cond) {
+            message(paste("Policy does not seem to exist"))
+            # Choose a return value in case of error
+            return(NA)
+      }
+  )
+  print(out)
+  out<- tryCatch({
+    getLastDayOfIntervention(policy_with_sum_of_policy, "ca", p)
+    
+  },error=function(cond) {
+            message(paste("Policy does not seem to exist"))
+            # Choose a return value in case of error
+            return(NA)
+      }
+  )
+  print(out)
+}
+
+```
+
+```{r help-functions, warning=FALSE, message=FALSE}
+getRD <- function(sumofpolicy.df,
+                  state.policy,
+                  stateName,
+                  countyName,
+                  policyName,
+                  dayRange,
+                  mobility.signal,
+                  dropDaysAfterIntervention,
+                  showMultiplePolicies,
+                  plotMultiple,
+                  count){
+  
+  policy.firstday <- getFirstDayOfIntervention(sumofpolicy.df, 
+                                               stateName, 
+                                               policyName)
+  # Get the time interval
+  beginning <- policy.firstday - dayRange
+  end <- policy.firstday + dayRange
+  
+  # get the time period we want to plot the RD
+  period <- seq(as.Date(beginning), 
+                   as.Date(end), by="days")
+
+  # Filter the mobility signal 
+  filtered.mobility.df <- mobility.signal %>% 
+    filter(geo_value == stateName & 
+             time_value %in% period &
+           county == countyName)
+  
+  # The weekends will be dropped inside plotRD()
+  plotRD(filtered.mobility.df,
+       state.policy,
+       policyName, 
+       stateName,
+       countyName,
+       beginning,
+       end,
+       policy.firstday,
+       dropDaysAfterIntervention=dropDaysAfterIntervention,
+       showMultiplePolicies=showMultiplePolicies,
+       plotMultiple=plotMultiple,
+       count=count)
+
+}
+
+
+```
+
+### EmergDec
+
+#### All counties in CA at a glance
+
+```{r plotallcastates, warning=FALSE, message=FALSE}
+policy_with_sum_of_policy <- getSumOfPolicy(ca.policy, STARTDATE, ENDDATE)
+policyName <- "EmergDec"
+stateName <- "ca"
+time.interval <- 150
+mobility <- rest
+
+ca.population <- ca.demographics[order(ca.demographics$population, decreasing =T),]
+
+counties<- ca.population$county
+count <- 1
+plist <- list()
+mlist <- list()
+UCI.list <- list()
+LCI.list <- list()
+for(countyName in counties){
+  out <- getRD(policy_with_sum_of_policy,
+                  ca.policy,
+                  stateName,
+                  countyName,
+                  policyName,
+                  time.interval,
+                  mobility,
+      dropDaysAfterIntervention=T,
+      showMultiplePolicies=F,
+                  plotMultiple=T,
+      count=count
+      )
+    plist[[count]] <- out$p
+    mlist[[count]] <- out$mean.difference
+    LCI.list[[count]] <- out$LCI
+    UCI.list[[count]] <- out$UCI
+    count <- count + 1
+}
+
+n <- length(plist)
+nCol <- floor(sqrt(n))
+do.call("grid.arrange", c(plist, ncol=nCol))
+
+ca.population <- ca.population[1:52,]
+
+ca.population$mean_difference <- unlist(mlist)
+ca.population$lower.bound <- unlist(LCI.list)
+ca.population$upper.bound <- unlist(UCI.list)
+ca.population$log_population <- log(ca.population$population)
+
+x <- ca.population$median_household_income
+
+# Plot a scatter plot - RESCALE BY LOG
+plot(x, ca.population$mean_difference,
+    ylim=range(c(ca.population$lower.bound, ca.population$upper.bound)),
+    pch=19, xlab="median_household_income", ylab="Mean difference with confidence interval",
+    main="Mean difference between 2 samples by income in CA counties"
+)
+# hack: we draw arrows but with very special "arrowheads"
+arrows(x, ca.population$lower.bound, x, ca.population$upper.bound, length=0.05, angle=90, code=3)
+# Add a horizontal line
+abline(h=0, col="red")
+
+# Check the county ranked by difference in mean between 2 samples
+sorted <- ca.population[order(ca.population$mean_difference, decreasing =T),]
+```
+
+
+#### CA - San Bernardino County (most populous in CA)
+
+San Bernardino County is the largest county in the world and one of the nation's most populous.
+
+Area: 20,105 mi-squared
+Population: 2.18 million (2019)
+
+```{r ca-ed-sb-full-time-work-prop, warning=FALSE, message=FALSE}
+policy_with_sum_of_policy <- getSumOfPolicy(ca.policy, STARTDATE, ENDDATE)
+policyName <- "EmergDec"
+countyName <- "Los Angeles County"
+
+stateName <- "ca"
+time.interval <- 150
+mobility <- rest
+
+getRD(policy_with_sum_of_policy,
+                  ca.policy,
+                  stateName,
+                  countyName,
+                  policyName,
+                  time.interval,
+                  mobility,
+      dropDaysAfterIntervention=T,
+      showMultiplePolicies=T,
+                  plotMultiple=F
+      )
+
+
+# Linear regression
+preperiod <- seq(as.Date(start), 
+                   as.Date(cafirstEDday-1), by="days")
+
+postpreiod <- seq(as.Date(cafirstEDday), 
+                   as.Date(end), by="days")
+  
+preftime <- ftime %>% filter(geo_value == "ca" & 
+                               time_value %in% preperiod &
+                                 county == countyName)
+
+postftime <- ftime %>% filter(geo_value == "ca" & 
+                               time_value %in% postpreiod  &
+                                 county == countyName)
+
+
+# left join mobility with policy signal by time 
+preftime.policy.df <- left_join(preftime, policy_with_sum_of_policy, by = "time_value")
+
+postftime.policy.df <- left_join(postftime, policy_with_sum_of_policy, by = "time_value")
+
+# Filter weekend effects
+preftime.policy.df<- preftime.policy.df %>% 
+  mutate(weekday= weekdays(as.Date(time_value)))%>% 
+  filter(!weekday %in% c("Saturday", "Sunday")) 
+  
+postftime.policy.df<- postftime.policy.df %>% 
+  mutate(weekday= weekdays(as.Date(time_value)))%>% 
+  filter(!weekday %in% c("Saturday", "Sunday")) 
+
+# Ensure the post and pre time period have the same number of data points 
+if(nrow(preftime.policy.df) - nrow(postftime.policy.df) < 0){
+  # Drop the last rows 
+  postftime.policy.df <- head(postftime.policy.df, nrow(preftime.policy.df))
+}else if(nrow(preftime.policy.df) - nrow(postftime.policy.df) > 0){
+  preftime.policy.df <- tail(preftime.policy.df, nrow(postftime.policy.df))
+}
+
+# Line 1: Fit a linear regression 
+prelm.fit <- lm(value~time_value*EmergDec,data=preftime.policy.df)
+
+summary(prelm.fit)
+
+# Create a new data set
+newdata <- data.frame(time_value = cafirstEDday, EmergDec=c(1))
+
+# predict on the newdata
+pred.before <- predict(prelm.fit, newdata, se.fit=TRUE)
+
+# 95% confidence interval
+predict(prelm.fit, newdata , interval='confidence', level=0.95)
+
+
+# 95% prediction interval
+predict(prelm.fit, newdata , interval='prediction', level=0.95)
+
+# Computer var(A)
+vec_t <- matrix(1,2,1)
+vec_t[2,1] <- as.numeric(newdata$time_value)
+varA <- t(vec_t)%*%vcov(prelm.fit)[1:2,1:2]%*%vec_t
+
+# Line 2: Fit a linear regression
+postlm.fit <- lm(value~time_value*EmergDec,data=postftime.policy.df)
+
+summary(postlm.fit)
+
+# Computer var(B)
+varB <- t(vec_t)%*%vcov(postlm.fit)[1:2,1:2]%*%vec_t
+
+# 95% confidence interval
+predict(postlm.fit, newdata , interval='confidence', level=0.95)
+
+# 95% prediction interval
+predict(postlm.fit, newdata , interval='prediction', level=0.95)
+
+
+# Predict on the new data
+pred.after <- predict(postlm.fit, newdata, se.fit=TRUE)
+
+
+# Get the difference of the fit
+pointestimate <- pred.before$fit - pred.after$fit
+
+# Get the t-score
+score <- qt(0.975, nrow(postftime.policy.df) - 2)
+se <- sqrt(varA + varB)
+# variance of the difference
+lower <- pointestimate - score*se
+upper <- pointestimate + score*se
+
+list(fit=pointestimate, lower = lower, upper = upper)
+
+```
+
+
+##### Completely Staying home
+
+```{r ca-ed-sb-completely-home, warning=FALSE, message=FALSE}
+policy_with_sum_of_policy <- getSumOfPolicy(ca.policy, STARTDATE, ENDDATE)
+policyName <- "EmergDec"
+countyName <- "San Bernardino County"
+stateName = "ca"
+time.interval <- 150
+mobility <- chome
+state.policy <- ca.policy
+
+getRD(policy_with_sum_of_policy,
+                  ca.policy,
+                  stateName,
+                  countyName,
+                  policyName,
+                  time.interval,
+                  mobility,
+      dropDaysAfterIntervention=T,
+      showMultiplePolicies=T,
+                  plotMultiple=F
+      )
+
+
+
+
+# Linear regression
+preperiod <- seq(as.Date(start), 
+                   as.Date(cafirstEDday-1), by="days")
+
+postpreiod <- seq(as.Date(cafirstEDday), 
+                   as.Date(end), by="days")
+  
+prechome <- chome %>% filter(geo_value == "ca" & 
+                               time_value %in% preperiod &
+                                 county == countyName)
+
+postchome <- chome %>% filter(geo_value == "ca" & 
+                               time_value %in% postpreiod  &
+                                 county == countyName)
+
+
+# left join mobility with policy signal by time 
+prechome.policy.df <- left_join(prechome, policy_with_sum_of_policy, by = "time_value")
+
+postchome.policy.df <- left_join(postchome, policy_with_sum_of_policy, by = "time_value")
+
+# Filter weekend effects
+prechome.policy.df<- prechome.policy.df %>% 
+  mutate(weekday= weekdays(as.Date(time_value)))%>% 
+  filter(!weekday %in% c("Saturday", "Sunday")) 
+  
+postchome.policy.df<- postchome.policy.df %>% 
+  mutate(weekday= weekdays(as.Date(time_value)))%>% 
+  filter(!weekday %in% c("Saturday", "Sunday")) 
+
+# Ensure the post and pre time period have the same number of data points 
+if(nrow(prechome.policy.df) - nrow(postchome.policy.df) < 0){
+  # Drop the last rows 
+  postchome.policy.df <- head(postchome.policy.df, nrow(prechome.policy.df))
+}else if(nrow(prechome.policy.df) - nrow(postchome.policy.df) > 0){
+  prechome.policy.df <- tail(prechome.policy.df, nrow(postchome.policy.df))
+}
+
+# Line 1: Fit a linear regression 
+prelm.fit <- lm(value~time_value*EmergDec,data=prechome.policy.df)
+
+summary(prelm.fit)
+
+# Create a new data set
+newdata <- data.frame(time_value = cafirstEDday, EmergDec=c(1))
+
+# predict on the newdata
+pred.before <- predict(prelm.fit, newdata, se.fit=TRUE)
+
+# 95% confidence interval
+predict(prelm.fit, newdata , interval='confidence', level=0.95)
+
+
+# 95% prediction interval
+predict(prelm.fit, newdata , interval='prediction', level=0.95)
+
+# Computer var(A)
+vec_t <- matrix(1,2,1)
+vec_t[2,1] <- as.numeric(newdata$time_value)
+varA <- t(vec_t)%*%vcov(prelm.fit)[1:2,1:2]%*%vec_t
+
+# Line 2: Fit a linear regression
+postlm.fit <- lm(value~time_value*EmergDec,data=postchome.policy.df)
+
+summary(postlm.fit)
+
+# Computer var(B)
+varB <- t(vec_t)%*%vcov(postlm.fit)[1:2,1:2]%*%vec_t
+
+# 95% confidence interval
+predict(postlm.fit, newdata , interval='confidence', level=0.95)
+
+# 95% prediction interval
+predict(postlm.fit, newdata , interval='prediction', level=0.95)
+
+
+# Predict on the new data
+pred.after <- predict(postlm.fit, newdata, se.fit=TRUE)
+
+
+# Get the difference of the fit
+pointestimate <- pred.before$fit - pred.after$fit
+
+# Get the t-score
+score <- qt(0.975, nrow(postchome.policy.df) - 2)
+se <- sqrt(varA + varB)
+# variance of the difference
+lower <- pointestimate - score*se
+upper <- pointestimate + score*se
+
+list(fit=pointestimate, lower = lower, upper = upper)
+
+
+```
+
+
+
+#### CA - Alpine County (least populous in CA)
+
+```{r ca-ed-apline, warning=FALSE, message=FALSE}
+policy_with_sum_of_policy <- getSumOfPolicy(ca.policy, STARTDATE, ENDDATE)
+policyName <- "EmergDec"
+countyName <- "Alpine County"
+stateName = "ca"
+time.interval <- 150
+mobility <- ftime
+state.policy <- ca.policy
+
+getRD(policy_with_sum_of_policy,
+                  ca.policy,
+                  stateName,
+                  countyName,
+                  policyName,
+                  time.interval,
+                  mobility,
+      dropDaysAfterIntervention=T,
+      showMultiplePolicies=T,
+                  plotMultiple=F
+      )
+
+
+
+# Linear regression
+preperiod <- seq(as.Date(start), 
+                   as.Date(cafirstEDday-1), by="days")
+
+postpreiod <- seq(as.Date(cafirstEDday), 
+                   as.Date(end), by="days")
+  
+preftime <- ftime %>% filter(geo_value == "ca" & 
+                               time_value %in% preperiod &
+                                 county == countyName)
+
+postftime <- ftime %>% filter(geo_value == "ca" & 
+                               time_value %in% postpreiod  &
+                                 county == countyName)
+
+
+# left join mobility with policy signal by time 
+preftime.policy.df <- left_join(preftime, policy_with_sum_of_policy, by = "time_value")
+
+postftime.policy.df <- left_join(postftime, policy_with_sum_of_policy, by = "time_value")
+
+# Filter weekend effects
+preftime.policy.df<- preftime.policy.df %>% 
+  mutate(weekday= weekdays(as.Date(time_value)))%>% 
+  filter(!weekday %in% c("Saturday", "Sunday")) 
+  
+postftime.policy.df<- postftime.policy.df %>% 
+  mutate(weekday= weekdays(as.Date(time_value)))%>% 
+  filter(!weekday %in% c("Saturday", "Sunday")) 
+
+# Ensure the post and pre time period have the same number of data points 
+if(nrow(preftime.policy.df) - nrow(postftime.policy.df) < 0){
+  # Drop the last rows 
+  postftime.policy.df <- head(postftime.policy.df, nrow(preftime.policy.df))
+}else if(nrow(preftime.policy.df) - nrow(postftime.policy.df) > 0){
+  preftime.policy.df <- tail(preftime.policy.df, nrow(postftime.policy.df))
+}
+
+# Line 1: Fit a linear regression 
+prelm.fit <- lm(value~time_value*EmergDec,data=preftime.policy.df)
+
+summary(prelm.fit)
+
+# Create a new data set
+newdata <- data.frame(time_value = cafirstEDday, EmergDec=c(1))
+
+# predict on the newdata
+pred.before <- predict(prelm.fit, newdata, se.fit=TRUE)
+
+# 95% confidence interval
+predict(prelm.fit, newdata , interval='confidence', level=0.95)
+
+
+# 95% prediction interval
+predict(prelm.fit, newdata , interval='prediction', level=0.95)
+
+# Computer var(A)
+vec_t <- matrix(1,2,1)
+vec_t[2,1] <- as.numeric(newdata$time_value)
+varA <- t(vec_t)%*%vcov(prelm.fit)[1:2,1:2]%*%vec_t
+
+# Line 2: Fit a linear regression
+postlm.fit <- lm(value~time_value*EmergDec,data=postftime.policy.df)
+
+summary(postlm.fit)
+
+# Computer var(B)
+varB <- t(vec_t)%*%vcov(postlm.fit)[1:2,1:2]%*%vec_t
+
+# 95% confidence interval
+predict(postlm.fit, newdata , interval='confidence', level=0.95)
+
+# 95% prediction interval
+predict(postlm.fit, newdata , interval='prediction', level=0.95)
+
+
+# Predict on the new data
+pred.after <- predict(postlm.fit, newdata, se.fit=TRUE)
+
+
+# Get the difference of the fit
+pointestimate <- pred.before$fit - pred.after$fit
+
+# Get the t-score
+score <- qt(0.975, nrow(postftime.policy.df) - 2)
+se <- sqrt(varA + varB)
+# variance of the difference
+lower <- pointestimate - score*se
+upper <- pointestimate + score*se
+
+list(fit=pointestimate, lower = lower, upper = upper)
+```
+
+#### CA - San Francisco County (smallest in CA in terms of area)
+
+```{r ca-ed-sf, warning=FALSE, message=FALSE}
+policy_with_sum_of_policy <- getSumOfPolicy(ca.policy, STARTDATE, ENDDATE)
+policyName <- "EmergDec"
+countyName <- "San Francisco County"
+stateName = "ca"
+time.interval <- 150
+mobility <- ftime
+state.policy <- ca.policy
+
+getRD(policy_with_sum_of_policy,
+                  ca.policy,
+                  stateName,
+                  countyName,
+                  policyName,
+                  time.interval,
+                  mobility,
+      dropDaysAfterIntervention=T,
+      showMultiplePolicies=T,
+                  plotMultiple=F
+      )
+
+# Linear regression
+preperiod <- seq(as.Date(start), 
+                   as.Date(cafirstEDday-1), by="days")
+
+postpreiod <- seq(as.Date(cafirstEDday), 
+                   as.Date(end), by="days")
+  
+preftime <- ftime %>% filter(geo_value == "ca" & 
+                               time_value %in% preperiod &
+                                 county == countyName)
+
+postftime <- ftime %>% filter(geo_value == "ca" & 
+                               time_value %in% postpreiod  &
+                                 county == countyName)
+
+
+# left join mobility with policy signal by time 
+preftime.policy.df <- left_join(preftime, policy_with_sum_of_policy, by = "time_value")
+
+postftime.policy.df <- left_join(postftime, policy_with_sum_of_policy, by = "time_value")
+
+# Filter weekend effects
+preftime.policy.df<- preftime.policy.df %>% 
+  mutate(weekday= weekdays(as.Date(time_value)))%>% 
+  filter(!weekday %in% c("Saturday", "Sunday")) 
+  
+postftime.policy.df<- postftime.policy.df %>% 
+  mutate(weekday= weekdays(as.Date(time_value)))%>% 
+  filter(!weekday %in% c("Saturday", "Sunday")) 
+
+# Ensure the post and pre time period have the same number of data points 
+if(nrow(preftime.policy.df) - nrow(postftime.policy.df) < 0){
+  # Drop the last rows 
+  postftime.policy.df <- head(postftime.policy.df, nrow(preftime.policy.df))
+}else if(nrow(preftime.policy.df) - nrow(postftime.policy.df) > 0){
+  preftime.policy.df <- tail(preftime.policy.df, nrow(postftime.policy.df))
+}
+
+# Line 1: Fit a linear regression 
+prelm.fit <- lm(value~time_value*EmergDec,data=preftime.policy.df)
+
+summary(prelm.fit)
+
+# Create a new data set
+newdata <- data.frame(time_value = cafirstEDday, EmergDec=c(1))
+
+# predict on the newdata
+pred.before <- predict(prelm.fit, newdata, se.fit=TRUE)
+
+# 95% confidence interval
+predict(prelm.fit, newdata , interval='confidence', level=0.95)
+# We are 95% confident that the average FT mobility signal is between
+# [0.04515871, 0.05483044]
+
+# 95% prediction interval
+predict(prelm.fit, newdata , interval='prediction', level=0.95)
+# We are 95% confident that the full-time mobility signal
+# will be in [0.0247027, 0.07528644]
+
+# Computer var(A)
+vec_t <- matrix(1,2,1)
+vec_t[2,1] <- as.numeric(newdata$time_value)
+varA <- t(vec_t)%*%vcov(prelm.fit)[1:2,1:2]%*%vec_t
+
+# Line 2: Fit a linear regression
+postlm.fit <- lm(value~time_value*EmergDec,data=postftime.policy.df)
+
+summary(postlm.fit)
+
+# Computer var(B)
+varB <- t(vec_t)%*%vcov(postlm.fit)[1:2,1:2]%*%vec_t
+
+# 95% confidence interval
+predict(postlm.fit, newdata , interval='confidence', level=0.95)
+# We are 95% confident that the average FT mobility signal is between
+# [0.04003865, 0.04596795]
+
+# 95% prediction interval
+predict(postlm.fit, newdata , interval='prediction', level=0.95)
+# We are 95% confident that the full-time mobility signal
+# will be in [0.02719726, 0.05880934]
+
+# Predict on the new data
+pred.after <- predict(postlm.fit, newdata, se.fit=TRUE)
+
+
+# Get the difference of the fit
+pointestimate <- pred.before$fit - pred.after$fit
+
+# Get the t-score
+score <- qt(0.975, nrow(postftime.policy.df) - 2)
+se <- sqrt(varA + varB)
+# variance of the difference
+lower <- pointestimate - score*se
+upper <- pointestimate + score*se
+
+list(fit=pointestimate, lower = lower, upper = upper)
+
+```
+
+
+#### CA - Yolo County County (School Area)
+
+```{r ca-ed-yolo, warning=FALSE, message=FALSE}
+policy_with_sum_of_policy <- getSumOfPolicy(ca.policy, STARTDATE, ENDDATE)
+policyName <- "EmergDec"
+countyName <- "Yolo County"
+stateName = "ca"
+time.interval <- 150
+mobility <- chome
+state.policy <- ca.policy
+
+getRD(policy_with_sum_of_policy,
+                  state.policy,
+                  stateName,
+                  countyName,
+                  policyName,
+                  time.interval,
+                  mobility)
+
+# Linear regression
+preperiod <- seq(as.Date(start), 
+                   as.Date(cafirstEDday-1), by="days")
+
+postpreiod <- seq(as.Date(cafirstEDday), 
+                   as.Date(end), by="days")
+  
+preftime <- ftime %>% filter(geo_value == "ca" & 
+                               time_value %in% preperiod &
+                                 county == countyName)
+
+postftime <- ftime %>% filter(geo_value == "ca" & 
+                               time_value %in% postpreiod  &
+                                 county == countyName)
+
+
+# left join mobility with policy signal by time 
+preftime.policy.df <- left_join(preftime, policy_with_sum_of_policy, by = "time_value")
+
+postftime.policy.df <- left_join(postftime, policy_with_sum_of_policy, by = "time_value")
+
+# Filter weekend effects
+preftime.policy.df<- preftime.policy.df %>% 
+  mutate(weekday= weekdays(as.Date(time_value)))%>% 
+  filter(!weekday %in% c("Saturday", "Sunday")) 
+  
+postftime.policy.df<- postftime.policy.df %>% 
+  mutate(weekday= weekdays(as.Date(time_value)))%>% 
+  filter(!weekday %in% c("Saturday", "Sunday")) 
+
+# Ensure the post and pre time period have the same number of data points 
+if(nrow(preftime.policy.df) - nrow(postftime.policy.df) < 0){
+  # Drop the last rows 
+  postftime.policy.df <- head(postftime.policy.df, nrow(preftime.policy.df))
+}else if(nrow(preftime.policy.df) - nrow(postftime.policy.df) > 0){
+  preftime.policy.df <- tail(preftime.policy.df, nrow(postftime.policy.df))
+}
+
+# Line 1: Fit a linear regression 
+prelm.fit <- lm(value~time_value*EmergDec,data=preftime.policy.df)
+
+summary(prelm.fit)
+
+# Create a new data set
+newdata <- data.frame(time_value = cafirstEDday, EmergDec=c(1))
+
+# predict on the newdata
+pred.before <- predict(prelm.fit, newdata, se.fit=TRUE)
+
+# 95% confidence interval
+predict(prelm.fit, newdata , interval='confidence', level=0.95)
+# We are 95% confident that the average FT mobility signal is between
+# [0.04515871, 0.05483044]
+
+# 95% prediction interval
+predict(prelm.fit, newdata , interval='prediction', level=0.95)
+# We are 95% confident that the full-time mobility signal
+# will be in [0.0247027, 0.07528644]
+
+# Computer var(A)
+vec_t <- matrix(1,2,1)
+vec_t[2,1] <- as.numeric(newdata$time_value)
+varA <- t(vec_t)%*%vcov(prelm.fit)[1:2,1:2]%*%vec_t
+
+# Line 2: Fit a linear regression
+postlm.fit <- lm(value~time_value*EmergDec,data=postftime.policy.df)
+
+summary(postlm.fit)
+
+# Computer var(B)
+varB <- t(vec_t)%*%vcov(postlm.fit)[1:2,1:2]%*%vec_t
+
+# 95% confidence interval
+predict(postlm.fit, newdata , interval='confidence', level=0.95)
+# We are 95% confident that the average FT mobility signal is between
+# [0.04003865, 0.04596795]
+
+# 95% prediction interval
+predict(postlm.fit, newdata , interval='prediction', level=0.95)
+# We are 95% confident that the full-time mobility signal
+# will be in [0.02719726, 0.05880934]
+
+# Predict on the new data
+pred.after <- predict(postlm.fit, newdata, se.fit=TRUE)
+
+
+# Get the difference of the fit
+pointestimate <- pred.before$fit - pred.after$fit
+
+# Get the t-score
+score <- qt(0.975, nrow(postftime.policy.df) - 2)
+se <- sqrt(varA + varB)
+# variance of the difference
+lower <- pointestimate - score*se
+upper <- pointestimate + score*se
+
+list(fit=pointestimate, lower = lower, upper = upper)
+```
+
+
+
+
+
+```{r ut-policy-start-end-dates , warning=FALSE, message=FALSE}
+policy_with_sum_of_policy <- getSumOfPolicy(ut.policy, STARTDATE, ENDDATE)
+
+
+for (p in unique(policy$StatePolicy)){
+  print(p)
+  out<- tryCatch({
+    getFirstDayOfIntervention(policy_with_sum_of_policy, "ut", p)
+    
+  },error=function(cond) {
+            message(paste("Policy does not seem to exist"))
+            # Choose a return value in case of error
+            return(NA)
+      }
+  )
+  print(out)
+  out<- tryCatch({
+    getLastDayOfIntervention(policy_with_sum_of_policy, "ut", p)
+    
+  },error=function(cond) {
+            message(paste("Policy does not seem to exist"))
+            # Choose a return value in case of error
+            return(NA)
+      }
+  )
+  print(out)
+}
+
+```
+
+
+
+
+
+
+
+
+
+#### TX 
+```{r global-variables-tx,  warning = FALSE, message=FALSE}
+STARTDATE <- "2019-01-01"
+ENDDATE <- lubridate::today()
+GEO_TYPE = "county" # county-level
+# Select two counties from blue state, two counties from red state
+# GEO_VALUE = c("06003","06113","06075","06071","49035", "17089") 
+
+# Get all fips code
+tx.county.codes <- fips_codes[fips_codes$state=="TX",]$county_code
+GEO_VALUE <- paste("48", tx.county.codes,sep="")
+
+# select some counties, use fips_to_name() to find the name of the county
+
+```
+
+
+```{r load data,  warning = FALSE, message=FALSE}
+# Full time away home mobility
+tx.ftime <- covidcast_signal(data_source = "safegraph", 
+                            signal ="full_time_work_prop",
+                            start_day = STARTDATE, 
+                            end_day = ENDDATE,
+                            geo_type = GEO_TYPE, 
+                            geo_values = GEO_VALUE)
+
+# Create a new column
+tx.ftime$county <- fips_to_name(tx.ftime$geo_value)
+
+# Turn the geo value into state postal for future data processing with policy
+tx.ftime[which(tx.ftime$geo_value %in% GEO_VALUE), "geo_value"] <- "tx"
+
+
+
+# The fraction of mobile devices that did not leave the immediate area of their home (SafeGraph’s completely_home_device_count / device_count)
+chome <- covidcast_signal(data_source = "safegraph", 
+                            signal ="completely_home_prop",
+                            start_day = STARTDATE, 
+                            end_day = ENDDATE,
+                            geo_type = GEO_TYPE, 
+                            geo_values = GEO_VALUE)
+
+# Create a new column
+chome$county <- fips_to_name(chome$geo_value)
+
+# Turn the geo value into state postal for future data processing with policy
+chome[which(chome$geo_value %in% c("06003","06113","06075","06071")), "geo_value"] <- "ca"
+chome[which(chome$geo_value %in% c("49035", "17089")), "geo_value"] <- "ut"
+
+
+# Read the california data
+tx.population <- read.csv("~/Documents/GitHub/covidcast-modeling/intervention_mobility/data/tx_county_population.csv")
+
+# Read government intervention data
+policy <- load_policy()
+# We filter down to only state wide mandate policy 
+policy <- policy %>% 
+  filter(StateWide ==  1 & Mandate == 1)
+# Filter policy
+tx.policy <- policy %>% filter(StatePostal == "tx")
+```
+
+```{r tx-policy-start-dates}
+# Check which intervention has ended 
+for (p in unique(policy$StatePolicy)){
+  print(p)
+  out<- tryCatch({
+    getFirstDayOfIntervention(policy_with_sum_of_policy, "tx", p)
+    
+  },error=function(cond) {
+            message(paste("Policy does not seem to exist"))
+            # Choose a return value in case of error
+            return(NA)
+      }
+  )
+  print(out)
+  out<- tryCatch({
+    getLastDayOfIntervention(policy_with_sum_of_policy, "tx", p)
+    
+  },error=function(cond) {
+            message(paste("Policy does not seem to exist"))
+            # Choose a return value in case of error
+            return(NA)
+      }
+  )
+  print(out)
+}
+
+```
+
+
+```{r tx-at-a-glance}
+policy_with_sum_of_policy <- getSumOfPolicy(tx.policy, STARTDATE, ENDDATE)
+policyName <- "EmergDec"
+stateName <- "tx"
+time.interval <- 150
+mobility <- tx.ftime
+
+tx.demographics <- read.csv("~/Documents/GitHub/covidcast-modeling/intervention_mobility/tx.demographic.csv")
+tx.demographics$county <- paste(tx.demographics$county, "County", sep=" ")
+
+
+counties<- tx.demographics$county
+count <- 1
+plist <- list()
+mlist <- list()
+UCI.list <- list()
+LCI.list <- list()
+for(countyName in counties){
+  out <- getRD(policy_with_sum_of_policy,
+                  tx.policy,
+                  stateName,
+                  countyName,
+                  policyName,
+                  time.interval,
+                  mobility,
+      dropDaysAfterIntervention=T,
+      showMultiplePolicies=T,
+                  plotMultiple=T,
+      count=count
+      )
+    plist[[count]] <- out$p
+    mlist[[count]] <- out$mean.difference
+    LCI.list[[count]] <- out$LCI
+    UCI.list[[count]] <- out$UCI
+    count <- count + 1
+}
+
+n <- length(plist[1:50])
+nCol <- floor(sqrt(n))
+do.call("grid.arrange", c(plist[1:50], ncol=nCol))
+
+n <- length(plist[51:100])
+nCol <- floor(sqrt(n))
+do.call("grid.arrange", c(plist[51:100], ncol=nCol))
+
+n <- length(plist[101:150])
+nCol <- floor(sqrt(n))
+do.call("grid.arrange", c(plist[101:150], ncol=nCol))
+
+tx.population$mean_difference <- unlist(mlist)
+tx.population$lower.bound <- unlist(LCI.list)
+tx.population$upper.bound <- unlist(UCI.list)
+tx.population$log_population <- log(tx.population$Population)
+
+
+
+
+# Plot a scatter plot
+plot(tx.population$Population, tx.population$mean_difference,
+    ylim=range(c(tx.population$lower.bound, tx.population$upper.bound)),
+    pch=19, xlab="Population", ylab="Mean difference with confidence interval",
+    main="Mean difference between 2 samples by population in TX counties"
+)
+# hack: we draw arrows but with very special "arrowheads"
+arrows(tx.population$Population, tx.population$lower.bound, tx.population$Population, tx.population$upper.bound, length=0.05, angle=90, code=3)
+
+
+
+# Plot a scatter plot - RESCALE BY LOG
+plot(tx.population$log_population, tx.population$mean_difference,
+    ylim=range(c(tx.population$lower.bound, tx.population$upper.bound)),
+    pch=19, xlab="log(population)", ylab="Mean difference with confidence interval",
+    main="Mean difference between 2 samples by population in TX counties"
+)
+# hack: we draw arrows but with very special "arrowheads"
+arrows(tx.population$log_population, tx.population$lower.bound, tx.population$log_population, tx.population$upper.bound, length=0.05, angle=90, code=3)
+# Add a horizontal line
+abline(h=0, col="red")
+
+# Check the county ranked by difference in mean between 2 samples
+sorted <- tx.population[order(tx.population$mean_difference, decreasing =T),]
+
+write_csv(sorted,"sorted_tx.csv")
+```
+
+```{r tx-harris}
+
+countyName <- "Borden County"
+getRD(policy_with_sum_of_policy,
+                  tx.policy,
+                  stateName,
+                  countyName,
+                  policyName,
+                  time.interval,
+                  mobility,
+      dropDaysAfterIntervention=F,
+      showMultiplePolicies=F,
+                  plotMultiple=F,
+      count=count
+      )
+
+```
+
+
+```{r blue_red_comparison}
+# Get all blue states: California, new york,
+# Full time away home mobility
+
+# Get all fips code
+ny.county.codes <- fips_codes[fips_codes$state=="NY",]$county_code
+
+GEO_VALUE <- paste("36", ny.county.codes,sep="")
+
+ny.ftime <- covidcast_signal(data_source = "safegraph", 
+                            signal ="full_time_work_prop",
+                            start_day = STARTDATE, 
+                            end_day = "2020-11-28",
+                            geo_type = GEO_TYPE, 
+                            geo_values = GEO_VALUE)
+
+# Get all red states
+
+```
+
+```{r}
+# Get all fips code
+hi.county.codes <- fips_codes[fips_codes$state=="HI",]$county_code
+
+GEO_VALUE <- paste("35", hi.county.codes,sep="")
+
+hi.ftime <- covidcast_signal(data_source = "safegraph", 
+                            signal ="full_time_work_prop",
+                            start_day = STARTDATE, 
+                            end_day = "2020-11-28",
+                            geo_type = GEO_TYPE, 
+                            geo_values = GEO_VALUE)
+
+
+# Get all fips code
+nd.county.codes <- fips_codes[fips_codes$state=="ND",]$county_code
+
+GEO_VALUE <- paste("38", ne.county.codes,sep="")
+
+nd.ftime <- covidcast_signal(data_source = "safegraph", 
+                            signal ="full_time_work_prop",
+                            start_day = STARTDATE, 
+                            end_day = "2020-11-28",
+                            geo_type = GEO_TYPE, 
+                            geo_values = GEO_VALUE)
+
+write.csv(nd.ftime, "nd.ftime.csv")
+```
+

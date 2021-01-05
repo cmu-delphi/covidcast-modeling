@@ -259,7 +259,7 @@ getFirstDayOfIntervention <- function(intervention,
                                       geo_value, 
                                       policy.name){
   
-  # get intervention data for only ca
+  # get intervention data for the specified state only
   policy.valid.time <- intervention %>% 
     filter(geo_value == geo_value & total.num.policy > 0)
   
@@ -268,12 +268,35 @@ getFirstDayOfIntervention <- function(intervention,
   colIdx <- which(names(policy.valid.time) == policy.name)
   # 2. Get the row index that corresponds to the days that policy is enacted
   rowIdx <- policy.valid.time[,colIdx]==1
+
   # 3. Get the first day 
   intervention.first.day <-policy.valid.time[rowIdx, "time_value"]
   
   firstday <- as.data.frame(intervention.first.day)[1,1]
   
   return(firstday)
+}
+
+################## getLastDayOfIntervention() ###################
+
+getLastDayOfIntervention <- function(intervention, 
+                                      geo_value, 
+                                      policy.name){
+  
+  # get intervention data for the specified state only
+  policy.valid.time <- intervention %>% 
+    filter(geo_value == geo_value & total.num.policy > 0)
+  
+  # Get the first date of the intervention
+  # 1. Get the column index that corresponds to the policy 
+  colIdx <- which(names(policy.valid.time) == policy.name)
+  # 2. Get the row index that corresponds to the days that policy is ended
+  rowIdx <- which(diff(policy.valid.time[,colIdx]) == -1) + 1
+  
+  # 3. Get the first day 
+  lastday <-policy.valid.time[rowIdx, "time_value"]
+  
+  return(lastday)
 }
 
 
@@ -294,3 +317,5 @@ getCovidcastLikePolicySignal <- function(STARTDATE, ENDDATE){
   
   return(policy_signal)
 }
+
+

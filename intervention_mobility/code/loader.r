@@ -159,14 +159,16 @@ load_covidcast_data <- function(STARTDATE, ENDDATE, GEO_TYPE, GEO_VALUE, EXCLUDE
 load_policy <- function(){
   # Read government intervention data
   urlfile="https://raw.githubusercontent.com/COVID19StatePolicy/SocialDistancing/master/data/USstatesCov19distancingpolicy.csv"
-  policy <- read_csv(url(urlfile))
+  policy <- read.csv(url(urlfile))
   
   # Remove data that contains NA for every column
   idx <- apply(policy, 1, function(x) all(is.na(x)))
   # Override the loaded policy data
   policy <- policy[!idx, ]
   
-  
+  # Change to character
+  policy$StateName <- as.character(policy$StateName)
+  policy$StatePolicy <- as.character(policy$StatePolicy)
   # Convert to lower case
   policy$StatePostal <- tolower(policy$StatePostal)
   
