@@ -16,7 +16,6 @@ Mobility is one of the potential factors in contributing to the spread of COVID-
 
 ## Deliverables
 
-
 * Lag analysis for case count signals, doctor visits on mobility across states [See 00_initial_exploration.md](reports/00_initial_exploration.md)
 
 * Mobility signals across states under different interventions [See 00_initial_exploration.md](reports/00_initial_exploration.md)
@@ -32,13 +31,13 @@ Mobility is one of the potential factors in contributing to the spread of COVID-
 
 * `/data/`: this folder stores all data files.
 
-* `/code/`: this folder contains all the codes.
+* `/code/`: this folder contains all the codes to generate the files in `/reports/` and `/html/` folders.
 
 * `/historic/`: this folder contains historic files, codes for implementing different ideas, but not officially used. 
 
 * `/html/`: this folder contains the main reports in HTML produced by R Markdown.
 
-* `/reports/`:this folder contains the main reports in Markdown format.
+* `/reports/`: this folder contains the main reports in Markdown format.
 
 ## Data sources
 
