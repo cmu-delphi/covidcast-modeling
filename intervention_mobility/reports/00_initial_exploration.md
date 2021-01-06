@@ -126,7 +126,8 @@ p <- ggplot(ftime, aes(x=time_value, y=value)) +
 p
 ```
 
-![](00_initial_exploration_files/figure-html/FT away home signal line plot-1.png)<!-- -->
+![](00_initial_exploration_files/figure-html/FT-away-home-signal-line-plot-1.png)
+<!-- -->
 
 
 ```r
