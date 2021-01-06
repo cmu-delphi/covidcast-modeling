@@ -3,25 +3,30 @@
 
 ## Goals and Research Questions
 
-Mobility trends: Historically, did mobility patterns change as a result of government interventions? (Appears on mission statement)
+Mobility is one of the potential factors in contributing to the spread of COVID-19. Our goal is to estimate the effect of state-wide policies on mobility signals at a county-level in this work to answer the following questions: 
+
+  * Do mobility signals decrease more because of the governemnt interventions or public reaction to case counts?
+
+  * Once we can measure the effects of governemnt interventions on mobility, can we rank the effectiveness of the interventions at a county level?
+
+  * Can we characterize different counties based on the known effects of the governemnt interventions on mobility?
+
+  * Do mandatory policies seem to be more effective than recommended policies in reducing mobility?
+
 
 ## Deliverables
 
-* Plot the SafeGraph mobility signals across time in a few locations that have had various restrictions. The COVIDcast map seems to suggest these signals don’t vary much; do we see anything interesting in the plots?
 
-  * Lag analysis for case count signals, doctor visits on mobility across states
+* Lag analysis for case count signals, doctor visits on mobility across states [See 00_initial_exploration.md](reports/00_initial_exploration.md)
 
-  * Mobility signals across states under different interventions
+* Mobility signals across states under different interventions [See 00_initial_exploration.md](reports/00_initial_exploration.md)
 
-* ANOVA and multiple comparisons
+* ANOVA and multiple comparisons [See 01_regression_ANOVA.md](reports/01_regression_ANOVA.md)
 
   * Analyze the difference in mean mobility among interventions
 
-* Potential causal models to compare the causal effects of interventions with other confounding variables on mobility.
+* Regression discontinuity design to measure the effects of interventions on mobility. [See 02_estimating_effect_of_intervention_via_RDD.md](reports/02_estimating_effect_of_intervention_via_RDD.md)
   
-  * Regression discontinuity design [See Reference #1](#reference)
-
-  * Bayesian time-series structural model named [Causallmpact](http://google.github.io/CausalImpact/CausalImpact.html) from Google (synthetic control method) [See Reference #2](#reference)
 
 ## File Directory Description
 
@@ -29,7 +34,7 @@ Mobility trends: Historically, did mobility patterns change as a result of gover
 
 * `/code/`: this folder contains all the codes.
 
-* `/historic/`: this folder contains codes for implementing different ideas to estimate the causal effect of intervention with other confounding signals in the past, but not officially used. 
+* `/historic/`: this folder contains historic files, codes for implementing different ideas, but not officially used. 
 
 * `/html/`: this folder contains the main reports in HTML produced by R Markdown.
 
