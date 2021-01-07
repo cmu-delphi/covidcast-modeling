@@ -1,5 +1,5 @@
 ---
-title: "Estimating the effects of the state-wide policies via regression discontinuty design"
+title: "Estimating the effects of emergency declaration via regression discontinuty design"
 author: "Kenneth Lee"
 date: "16/12/2020"
 output:
@@ -58,6 +58,75 @@ Various governments have released different policies with an aim to control the 
 * Given the measured impact in each county, can we find common characteristics to describe those counties that have a high or low rank?
 
 
+```r
+# Use the following code to output data as a static file
+# for faster retrival 
+# library(tidycensus)
+# data(fips_codes)
+# 
+# STARTDATE <- "2020-02-20"
+# ENDDATE <- lubridate::today()
+# 
+# fips_codes$fips <- paste(fips_codes$state_code, 
+#                          fips_codes$county_code, 
+#                          sep="")
+# 
+# # "NY","WA", "TX", "UT", "ND"
+# GEO_VALUE <- fips_codes[fips_codes$state %in% c("CA"),]$fips
+# 
+# confirmed_7dav_cumulative_prop <- covidcast_signal(data_source =
+#                                                   "indicator-combination",                                            
+#                                           signal="confirmed_7dav_cumulative_prop",
+#                                                   start_day = STARTDATE,
+#                                                   end_day = ENDDATE,
+#                                                   geo_type = GEO_TYPE,
+#                                                   geo_values = GEO_VALUE)
+# 
+# 
+# 
+# confirmed_7dav_incidence_prop <- covidcast_signal(data_source =
+#                                                   "indicator-combination",                                             signal="confirmed_7dav_incidence_prop",
+#                                                   start_day = STARTDATE,
+#                                                   end_day = ENDDATE,
+#                                                   geo_type = GEO_TYPE,
+#                                                   geo_values = GEO_VALUE)
+# 
+# 
+# deaths_7dav_cumulative_prop <- covidcast_signal(data_source =
+#                                                   "indicator-combination",                                             signal="deaths_7dav_cumulative_prop",
+#                                                   start_day = STARTDATE,
+#                                                   end_day = ENDDATE,
+#                                                   geo_type = GEO_TYPE,
+#                                                   geo_values = GEO_VALUE)
+# 
+# 
+# 
+# deaths_7dav_incidence_prop <- covidcast_signal(data_source =
+#                                                   "indicator-combination",                                             signal="deaths_7dav_incidence_prop",
+#                                                   start_day = STARTDATE,
+#                                                   end_day = ENDDATE,
+#                                                   geo_type = GEO_TYPE,
+#                                                   geo_values = GEO_VALUE)
+# 
+# smoothed_adj_cli <- covidcast_signal(data_source = "doctor-visits",
+#                                     signal ="smoothed_adj_cli",
+#                                     start_day = STARTDATE, 
+#                                     end_day = ENDDATE,
+#                                     geo_type = GEO_TYPE, 
+#                                     geo_values = GEO_VALUE)
+# 
+# write.csv(confirmed_7dav_cumulative_prop, "data/case_signals/ca-county-confirmed_7dav_cumulative_prop.csv")
+# 
+# write.csv(confirmed_7dav_incidence_prop, "data/case_signals/ca-county-confirmed_7dav_incidence_prop.csv")
+# 
+# write.csv(deaths_7dav_cumulative_prop , "data/case_signals/ca-county-deaths_7dav_cumulative_prop.csv")
+# 
+# write.csv(deaths_7dav_incidence_prop, "data/case_signals/ca-county-deaths_7dav_incidence_prop.csv")
+# 
+# write.csv(smoothed_adj_cli, "data/case_signals/ca-county-smoothed_adj_cli.csv")
+#  
+```
+
 
 ```r
 # Read in covidcast data
@@ -97,7 +166,7 @@ ca.ftime$geo_value <- as.character(ca.ftime$geo_value)
 ca.ftime$signal <- as.character(ca.ftime$signal)
 
 ny.ftime <- read.csv("data/ny.ftime.csv")
-hi.ftime <- read.csv("data/hi.ftime.csv")
+wa.ftime <- read.csv("data/wa.ftime.csv")
 
 
 # Red states
@@ -107,19 +176,19 @@ tx.ftime <- read.csv("data/tx.ftime.csv")
 
 # Create a new column
 ny.ftime$county <- fips_to_name(ny.ftime$geo_value)
-hi.ftime$county <- fips_to_name(hi.ftime$geo_value)
+wa.ftime$county <- fips_to_name(wa.ftime$geo_value)
 nd.ftime$county <- fips_to_name(nd.ftime$geo_value)
 ut.ftime$county <- fips_to_name(ut.ftime$geo_value)
 
 # Change the geo_value
-hi.ftime$geo_value <- "hi"
+wa.ftime$geo_value <- "wa"
 ny.ftime$geo_value <- "ny"
 nd.ftime$geo_value <- "nd"
 ut.ftime$geo_value <- "ut"
 
 # Change to date type
 ca.ftime$time_value <- as.Date(ca.ftime$time_value)
-hi.ftime$time_value <- as.Date(hi.ftime$time_value)
+wa.ftime$time_value <- as.Date(wa.ftime$time_value)
 ny.ftime$time_value <- as.Date(ny.ftime$time_value)
 ut.ftime$time_value <- as.Date(ut.ftime$time_value)
 nd.ftime$time_value <- as.Date(nd.ftime$time_value)
@@ -152,6 +221,10 @@ county.policy <- read.csv("data/Crowdsourced-COVID-19-Intervention-Data.csv")
 # Read the interpretation of the rural urban code
 ruralurban.code <- read.csv("data/demographics/ruralurbancodes2013.csv")
 ruralurban.code$RUCC_2013 <- as.factor(ruralurban.code$RUCC_2013)
+
+
+all.dates <- seq(as.Date(STARTDATE), as.Date(ENDDATE), by="days")
+time_value <- sort(rep(all.dates, 1)) 
 ```
 
 
@@ -1313,27 +1386,27 @@ cor(ny.population$log_population, ny.population$mean.difference, method = c("spe
 ## [1] 0.6673969
 ```
 
-## Hawaii
+## Washington
 
-We also select the four major counties in Hawaii to evaluate the effect of the emergency declaration. The Spearman correlation between population and the mean differences in Hawaii is very weak. 
+We can also look at the state of Washington to see that the effect of emergency declaration varies across counties in Washington. 
 
 
 ```r
 # Get all the counties
-hi.counties <- population %>%
-  filter(State == "HI" & Area_Name!="Hawaii")%>%
+wa.counties <- population %>%
+  filter(State == "WA" & Area_Name!="Washington")%>%
   select(Area_Name)
-hi.counties <- as.vector(hi.counties$Area_Name)
+wa.counties <- as.vector(wa.counties$Area_Name)
 
 # Counter 
 count <- 1
 plist <- list()
 
 # Exclude the Kalawao County because of the lack of samples
-for(countyName in hi.counties[-c(3)]){
-  out <- pipeline(hi.ftime,
+for(countyName in wa.counties){
+  out <- pipeline(wa.ftime,
          mand.policy,
-         stateName="hi", 
+         stateName="wa", 
          countyName,
          policyName,
          dayRange=time.interval,
@@ -1353,7 +1426,7 @@ nCol <- floor(sqrt(n))
 do.call("grid.arrange", c(plist, ncol=nCol))
 ```
 
-![](02_estimating_effect_of_intervention_via_RDD_files/figure-html/hi-all-in-one-1.png)<!-- -->
+![](02_estimating_effect_of_intervention_via_RDD_files/figure-html/wa-all-in-one-1.png)<!-- -->
 
 
 ```r
@@ -1364,10 +1437,10 @@ mlist <- list()
 UCI.list <- list()
 LCI.list <- list()
 
-for(countyName in hi.counties[-c(3)]){
-  out <- pipeline(hi.ftime,
+for(countyName in wa.counties){
+  out <- pipeline(wa.ftime,
          mand.policy,
-         stateName="hi", 
+         stateName="wa", 
          countyName,
          policyName,
          dayRange=time.interval,
@@ -1386,7 +1459,7 @@ for(countyName in hi.counties[-c(3)]){
 
 # Filter demographic data 
 # Population
-hi.population <- population %>%
+wa.population <- population %>%
   select(State,
          Area_Name,
          Rural.urban_Continuum.Code_2013,
@@ -1394,54 +1467,52 @@ hi.population <- population %>%
          POP_ESTIMATE_2019,
          GQ_ESTIMATES_2019,
          R_INTERNATIONAL_MIG_2019)%>%
-  filter(State == "HI" & Area_Name !="Hawaii")
+  filter(State == "WA" & Area_Name !="Washington")
 
-# Exclude one of the counties
-hi.population <- hi.population[-c(3),]
 
 # Change to factor
-hi.population$Rural.urban_Continuum.Code_2013 <- as.factor(hi.population$Rural.urban_Continuum.Code_2013)
+wa.population$Rural.urban_Continuum.Code_2013 <- as.factor(wa.population$Rural.urban_Continuum.Code_2013)
 
 
 # Add the other computed numbers
-hi.population$mean.difference <- unlist(mlist)
-hi.population$lower.bound <- unlist(LCI.list)
-hi.population$upper.bound <- unlist(UCI.list)
-hi.population$log_population <- log(as.numeric(hi.population$POP_ESTIMATE_2019))
+wa.population$mean.difference <- unlist(mlist)
+wa.population$lower.bound <- unlist(LCI.list)
+wa.population$upper.bound <- unlist(UCI.list)
+wa.population$log_population <- log(as.numeric(wa.population$POP_ESTIMATE_2019))
 
-plotDemographics(hi.population$log_population, 
-                 hi.population$mean.difference, 
-                 hi.population$lower.bound,
-                 hi.population$upper.bound,
+plotDemographics(wa.population$log_population, 
+                 wa.population$mean.difference, 
+                 wa.population$lower.bound,
+                 wa.population$upper.bound,
                  "log(population in 2019)", 
                  "Mean difference with confidence interval",
-                 "Mean difference between 2 samples by income in HI counties",
+                 "Mean difference between 2 samples by income in WA counties",
                  zeroLine = F)
 
 # Draw a regression line to show correlation
-abline(lm(hi.population$mean.difference~ hi.population$log_population),col="blue")
+abline(lm(wa.population$mean.difference~ wa.population$log_population),col="blue")
 ```
 
-![](02_estimating_effect_of_intervention_via_RDD_files/figure-html/hi-compute-mean-difference-1.png)<!-- -->
+![](02_estimating_effect_of_intervention_via_RDD_files/figure-html/wa-compute-mean-difference-1.png)<!-- -->
 
 ```r
 # Compute spearman correlation
-cor(hi.population$mean.difference, hi.population$log_population, method = c("spearman"))
+cor(wa.population$mean.difference, wa.population$log_population, method = c("spearman"))
 ```
 
 ```
-## [1] -0.4
+## [1] 0.757085
 ```
 
 ## A representative of blue states
 
 * According to Wikipedia, red states and blue states have referred to states of the United States whose voters predominantly choose either the Republican Party (red) or Democratic Party (blue) presidential and senatorial candidates.
 
-* If we pick California, Hawaii, and New York to be the representative of the blue states, will we see any thing different? We can see that the higher the population, the higher the effect of the intervention tends to be.
+* If we pick California, Washington, and New York to be the representative of the blue states, will we see any thing different? We can see that the higher the population, the higher the effect of the intervention tends to be.
 
 
 ```r
-blue.population <- rbind(ca.population, ny.population, hi.population)
+blue.population <- rbind(ca.population, ny.population, wa.population)
 
 plotDemographics(blue.population$log_population, 
                  blue.population$mean.difference, 
@@ -1640,16 +1711,20 @@ We can also look at the signal from political stand point in terms of Democratic
 
 ### Mean difference by population
 
-We selected California, Hawaii, and New York as a representative of blue states, Texas, North Dakota, and Utah as a representative of red states. We see that both of the mean differences positively correlate with population.  
+We selected California, Washington, and New York as a representative of blue states, Texas, North Dakota, and Utah as a representative of red states. We see that both of the mean differences positively correlate with population.  
 
 
 ```r
-red.population <- rbind(tx.population, nd.population, ut.population)
+red.population <- rbind(ut.population,
+                        tx.population, 
+                        nd.population)
+
+
 
 red.population$stand <- "red"
 blue.population$stand <- "blue"
 
-all_population <- rbind(blue.population,red.population)
+all_population <- rbind(blue.population, red.population)
 all_population$stand <- as.factor(all_population$stand)
 
 
@@ -1685,7 +1760,7 @@ cor(blue.population$mean.difference, blue.population$log_population, method = "s
 ```
 
 ```
-## [1] "Spearman correlation for the blue state: 0.220796223446105"
+## [1] "Spearman correlation for the blue state: 0.381759016001911"
 ```
 
 ### Mean difference by median household income
@@ -1694,13 +1769,13 @@ cor(blue.population$mean.difference, blue.population$log_population, method = "s
 
 ```r
 # We select the estimate of people of all ages in poverty 2018
-hi.unemployment <- unemployment %>%
+wa.unemployment <- unemployment %>%
   select(Stabr,
          area_name,
          Rural_urban_continuum_code_2013, 
          Median_Household_Income_2018,
          Unemployment_rate_2019)%>%
-  filter(Stabr == "HI" & area_name !="Hawaii")
+  filter(Stabr == "WA" & area_name !="Washington")
 
 ny.unemployment <- unemployment %>%
   select(Stabr,
@@ -1737,7 +1812,7 @@ ut.unemployment <- unemployment %>%
 
 
 # Change the name for join
-colnames(hi.unemployment)[2] <- "Area_Name"
+colnames(wa.unemployment)[2] <- "Area_Name"
 colnames(ny.unemployment)[2] <- "Area_Name"
 colnames(ut.unemployment)[2] <- "Area_Name"
 colnames(nd.unemployment)[2] <- "Area_Name"
@@ -1745,7 +1820,7 @@ colnames(tx.unemployment)[2] <- "Area_Name"
 
 
 # Preprocess the area names
-hi.unemployment$Area_Name <- as.character(hi.unemployment$Area_Name)
+wa.unemployment$Area_Name <- as.character(wa.unemployment$Area_Name)
 ny.unemployment$Area_Name <- as.character(ny.unemployment$Area_Name)
 ut.unemployment$Area_Name <- as.character(ut.unemployment$Area_Name)
 nd.unemployment$Area_Name <- as.character(nd.unemployment$Area_Name)
@@ -1753,7 +1828,7 @@ tx.unemployment$Area_Name <- as.character(tx.unemployment$Area_Name)
 
 
 # Split the county names by odd indicies 
-hi.unemployment$Area_Name<-unlist(strsplit(hi.unemployment$Area_Name,","))[seq(1,7,2)]
+wa.unemployment$Area_Name<-unlist(strsplit(wa.unemployment$Area_Name,","))[seq(1,77,2)]
 
 ny.unemployment$Area_Name <-unlist(strsplit(ny.unemployment$Area_Name,","))[seq(1,123,2)]
 
@@ -1770,7 +1845,7 @@ ny.pop.unemployment <- left_join(ny.population, ny.unemployment, by ="Area_Name"
 
 tx.pop.unemployment <- left_join(tx.population, tx.unemployment, by ="Area_Name")
 
-hi.pop.unemployment <- left_join(hi.population, hi.unemployment, by ="Area_Name")
+wa.pop.unemployment <- left_join(wa.population, wa.unemployment, by ="Area_Name")
 
 nd.pop.unemployment <- left_join(nd.population, nd.unemployment, by ="Area_Name")
 
@@ -1778,13 +1853,12 @@ ut.pop.unemployment <- left_join(ut.population, ut.unemployment, by ="Area_Name"
 
 tx.pop.unemployment <- left_join(tx.population, tx.unemployment, by ="Area_Name")
 
-blue.pop.unemployment <- rbind(hi.pop.unemployment,
-                               ca.pop.unemployment,
-                               ny.pop.unemployment
-                               )
+blue.pop.unemployment <- rbind(ca.pop.unemployment,
+                               ny.pop.unemployment,
+                               wa.pop.unemployment)
 
-red.pop.unemployment <- rbind(tx.pop.unemployment,
-                              ut.pop.unemployment,
+red.pop.unemployment <- rbind(ut.pop.unemployment,
+                              tx.pop.unemployment,
                               nd.pop.unemployment)
 
 blue.pop.unemployment$stand <- "blue"
@@ -1827,13 +1901,13 @@ p + ggtitle("Mean difference in two sample by unemployment rate and political st
 
 ```r
 # Education
-hi.education <- education %>%
+wa.education <- education %>%
   select(State,
          Area.name,
          X2013.Rural.urban.Continuum.Code, 
          Percent.of.adults.with.less.than.a.high.school.diploma..2014.18,
          Percent.of.adults.with.a.bachelor.s.degree.or.higher..2014.18)%>%
-  filter(State == "HI" & Area.name !="Hawaii")
+  filter(State == "WA" & Area.name !="Washington")
 
 ny.education <- education %>%
   select(State,
@@ -1870,7 +1944,7 @@ nd.education <- education %>%
 
 
 colnames(ca.education)[2] <- "Area_Name"
-colnames(hi.education)[2] <- "Area_Name"
+colnames(wa.education)[2] <- "Area_Name"
 colnames(ny.education)[2] <- "Area_Name"
 colnames(ut.education)[2] <- "Area_Name"
 colnames(tx.education)[2] <- "Area_Name"
@@ -1881,7 +1955,7 @@ colnames(nd.education)[2] <- "Area_Name"
 
 ca.pop.education <- left_join(ca.population, ca.education, by ="Area_Name")
 
-hi.pop.education <- left_join(hi.population, hi.education, by ="Area_Name")
+wa.pop.education <- left_join(wa.population, wa.education, by ="Area_Name")
 
 ny.pop.education <- left_join(ny.population, ny.education, by ="Area_Name")
 
@@ -1893,8 +1967,11 @@ tx.pop.education <- left_join(tx.population, tx.education, by ="Area_Name")
 
 
 
-blue.pop.education <- rbind(ca.pop.education, ny.pop.education, hi.pop.education)
-red.pop.education  <- rbind(tx.pop.education, ut.pop.education,nd.pop.education)
+blue.pop.education <- rbind(ca.pop.education, ny.pop.education, wa.pop.education)
+
+red.pop.education  <- rbind(ut.pop.education,
+                            tx.pop.education,
+                            nd.pop.education)
 
 blue.pop.education$stand <- "blue"
 red.pop.education$stand <- "red" 
@@ -1951,13 +2028,13 @@ ny.poverty <- poverty %>%
          PCTPOVALL_2018)%>%
   filter(Stabr == "NY" & Area_name !="New York")
 
-hi.poverty <- poverty %>%
+wa.poverty <- poverty %>%
   select(Stabr,
          Area_name,
          Rural.urban_Continuum_Code_2013, 
          POVALL_2018,
          PCTPOVALL_2018)%>%
-  filter(Stabr == "HI" & Area_name !="Hawaii")
+  filter(Stabr == "WA" & Area_name !="Washington")
 
 ut.poverty <- poverty %>%
   select(Stabr,
@@ -1985,14 +2062,14 @@ nd.poverty <- poverty %>%
 
 
 colnames(ny.poverty)[2] <- "Area_Name"
-colnames(hi.poverty)[2] <- "Area_Name"
+colnames(wa.poverty)[2] <- "Area_Name"
 colnames(ut.poverty)[2] <- "Area_Name"
 colnames(nd.poverty)[2] <- "Area_Name"
 colnames(tx.poverty)[2] <- "Area_Name"
 
 
 colnames(ny.poverty)[5] <- "Estimated.percent.of.people.of.all.ages.in.poverty.2018"
-colnames(hi.poverty)[5] <- "Estimated.percent.of.people.of.all.ages.in.poverty.2018"
+colnames(wa.poverty)[5] <- "Estimated.percent.of.people.of.all.ages.in.poverty.2018"
 colnames(ut.poverty)[5] <- "Estimated.percent.of.people.of.all.ages.in.poverty.2018"
 colnames(nd.poverty)[5] <- "Estimated.percent.of.people.of.all.ages.in.poverty.2018"
 colnames(tx.poverty)[5] <- "Estimated.percent.of.people.of.all.ages.in.poverty.2018"
@@ -2001,7 +2078,7 @@ colnames(tx.poverty)[5] <- "Estimated.percent.of.people.of.all.ages.in.poverty.2
 # Left join the get the description
 ca.pop.poverty <- left_join(ca.population, ca.poverty, by ="Area_Name")
 ny.pop.poverty <- left_join(ny.population, ny.poverty, by ="Area_Name")
-hi.pop.poverty <- left_join(hi.population, hi.poverty, by ="Area_Name")
+wa.pop.poverty <- left_join(wa.population, wa.poverty, by ="Area_Name")
 
 ut.pop.poverty <- left_join(ut.population, ut.poverty, by ="Area_Name")
 nd.pop.poverty <- left_join(nd.population, nd.poverty, by ="Area_Name")
@@ -2009,7 +2086,7 @@ tx.pop.poverty <- left_join(tx.population, tx.poverty, by ="Area_Name")
 
 blue.pop.poverty <- rbind(ca.pop.poverty,
                           ny.pop.poverty,
-                          hi.pop.poverty)
+                          wa.pop.poverty)
 
 red.pop.poverty <- rbind(ut.pop.poverty,
                          tx.pop.poverty,
@@ -2020,6 +2097,8 @@ red.pop.poverty$stand <- "red"
 
 all.pop.poverty <- rbind(blue.pop.poverty,
                          red.pop.poverty)
+
+all.pop.poverty$stand <- as.factor(all.pop.poverty$stand)
 
 # Estimate of people of all ages in poverty 2018
 p <- ggplot_demographics_red_blue(all.pop.poverty,
@@ -2032,6 +2111,37 @@ p + ggtitle("Mean difference in two samples by poverty and political stand")
 ```
 
 ![](02_estimating_effect_of_intervention_via_RDD_files/figure-html/red-blue-state-poverty-1.png)<!-- -->
+
+* For the ease of visual appearance, we can put the scatterplots all in one scatterplot matrix.
+
+
+```r
+all_of_demographics <- cbind(all_population,
+all.pop.education$Percent.of.adults.with.less.than.a.high.school.diploma..2014.18,
+all.pop.education$Percent.of.adults.with.a.bachelor.s.degree.or.higher..2014.18,
+all.pop.poverty$Estimated.percent.of.people.of.all.ages.in.poverty.2018,
+all.pop.unemployment$Unemployment_rate_2019,
+all.pop.unemployment$Median_Household_Income_2018)
+
+# Control color
+group <- NA
+group[all_of_demographics$stand=="red"] <- 1
+group[all_of_demographics$stand=="blue"] <- 2
+
+# Plot the scatterplot matrix
+pairs(all_of_demographics[,c(8,11,13,14,15,16,17)],
+      col=c("red","blue")[group],
+      labels = c("mean.difference", 
+                 "log(population)", 
+                 "Per.Less.High.School",
+                 "Per.Bachelor.or.more",
+                 "Per.poverty",
+                 "Unemployment.rate",
+                 "Median.income")
+      )
+```
+
+![](02_estimating_effect_of_intervention_via_RDD_files/figure-html/scatterplot matrix-1.png)<!-- -->
 
 # Conclusion and future work
 
