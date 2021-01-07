@@ -1,0 +1,501 @@
+---
+title: Leading Indicators DAP
+subtitle: How well do DELPHI public survey community signals act as a leading indicator
+  for COVID-19 Case Counts?
+author: "Vishnu Shankar"
+output:
+  html_document:
+    df_print: paged
+    code_folding: "hide"
+---
+
+
+```{r}
+suppressMessages(library(covidcast))
+suppressMessages(library(dplyr))
+suppressMessages(library(ggplot2))
+case_counts = readRDS(file="../case_counts.RDS")
+cli=readRDS(file="../cli.RDS")
+
+peaks <- function(x, halfWindowSize) {
+  #https://stackoverflow.com/questions/10892803/calculate-peak-values-in-a-plot-using-r
+  windowSize <- halfWindowSize * 2 + 1
+  windows <- embed(x, windowSize)
+  #max.col(windows, "first") finds the maximum position for each row of a matrix, where first indicates how to break ties
+  localMaxima <- max.col(windows, "first") == halfWindowSize + 1
+  return(c(rep(FALSE, halfWindowSize), localMaxima, rep(FALSE, halfWindowSize)))
+}
+rescale_vector = function(x){
+  (x - min(x))/(max(x) - min(x))
+}
+  # Function to transform from one range to another
+trans = function(x, from_range, to_range) {
+  (x - from_range[1]) / (from_range[2] - from_range[1]) *
+    (to_range[2] - to_range[1]) + to_range[1]
+}
+
+#taken from previous DAP (Ryan)
+# Red, cyan (similar to ggplot defaults), then yellow
+
+# Function to produce a plot comparing the signals for one county
+plot_one = function(geo_value, title = NULL, xlab = NULL,
+                    ylab1 = NULL, ylab2 = NULL, legend =  TRUE,
+                    df_in=NULL, df_fb=NULL) {
+  ggplot_colors = c("#00AFBB", "#FC4E07")
+  # Filter down the signal data frames
+  given_geo_value = geo_value
+  df_fb_one = df_fb %>% filter(geo_value == given_geo_value)
+  df_in_one = df_in %>% filter(geo_value == given_geo_value)
+  
+  # Compute ranges of the two signals
+  range1 = df_in_one %>% select("value") %>% range
+  range2 = df_fb_one %>% select("value") %>% range
+  
+  # Convenience functions for our two signal ranges
+  trans12 = function(x) trans(x, range1, range2)
+  trans21 = function(x) trans(x, range2, range1)
+  
+  # Find state name, find abbreviation, then set title
+  state_name = fips_to_name(paste0(substr(geo_value, 1, 2), "000"))
+  state_abbr = name_to_abbr(state_name)
+  title = paste0(fips_to_name(geo_value), ", ", state_abbr)
+  
+  # Transform the combined signal to the incidence range, then stack
+  # these rowwise into one data frame
+  df = select(rbind(df_fb_one %>% mutate_at("value", trans21),
+                    df_in_one), c("time_value", "value"))
+  df$signal = c(rep("% CLI-in-community", nrow(df_fb_one)),
+                rep("New COVID-19 cases", nrow(df_in_one)))
+  #df = df[which(df$time_value >= min_time_value & df$time_value <= max_time_value),]
+  # Finally, plot both signals
+  pos = ifelse(legend, "bottom", "none")
+  return(ggplot(df, aes(x = time_value, y = value)) +
+           geom_line(aes(color = signal), size = 1.5) +
+           scale_color_manual(values = ggplot_colors[1:2]) +
+           scale_y_continuous(name = ylab1, limits = range1,
+                              sec.axis = sec_axis(trans = trans12,
+                                                  name = ylab2)) +
+           labs(title = title, x = xlab) + theme_bw() +
+           theme(legend.pos = pos, legend.title = element_blank(), 
+                 axis.text = element_text(size = 11),
+                 legend.text = element_text(size = 11),
+                 axis.title = element_text(size = 11),
+                 title = element_text(size = 12)))
+}
+sm <- function(y, bandwidth = 2){
+  n = length(y)
+  return(ksmooth(x = 1:(n-1), y = y, bandwidth = bandwidth, x.points = 1:n, kernel="normal")$y)
+}
+
+```
+<font size = "5" color = "red"> Section 1: Devising Approaches for Selecting Increasing Regions </font> \
+
+To select for increasing regions from various signals, we need to devise an approach to determine in what region is the signal changing.
+In this section, we normalize the signals (between 0 and 1), fit a smoothed spline to the signal, estimate the first derivative
+to assess where the signal is increasing and decreasing. On the left in red is case signals and on the right in cyan is the FB signal. \
+- **1st row plots**: Raw signals \
+- **2nd row plots**: Signals scaled between 0 and 1 \
+- **3rd row plots**: Scaled Signals with smoothing spline \
+- **4th row plots**: First derivative to smoothed and scaled signals \
+
+```{r Fig1, echo=F, fig.height=10, fig.width=15}
+suppressMessages(library(magrittr))
+suppressMessages(library(tidyverse))
+suppressMessages(library(data.table))
+suppressMessages(library(pspline))
+suppressMessages(library(lubridate))## Helper smoother function
+
+caselist=split(data.table::as.data.table(case_counts), by = "geo_value")
+fblist=split(data.table::as.data.table(cli), by = "geo_value")
+#santa clara 234, bronx ny 1863, miami dade county 372
+example_ind = 372
+fb_matching_ind = which(names(fblist) %in% names(caselist)[example_ind])
+tt = 1:length(caselist[[example_ind]]$time_value)
+fbtt = 1:length(fblist[[fb_matching_ind]]$time_value)
+#myspline=splinefun(tt, sm(caselist[[2]]$value, 10))
+
+case_signal_normalized = rescale_vector(caselist[[example_ind]]$value)
+fb_signal_normalized = rescale_vector(fblist[[fb_matching_ind]]$value)
+case_first_deriv = splinefun(tt, sm(case_signal_normalized, 10))(tt, 1)
+case_second_deriv = splinefun(tt, sm(case_signal_normalized, 10))(tt, 2)
+fb_first_deriv = splinefun(fbtt, sm(fb_signal_normalized, 10))(fbtt, 1)
+fb_second_deriv = splinefun(fbtt, sm(fb_signal_normalized, 10))(fbtt, 2)
+
+par(mfrow =c(4,2))
+#Raw Signals Plotted
+plot(caselist[[example_ind]]$time_value, caselist[[example_ind]]$value, type = 'b', lwd = 2, xlab = "Date", ylab = "Value",pch = 16, main = paste0(caselist[[example_ind]]$geo_value[1], " Case Counts"), col = 'red')
+plot(fblist[[fb_matching_ind]]$time_value, fblist[[fb_matching_ind]]$value, type = 'b', lwd = 2, xlab = "Date", ylab = "Value",pch = 16, main = paste0(caselist[[example_ind]]$geo_value[1], " FB Community Survey"), col = 'cyan')
+
+#Scaled Signals
+plot(caselist[[example_ind]]$time_value, case_signal_normalized, type = 'b', lwd = 2, xlab = "Date", ylab = "Value",pch = 16, main = paste0(caselist[[example_ind]]$geo_value[1], " Case Counts (Scaled)"), col = 'red')
+plot(fblist[[fb_matching_ind]]$time_value, fb_signal_normalized, type = 'b', lwd = 2, xlab = "Date", ylab = "Value",pch = 16, main = paste0(caselist[[example_ind]]$geo_value[1], " FB Community Survey (Scaled)"), col = 'cyan')
+
+#Smoothed Signals (Scaled)
+plot(caselist[[example_ind]]$time_value, sm(case_signal_normalized,10), type = 'b', lwd = 2, xlab = "Date", ylab = "Value",pch = 16, main = paste0(caselist[[example_ind]]$geo_value[1], " Case Counts (Smoothed & Scaled)"), col = 'red')
+plot(fblist[[fb_matching_ind]]$time_value, sm(fb_signal_normalized,10), type = 'b', lwd = 2, xlab = "Date", ylab = "Value",pch = 16, main = paste0(caselist[[example_ind]]$geo_value[1], " FB Community Survey (Smoothed & Scaled)"), col = 'cyan')
+
+#First Derivative
+plot(caselist[[example_ind]]$time_value, case_first_deriv, type = 'b', lwd = 2, xlab = "Date", ylab = "Value",pch = 16,col = 'red', main = paste0(caselist[[example_ind]]$geo_value[1], " Case Counts (First Derivative & Scaled)"))
+plot(fblist[[fb_matching_ind]]$time_value, fb_first_deriv, type = 'b', lwd = 2, xlab = "Date", ylab = "Value",pch = 16,col = 'cyan', main = paste0(caselist[[example_ind]]$geo_value[1], " FB Community Survey (First Derivative & Scaled)"))
+
+```
+<br /> <font size = "5" color = "red"> Example of Plots Overlayed from Section 1 </font> \ 
+```{r}
+par(mfrow = c(2,1))
+#Overlayed Signals
+plot(caselist[[example_ind]]$time_value, sm(case_signal_normalized,10), type = 'b', lwd = 2, xlab = "Date", ylab = "Value",pch = 16, main = paste0(caselist[[example_ind]]$geo_value[1], " Case Counts & FB Comm. Survey (Smoothed & Scaled)"), col = 'red',
+     ylim=c(0,1))
+lines(fblist[[fb_matching_ind]]$time_value, sm(fb_signal_normalized,10), type = 'b', lwd = 2, xlab = "Date", ylab = "Value",pch = 16, col = 'cyan')
+
+plot(caselist[[example_ind]]$time_value, case_first_deriv, type = 'b', lwd = 2, xlab = "Date", ylab = "Value",pch = 16, main = paste0(caselist[[example_ind]]$geo_value[1], " Case Counts & FB Comm. Survey (First Derivative & Scaled)"), col = 'red',
+     ylim=c(min(case_first_deriv, fb_first_deriv),max(case_first_deriv, fb_first_deriv)))
+lines(fblist[[fb_matching_ind]]$time_value, fb_first_deriv, type = 'b', lwd = 2, xlab = "Date", ylab = "Value",pch = 16, col = 'cyan')
+```
+<br />
+<br />
+<font size = "5" color = "red"> Section 2: Visualizing & Comparing Various Selection Criteria for Identifying Increasing Regions </font> \
+**Selection 1**: First derivative of signal > 0 and above the 75th percentile of first derivatives \
+**Selection 2**: Second derivative < 0\
+**Selection 3**: First Derivative >= 0 and Second Derivative is Less than 0 (Local Max) \
+**Selection 3c**: If the first derivative is below the median first derivative, label the region as flat. \
+**Selection 4** (shown for both cases and FB): If the first derivative > 0, above 75th percentile, surpasses a 20% threshold in 
+signal increase, includes 5 extra days to the right to capture the local max \
+
+In the plots below, the red corresponds to case signal and cyan to the community survey signal. Black indicates regions that 
+are selected by the specific criteria.
+
+<br /> 
+**Based on visualizing these various selection criteria, Selection Criteria 4 was used for subsequent analysis.** \
+\newpage
+```{r, fig.height = 10, fig.width = 10}
+threshold = 0.20
+par(mfrow = c(6,1))
+plot(caselist[[example_ind]]$time_value, sm(case_signal_normalized,10), type = 'b', lwd = 2, xlab = "Date", ylab = "Value",pch = 16, main = paste0(caselist[[example_ind]]$geo_value[1], " Selection Criteria 1: First derivative > 0 and above 75th percentile"), 
+     col = ifelse(case_first_deriv>quantile(case_first_deriv, 0.75) & 
+                   case_first_deriv>0 , 'black', 'red'), ylim=c(0,1))
+
+plot(caselist[[example_ind]]$time_value, sm(case_signal_normalized,10), type = 'b', lwd = 2, xlab = "Date", ylab = "Value",pch = 16, main = paste0(caselist[[example_ind]]$geo_value[1], " Selection Criteria 2: Second Derivative < 0"), col = ifelse(case_second_deriv < 0, 'black', 'red'), ylim=c(0,1))
+
+plot(caselist[[example_ind]]$time_value, sm(case_signal_normalized,10), type = 'b', lwd = 2, xlab = "Date", ylab = "Value",pch = 16, main = paste0(caselist[[example_ind]]$geo_value[1], " Selection Criteria 3: First Derivative >= 0 and Second Derivative Negative (Local Max)"), col = ifelse( 
+                   (case_first_deriv>= 0) & 
+                     case_second_deriv < 0, 'black', 'red'), ylim=c(0,1))
+
+#plot(caselist[[example_ind]]$time_value, sm(case_signal_normalized,10), type = 'b', lwd = 2, xlab = "Date", ylab = "Value",pch = 16, #main = paste0(caselist[[example_ind]]$geo_value[1], " Selection Criteria 3b: Regions where signal is flat"), col = #ifelse(abs(case_first_deriv) <= quantile(abs(case_first_deriv), 0.5), 'black', 'red'), ylim=c(0,1))
+
+
+flat_regions = which(abs(case_first_deriv) <= quantile(abs(case_first_deriv), 0.5))
+s <- split(flat_regions, cumsum(c(TRUE, diff(flat_regions) != 1)))
+s <- unlist(lapply(s, function(x) {
+  if(length(x) > 5)
+    x
+}), use.names = F)
+plot(caselist[[example_ind]]$time_value, sm(case_signal_normalized,10), type = 'b', lwd = 2, xlab = "Date", ylab = "Value",pch = 16, main = paste0(caselist[[example_ind]]$geo_value[1], " Selection Criteria 3c: Regions where signal is flat"), col = ifelse(1:length(caselist[[example_ind]]$time_value) %in% s, 'black', 'red'), ylim=c(0,1))
+
+
+increasing_period= which(case_first_deriv>quantile(case_first_deriv, 0.75) & case_first_deriv>0)
+s <- split(increasing_period, cumsum(c(TRUE, diff(increasing_period) != 1)))
+s <- unlist(lapply(s, function(x){
+ if(sm(case_signal_normalized,10)[max(x)]/sm(case_signal_normalized,10)[min(x)] > (1+threshold))
+ {
+   c(x, (max(x)+1):(max(x)+5))
+ }
+}), use.names = F)
+#s <- unlist(lapply(s, function(x) { c(x, (max(x)+1):(max(x)+5))}), use.names = F)
+plot(caselist[[example_ind]]$time_value, sm(case_signal_normalized,10), type = 'b', lwd = 2, xlab = "Date", ylab = "Value",pch = 16, main = paste0(caselist[[example_ind]]$geo_value[1], " Selection Criteria 4: First Derivative > 0 and above 75th percentile and include extra 5 days to the right (to capture local max) and \n has > 20% increase in cases"), col = ifelse(1:length(caselist[[example_ind]]$time_value) %in% s, 'black', 'red'), ylim=c(0,1))
+
+
+increasing_period= which(fb_first_deriv>quantile(fb_first_deriv, 0.75) & fb_first_deriv>0)
+s <- split(increasing_period, cumsum(c(TRUE, diff(increasing_period) != 1)))
+s <- unlist(lapply(s, function(x){
+ if(sm(fb_signal_normalized,10)[max(x)]/sm(fb_signal_normalized,10)[min(x)] > (1+threshold))
+ {
+   c(x, (max(x)+1):(max(x)+5))
+ }
+}), use.names = F)
+plot(fblist[[fb_matching_ind]]$time_value, sm(fb_signal_normalized,10), type = 'b', lwd = 2, xlab = "Date", ylab = "Value",pch = 16, col = ifelse(1:length(fblist[[fb_matching_ind]]$time_value) %in% s, 'black', 'cyan'),
+    main = paste0(caselist[[example_ind]]$geo_value[1], " Selection Criteria 4 (FB Survey): First Derivative > 0 and above 75th percentile and include extra 5 days to the right (to capture local max) \n and has >20% increase in FB survey"), ylim=c(0,1))
+
+
+
+
+```
+
+\newpage
+<font size = "5" color = "red"> Section 3: Identifying periods of increase for all counties, calculating precision, recall </font> \
+<br />
+<br />
+
+- Recall: Are significant increases in cases usually preceded by significant increases in FB? \
+(num. times where case increase is preceded by FB increase by margin of 2 weeks or less)/(num. significant increase in cases) \
+- Precision: Are significant increases in FB seldom where cases remains flat? (Precision) \
+1-(num FB has increase in this region)/(num cases remain flat) \
+<br />
+The approach used has been summarized below:\
+a) **Remove anomalies**: For each county, we first check if the county has any negative case counts, all 0 case counts, or no matching FB signals. 
+If any of these criteria are true, we skip this particular county. \
+b) **Merge Signals**: Next, we merge the FB community signal and case signal on time/dates. \
+c) **Scale Signals**: Then, scale both signals to be between 0 and 1. \
+d) **Apply Selection Criteria 4**: Next, calculate the first derivative of the case and FB signal and select for regions where these derivatives are > 0 (increasing cases or FB survey). During this selection, we also check if this time period meets the threshold for a 
+_significant_ increase. This is based on selection criteria 4 from the previous analysis.  \
+e) **Save information**: Save this information into a list, so that it can be accessed later for plotting purposes. \
+f) **Identify start of increases**: Then, we identify the start of the increase for the FB signal and the start of the increase for the case signal. \
+g) **Mark wins**: If this start of FB increase is within 14 days of the start of the case increase, we mark this as a win. \
+<br />
+<br />
+
+```{r}
+get_signal_indicator_performance <- function(cases_deaths_signal, indicator_signal)
+{
+  caselist=split(data.table::as.data.table(cases_deaths_signal), by = "geo_value")
+  fblist=split(data.table::as.data.table(indicator_signal), by = "geo_value")
+  #needs to be put in a loop, this is for individual cases
+
+  num_significant_cases_increases = 0
+  num_positive_recall_cases=0
+  num_cases_remain_flat = 0
+  num_fb_increase_flat_case_regions=0
+  threshold = 0.2
+  processed_signals_list=vector("list", length(caselist))
+  precision_performance_list=vector("list", length(caselist))
+  recall_performance_list=vector("list", length(caselist))
+  names(processed_signals_list)<-names(caselist)
+  names(precision_performance_list)<-names(caselist)
+  names(recall_performance_list)<-names(caselist)
+  when_does_leading_occur=vector("list", length(caselist))
+  for(i in 1:length(caselist))
+  {
+    #cat(i,"\n")
+    #if(i %% 100 == 0)
+    #  cat(i, " of ", length(caselist), "\n")
+    case_elem = caselist[[i]]
+    if(!(names(caselist)[i] %in% names(fblist)))
+       next
+    fb_elem = fblist[[which(names(fblist) %in% names(caselist)[i])]]
+    if(nrow(case_elem) < 30 | nrow(fb_elem) < 30)
+      next
+
+    if(any(caselist[[i]]$value < 0) | var(caselist[[i]]$value) == 0)
+      next
+
+    colnames(fb_elem)[7] <- c("FB.Value")
+    merged_df= merge(x = case_elem, y = fb_elem, by = "time_value")
+  
+    merged_df$value = rescale_vector(merged_df$value)
+    merged_df$FB.Value = rescale_vector(merged_df$FB.Value)
+  
+    smoothed_county_cases = sm(merged_df$value, 10)
+    smoothed_fb_survey = sm(merged_df$FB.Value, 10)
+    
+    if(length(which(is.nan(smoothed_county_cases))) > 0 | length(which(is.nan(smoothed_fb_survey))) > 0)
+      next
+    tt = 1:length(merged_df$time_value)
+
+    case_first_deriv = splinefun(tt, smoothed_county_cases)(tt, 1)
+    case_second_deriv = splinefun(tt, smoothed_county_cases)(tt, 2)
+    fb_first_deriv = splinefun(tt, smoothed_fb_survey)(tt, 1)
+    fb_second_deriv = splinefun(tt, smoothed_fb_survey)(tt, 2)
+  
+    regions_case_increases = which(case_first_deriv>quantile(case_first_deriv, 0.75) & case_first_deriv>0)
+    increasing_case_time_period_list <- split(regions_case_increases, cumsum(c(TRUE, diff(regions_case_increases) != 1)))
+  
+    regions_fb_increases = which(fb_first_deriv>quantile(fb_first_deriv, 0.75) & fb_first_deriv>0)
+    increasing_fb_time_period_list <- split(regions_fb_increases, cumsum(c(TRUE, diff(regions_fb_increases) != 1)))
+
+    
+    if(length(regions_case_increases) == 0 | length(regions_fb_increases) == 0)
+      next
+  
+    increasing_case_time_period_list <- lapply(increasing_case_time_period_list, function(x){
+      if(smoothed_county_cases[max(x)]/smoothed_county_cases[min(x)] > (1+threshold) & smoothed_county_cases[min(x)] !=0)
+      {
+        c(x, (max(x)+1):(max(x)+5))
+      }
+    })
+    increasing_case_time_period_list = increasing_case_time_period_list[lengths(increasing_case_time_period_list)!=0]
+    num_significant_cases_increases = num_significant_cases_increases + length(increasing_case_time_period_list)
+  
+    increasing_fb_time_period_list <- lapply(increasing_fb_time_period_list, function(x){
+      if(smoothed_fb_survey[max(x)]/smoothed_fb_survey[min(x)] > (1+threshold) & smoothed_fb_survey[min(x)]!=0)
+      {
+        c(x, (max(x)+1):(max(x)+5))
+      }
+    })
+    increasing_fb_time_period_list = increasing_fb_time_period_list[lengths(increasing_fb_time_period_list)!=0]
+  
+    does_fb_increase_precede_case <- lapply(increasing_case_time_period_list, function(x){ 
+        beginning_case_increase = min(x)
+        beginning_fb_increase = unlist(lapply(increasing_fb_time_period_list, min), use.names = F)
+        1*(any((beginning_case_increase - beginning_fb_increase > 0) & (beginning_case_increase - beginning_fb_increase <= 14))) 
+        #& 
+             #all(beginning_case_increase - beginning_fb_increase != 0))
+    })
+    this_county_when_does_leading<- unlist(lapply(increasing_case_time_period_list, function(x){ 
+        beginning_case_increase = min(x)
+        beginning_fb_increase = unlist(lapply(increasing_fb_time_period_list, min), use.names = F)
+        ind=which((beginning_case_increase - beginning_fb_increase > 0) & (beginning_case_increase - beginning_fb_increase <= 14))
+        if(length(ind) > 0)
+        {
+          diff=beginning_case_increase - beginning_fb_increase
+          diff[ind]
+        } else {
+          -1
+        }
+    }))
+    when_does_leading_occur[[i]]<-as.vector(this_county_when_does_leading[this_county_when_does_leading > 0])
+
+    num_positive_recall_cases = num_positive_recall_cases+sum(unlist(does_fb_increase_precede_case, use.names = F))
+  
+  
+    flat_case_regions = which(abs(case_first_deriv) <= quantile(abs(case_first_deriv), 0.5))
+    flat_case_time_period_list <- split(flat_regions, cumsum(c(TRUE, diff(flat_regions) != 1)))
+    flat_case_time_period_list <- lapply(flat_case_time_period_list, function(x) {
+      if(length(x) > 5)
+      {
+        x 
+      }
+    })
+    flat_case_time_period_list= flat_case_time_period_list[lengths(flat_case_time_period_list)!=0]
+    num_cases_remain_flat = num_cases_remain_flat+length(flat_case_time_period_list)
+
+
+    does_fb_increase_flat_case <- lapply(flat_case_time_period_list, function(x){ 
+          beginning_case_increase = min(x)
+          beginning_fb_increase = unlist(lapply(increasing_fb_time_period_list, min), use.names = F)
+          1*any((beginning_case_increase - beginning_fb_increase > 0) & (beginning_case_increase - beginning_fb_increase <= 14))
+    })
+
+    num_fb_increase_flat_case_regions = num_fb_increase_flat_case_regions+sum(unlist(does_fb_increase_flat_case, use.names = F))
+  
+    recall_performance_list[[i]]<-sum(unlist(does_fb_increase_precede_case, use.names = F))/length(increasing_case_time_period_list)
+    precision_performance_list[[i]]<-1-sum(unlist(does_fb_increase_flat_case, use.names = F))/length(flat_case_time_period_list)
+
+    merged_df$Case_Increasing_Regions = ifelse(1:nrow(merged_df) %in% unlist(increasing_case_time_period_list, use.names = F),1,0)
+    merged_df$FB_Increasing_Regions = ifelse(1:nrow(merged_df) %in% unlist(increasing_fb_time_period_list, use.names = F),1,0)
+    merged_df$Flat_Case_Regions = ifelse(1:nrow(merged_df) %in% unlist(flat_case_time_period_list, use.names = F),1,0)
+    merged_df$Flat_FB_Regions = ifelse(1:nrow(merged_df) %in% unlist(increasing_fb_time_period_list, use.names = F),1,0)
+    processed_signals_list[[i]] <- merged_df
+  }
+  results<-list(processed_signals_list, recall_performance_list, precision_performance_list, 
+                recall=num_positive_recall_cases/num_significant_cases_increases,
+                precision=1-num_fb_increase_flat_case_regions/num_cases_remain_flat,when_does_leading_occur)
+}
+#print(results_list)
+```
+
+<br />
+<font size = "5" color = "red"> Section 4: What is the overall precision and recall? </font> \
+```{r}
+results_list=get_signal_indicator_performance(cases_deaths_signal = case_counts, indicator_signal = cli)
+results_list2=get_signal_indicator_performance(cases_deaths_signal = cli, indicator_signal = case_counts)
+
+library(knitr)
+recall_precision_df=data.frame(Task = c('DELPHI Community Survey Signal for Cases',
+                                         'Cases for DELPHI Community Signals'),
+                              Recall = c(results_list[[4]], results_list2[[4]]),
+                              Precision=c(results_list[[5]], results_list2[[5]]),
+                               stringsAsFactors = F)
+kable(recall_precision_df,caption="Model Performance")
+```
+
+<br />
+<font size = "5" color = "red"> Section 5: What is the F1 score for all counties? </font> \
+We want a single score that can allow us to quickly rank counties based on how leading is the indicator signal of interest. Therefore, we calculate the harmonic mean of precision and recall (F1-score) and rank the counties based on this score, selecting the top 20.
+
+**Our histogram suggests that there are a notable number of counties, where F1 score is 1 or close to 1, meaning there are several examples where the indicator signal (Community survey) is leading for cases.** \
+
+```{r}
+precision_vector=unlist(results_list[[3]], use.names = T)
+recall_vector=unlist(results_list[[2]], use.names = T)
+matching_counties=intersect(names(precision_vector), names(recall_vector))
+performance_df = data.frame(County_Code = matching_counties,
+                            Precision = precision_vector[match(matching_counties, names(precision_vector))],
+                            Recall = recall_vector[match(matching_counties, names(recall_vector))],
+           stringsAsFactors = F)
+performance_df$F1_score = 2*(performance_df$Precision * performance_df$Recall)/(performance_df$Precision + performance_df$Recall)
+performance_df=performance_df[order(performance_df$F1_score, decreasing = T),]
+hist(performance_df$F1_score, xlab = "F1 Score", main = "Frequency Distribution of F1 Scores", col = "orange")
+```
+
+<br />
+<font size = "5" color = "red"> Section 6: When is the FB signal most frequently leading </font> \
+**To understand when the FB signal is most frequently leading, we calculated a frequency distribution. Our analysis finds when the survey signal is leading, it increases most frequently 1-2 days before the start of the case signal increase**
+
+
+```{r}
+barplot(table(unlist(results_list[[6]])), col='cyan',
+        xlab = "Days (Leading)", ylab = "Frequency", main = "Frequency distribution of how \nleading is DELPHI Community Survey")
+
+```
+<br />
+<font size = "5" color = "red"> Section 7: What are some exemplary examples where community survey signals are leading for cases? </font> \
+
+```{r, out.width="50%"}
+plot_list=vector("list", 20)
+for(i in 1:20)
+{
+  county_name = performance_df$County_Code[i]
+  plot_list[[i]]<-plot_one(county_name, xlab = "Date",
+         ylab1 = "Daily new confirmed COVID-19 cases",
+         ylab2 = "% of people who know someone with CLI",
+          df_in = case_counts,
+          df_fb = cli) 
+  print(plot_list[[i]])
+
+}
+```
+<br />
+<br />
+<font size = "5" color = "red"> Section 8: What are some examples where community survey signals are not leading for cases? </font> \
+
+```{r, out.width="50%"}
+bad_performance_df=performance_df[order(performance_df$F1_score, decreasing = F),]
+plot_list2=vector("list", 20)
+for(i in 1:20)
+{
+  county_name = bad_performance_df$County_Code[i]
+  plot_list2[[i]]<-plot_one(county_name, xlab = "Date",
+         ylab1 = "Daily new confirmed COVID-19 cases",
+         ylab2 = "% of people who know someone with CLI",
+          df_in = case_counts,
+          df_fb = cli) 
+  print(plot_list2[[i]])
+
+}
+
+```
+
+<br />
+<br />
+<font size = "5" color = "red"> Section 9: When does the community survey signal succeed? Can we dig further into the underlying explanation? </font> \
+**The counties where the F1 score > 0.5 are clustered together, which states the leading indicator counties are spatially clustered.** \
+
+```{r,fig.height = 25, fig.width = 30}
+suppressMessages(library(maps))
+suppressMessages(library(dplyr))
+
+urban_rural=read.csv(file="census_data_rural.csv",header=T, stringsAsFactors = F)
+urban_rural$FIPS_county_code=as.character(urban_rural$FIPS_county_code)
+data(county.fips)
+county.fips$fips=as.character(county.fips$fips)
+counties <- county.fips %>% left_join(performance_df, by=c('fips'='County_Code'))
+counties$color = ifelse(counties$F1_score > 0.5, "chartreuse", "black")
+
+merged_df=merge(counties, urban_rural, by.x = c("fips"), by.y = "FIPS_county_code")
+merged_df$Rural = ifelse(merged_df$X2010.Census..Percent.Rural > median(merged_df$X2010.Census..Percent.Rural), "Rural", "Urban")
+merged_df=merged_df[-which(is.na(merged_df$F1_score) | is.nan(merged_df$F1_score)),]
+merged_df$Std_err=-1
+
+for(i in 1:nrow(merged_df))
+{
+  merged_df$Std_err[i] = mean(results_list[[1]][match(merged_df$fips[i], names(results_list[[1]]))][[1]]$stderr.y, na.rm=T)
+}
+map("county", fill=TRUE, col=merged_df$color)
+```
+<br />
+<br />
+<font size = "5" color = "red"> Section 10: Conclusions Summarized </font> \
+
+**(1)**: We have developed a methodology based on visual inspection of case signals, the first derivative, and thresholding to select for compelling examples where a signal is a leading indicator for cases. \
+**(2)**: Using our methodology, we calculate that community survey signals have a recall of 0.385, meaning that in ~39% of counties for which data is available, we find that community survey signals act as a leading indicator for cases. As this same signal is a lagging indicator in 34% of cases, it suggests that community survey signals are more frequently leading than lagging. \
+**(3)**: The community survey signals are most frequently leading 1-2 days ahead of case signal increases. \
+**(4)**: The counties where community survey signals are a leading indicator over half the time spatially cluster with each other. This clustering is not related to a rural v. urban distinction (US Census), the sample size, or standard error of case signals. \
