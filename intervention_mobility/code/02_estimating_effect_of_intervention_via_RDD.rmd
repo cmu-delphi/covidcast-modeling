@@ -56,6 +56,74 @@ Various governments have released different policies with an aim to control the 
 
 * Given the measured impact in each county, can we find common characteristics to describe those counties that have a high or low rank?
 
+```{r load-data, warning=FALSE, message=FALSE}
+# Use the following code to output data as a static file
+# for faster retrival 
+# library(tidycensus)
+# data(fips_codes)
+# 
+# STARTDATE <- "2020-02-20"
+# ENDDATE <- lubridate::today()
+# 
+# fips_codes$fips <- paste(fips_codes$state_code, 
+#                          fips_codes$county_code, 
+#                          sep="")
+# 
+# # "NY","WA", "TX", "UT", "ND"
+# GEO_VALUE <- fips_codes[fips_codes$state %in% c("CA"),]$fips
+# 
+# confirmed_7dav_cumulative_prop <- covidcast_signal(data_source =
+#                                                   "indicator-combination",                                            
+#                                           signal="confirmed_7dav_cumulative_prop",
+#                                                   start_day = STARTDATE,
+#                                                   end_day = ENDDATE,
+#                                                   geo_type = GEO_TYPE,
+#                                                   geo_values = GEO_VALUE)
+# 
+# 
+# 
+# confirmed_7dav_incidence_prop <- covidcast_signal(data_source =
+#                                                   "indicator-combination",                                             signal="confirmed_7dav_incidence_prop",
+#                                                   start_day = STARTDATE,
+#                                                   end_day = ENDDATE,
+#                                                   geo_type = GEO_TYPE,
+#                                                   geo_values = GEO_VALUE)
+# 
+# 
+# deaths_7dav_cumulative_prop <- covidcast_signal(data_source =
+#                                                   "indicator-combination",                                             signal="deaths_7dav_cumulative_prop",
+#                                                   start_day = STARTDATE,
+#                                                   end_day = ENDDATE,
+#                                                   geo_type = GEO_TYPE,
+#                                                   geo_values = GEO_VALUE)
+# 
+# 
+# 
+# deaths_7dav_incidence_prop <- covidcast_signal(data_source =
+#                                                   "indicator-combination",                                             signal="deaths_7dav_incidence_prop",
+#                                                   start_day = STARTDATE,
+#                                                   end_day = ENDDATE,
+#                                                   geo_type = GEO_TYPE,
+#                                                   geo_values = GEO_VALUE)
+# 
+# smoothed_adj_cli <- covidcast_signal(data_source = "doctor-visits",
+#                                     signal ="smoothed_adj_cli",
+#                                     start_day = STARTDATE, 
+#                                     end_day = ENDDATE,
+#                                     geo_type = GEO_TYPE, 
+#                                     geo_values = GEO_VALUE)
+# 
+# write.csv(confirmed_7dav_cumulative_prop, "data/case_signals/ca-county-confirmed_7dav_cumulative_prop.csv")
+# 
+# write.csv(confirmed_7dav_incidence_prop, "data/case_signals/ca-county-confirmed_7dav_incidence_prop.csv")
+# 
+# write.csv(deaths_7dav_cumulative_prop , "data/case_signals/ca-county-deaths_7dav_cumulative_prop.csv")
+# 
+# write.csv(deaths_7dav_incidence_prop, "data/case_signals/ca-county-deaths_7dav_incidence_prop.csv")
+# 
+# write.csv(smoothed_adj_cli, "data/case_signals/ca-county-smoothed_adj_cli.csv")
+#   
+```
 
 ```{r preprocessing, warning = FALSE, message = FALSE}
 # Read in covidcast data
@@ -943,6 +1011,7 @@ ggplot_demographics(ca.pop.unemployment,
 
 # Compute the correlation and remove any missing values
 cor(ca.pop.unemployment$mean.difference[!is.na(ca.pop.unemployment$Unemployment_rate_2019)], ca.pop.unemployment$Unemployment_rate_2019[!is.na(ca.pop.unemployment$Unemployment_rate_2019)],method = c("spearman"))
+
 ```
 
 ## New York
@@ -1370,12 +1439,16 @@ We can also look at the signal from political stand point in terms of Democratic
 We selected California, Hawaii, and New York as a representative of blue states, Texas, North Dakota, and Utah as a representative of red states. We see that both of the mean differences positively correlate with population.  
 
 ```{r red-blue-state-population}
-red.population <- rbind(tx.population, nd.population, ut.population)
+red.population <- rbind(ut.population,
+                        tx.population, 
+                        nd.population)
+
+
 
 red.population$stand <- "red"
 blue.population$stand <- "blue"
 
-all_population <- rbind(blue.population,red.population)
+all_population <- rbind(blue.population, red.population)
 all_population$stand <- as.factor(all_population$stand)
 
 
@@ -1485,13 +1558,12 @@ ut.pop.unemployment <- left_join(ut.population, ut.unemployment, by ="Area_Name"
 
 tx.pop.unemployment <- left_join(tx.population, tx.unemployment, by ="Area_Name")
 
-blue.pop.unemployment <- rbind(hi.pop.unemployment,
-                               ca.pop.unemployment,
-                               ny.pop.unemployment
-                               )
+blue.pop.unemployment <- rbind(ca.pop.unemployment,
+                               ny.pop.unemployment,
+                               hi.pop.unemployment)
 
-red.pop.unemployment <- rbind(tx.pop.unemployment,
-                              ut.pop.unemployment,
+red.pop.unemployment <- rbind(ut.pop.unemployment,
+                              tx.pop.unemployment,
                               nd.pop.unemployment)
 
 blue.pop.unemployment$stand <- "blue"
@@ -1596,7 +1668,10 @@ tx.pop.education <- left_join(tx.population, tx.education, by ="Area_Name")
 
 
 blue.pop.education <- rbind(ca.pop.education, ny.pop.education, hi.pop.education)
-red.pop.education  <- rbind(tx.pop.education, ut.pop.education,nd.pop.education)
+
+red.pop.education  <- rbind(ut.pop.education,
+                            tx.pop.education,
+                            nd.pop.education)
 
 blue.pop.education$stand <- "blue"
 red.pop.education$stand <- "red" 
@@ -1709,6 +1784,8 @@ red.pop.poverty$stand <- "red"
 all.pop.poverty <- rbind(blue.pop.poverty,
                          red.pop.poverty)
 
+all.pop.poverty$stand <- as.factor(all.pop.poverty$stand)
+
 # Estimate of people of all ages in poverty 2018
 p <- ggplot_demographics_red_blue(all.pop.poverty,
                 x="Estimated.percent.of.people.of.all.ages.in.poverty.2018",
@@ -1717,6 +1794,35 @@ p <- ggplot_demographics_red_blue(all.pop.poverty,
                     "upper.bound", "stand")
 
 p + ggtitle("Mean difference in two samples by poverty and political stand")
+```
+
+* For the ease of visual appearance, we can put the scatterplots all in one scatterplot matrix.
+
+```{r scatterplot matrix, warning=FALSE, message= FALSE}
+
+all_of_demographics <- cbind(all_population,
+all.pop.education$Percent.of.adults.with.less.than.a.high.school.diploma..2014.18,
+all.pop.education$Percent.of.adults.with.a.bachelor.s.degree.or.higher..2014.18,
+all.pop.poverty$Estimated.percent.of.people.of.all.ages.in.poverty.2018,
+all.pop.unemployment$Unemployment_rate_2019,
+all.pop.unemployment$Median_Household_Income_2018)
+
+# Control color
+group <- NA
+group[all_of_demographics$stand=="red"] <- 1
+group[all_of_demographics$stand=="blue"] <- 2
+
+# Plot the scatterplot matrix
+pairs(all_of_demographics[,c(8,11,13,14,15,16,17)],
+      col=c("red","blue")[group],
+      labels = c("mean.difference", 
+                 "log(population)", 
+                 "Per.Less.High.School",
+                 "Per.Bachelor.or.more",
+                 "Per.poverty",
+                 "Unemployment.rate",
+                 "Median.income")
+      )
 ```
 
 # Conclusion and future work

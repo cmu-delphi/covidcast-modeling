@@ -1,0 +1,38 @@
+---
+title: "03_ranking_effect_of_intervention"
+author: "Kenneth Lee"
+date: "06/01/2021"
+output: html_document
+---
+
+# Abstract
+
+This notebook has two objectives. Firstly, it aims to measure the effect of interventions on mobility with other potential confounding signals such as confirmed case counts. The motivation is to observe whether the effect of intervention is greater than the effect of case signals on mobility. Secondly, we will rank the effects of various government interventions.
+
+Due to the limitation of computation, we focus on analyzing the state of California and its counties. We will regress mobility signals on the covariates of interests and measure the effect of the covariates based on its regression coefficients.
+
+```{r load_data, message=F, warning=F}
+library(dplyr)
+
+# Case count signals
+confirmed_7dav_cumulative_prop <- read.csv("data/case_signals/ca-county-confirmed_7dav_cumulative_prop.csv")
+
+confirmed_7dav_incidence_prop <- read.csv("data/case_signals/ca-county-confirmed_7dav_incidence_prop.csv")
+
+deaths_7dav_cumulative_prop <- read.csv("data/case_signals/ca-county-deaths_7dav_cumulative_prop.csv")
+
+deaths_7dav_incidence_prop <- read.csv("data/case_signals/ca-county-deaths_7dav_incidence_prop.csv")
+
+smoothed_adj_cli <- read.csv("data/case_signals/ca-county-smoothed_adj_cli.csv")
+
+# California mobility signal
+ca.ftime <- read.csv("data/ca.ftime.csv")
+ca.ftime$county <- as.character(ca.ftime$county)
+ca.ftime$geo_value <- as.character(ca.ftime$geo_value)
+ca.ftime$signal <- as.character(ca.ftime$signal)
+
+
+# Policy data
+policy <- load_policy()
+ca.policy <- policy %>% filter(StatePostal == "ca")
+```

@@ -116,7 +116,7 @@ smoothed_adj_cli<- data$smoothed_adj_cli
 
 ## Mobility signal across states over time
 
-We can see that full-time away home signal drops across all the states in April and gradually increase. Part-time away home signal also behave with the same trend. 
+We can see that full-time away home signal drops across all the states in April and gradually increase. Part-time away home signal also behave similarly. 
 
 
 ```r
@@ -126,8 +126,7 @@ p <- ggplot(ftime, aes(x=time_value, y=value)) +
 p
 ```
 
-![](00_initial_exploration_files/figure-html/FT-away-home-signal-line-plot-1.png)
-<!-- -->
+![](00_initial_exploration_files/figure-html/FT-away-home-signal-line-plot-1.png)<!-- -->
 
 
 ```r
@@ -173,10 +172,10 @@ p
 ```
 
 ```
-## Warning: Removed 26 row(s) containing missing values (geom_path).
+## Warning: Removed 24 row(s) containing missing values (geom_path).
 ```
 
-![](00_initial_exploration_files/figure-html/peasrson-correlation-by-time-1.png)<!-- -->
+![](00_initial_exploration_files/figure-html/peasrson correlation by time-1.png)<!-- -->
 
 
 ### Spearman correlation (line chart)
@@ -222,9 +221,9 @@ In terms of slicing by state with pearson correlation, we see that
 
 * Cumulative 7-day average case count, per 100,000 and Cumulative 7-day average case count have almost exact same pattern of correlation with the future mobility, these signals are most correlated with 37-day-forwarded mobility signal.
 
-* The adjusted doctor visit signal is most correlated with 78-day-forwarded mobility signal, whereas the unadjusted doctor visit signal is most correlated with 50-day-forwarded mobility signal
+* The adjusted doctor visit signal is most correlated with 87-day-forwarded mobility signal, whereas the unadjusted doctor visit signal is most correlated with 87-day-forwarded mobility signal
 
-* The 7-day average death case count signal is most correlated with 30-day-forwarded mobility signal and 100-day-forwarded mobility signal.
+* The 7-day average death case count signal is most correlated with 47-day-forwarded mobility signal.
 
 
 ```r
@@ -283,11 +282,11 @@ We can also compute the rank correlation to see there is any difference in terms
 
 We note the following:
 
-* Still, cumulative 7-day average case count, per 100,000 and Cumulative 7-day average case count are most correlated with 37-day-forwarded mobility signal.
+* Still, cumulative 7-day average case count, per 100,000 and Cumulative 7-day average case count are most correlated with 30-day-forwarded mobility signal.
 
-* Now, the adjusted doctor visit signal is most correlated with 50-day-forwarded mobility signal instead of 78-day-forwarded mobility signal.
+* Now, the adjusted doctor visit signal is most correlated with roughly 57-day-forwarded mobility signal.
 
-* Also, the 7-day average death case count is most correlated with 100-day-forwarded mobility signal. 
+* Also, the 7-day average death case count is most correlated with 30-day-forwarded mobility signal. 
 
 
 ```r
@@ -311,7 +310,7 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
 
 In terms of slicing by time with rank correlation, we see that
 
-* The correlation is moving from negative to zero as we increase the number of shifts. 
+* The correlation is moving from negative to zero as we increase the number of shifts except for the 7-avg confirmed case and death case counts. 
 
 
 ```r
@@ -332,16 +331,16 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
 ![](00_initial_exploration_files/figure-html/other-signals-future-mobility-Rank-slicing-by-time-1.png)<!-- -->
 
 
-### Rank correlation on a map (37-day-forwarded mobility signal)
+### Rank correlation on a map (30-day-forwarded mobility signal)
 
 As we learn from the rank correlation slicing by state, we may be curious to know if there are any states that are less correlated with the future mobility even when we set the number of shifts to the number that produce the highest rank correlation.
 
-From the plot below, we pick on cumulative 7-day averaged confirmed case count per 100,000, we can see that the signal is highly correlated with the 37-day-forwarded mobility signal across states consistently.
+From the plot below, we pick on cumulative 7-day averaged confirmed case count per 100,000, we can see that the correlation varies across states, suggesting that we should look at the data at a county-level and pick the time interval that is most correlated with mobility when we want to evaluate the effect of the case signals on mobility . 
 
 
 ```r
 # Set a bunch of fields so that the data frame knows how to plot itself
-cor3_by_geo <- covidcast_cor(cum_case_prop, ftime,  by = "geo_value", dt_x = 37,method = "spearman")
+cor3_by_geo <- covidcast_cor(cum_case_prop, ftime,  by = "geo_value", dt_x = 30,method = "spearman")
 
 cor3_by_geo$time_value = STARTDATE
 cor3_by_geo$issue = STARTDATE
@@ -349,7 +348,7 @@ attributes(cor3_by_geo)$geo_type = "state"
 class(cor3_by_geo) = c("covidcast_signal", "data.frame")
 
 # Plot choropleth maps, using the covidcast plotting functionality
-plot(cor3_by_geo, title = "Correlations between 37-day shifted cases and mobility signal",
+plot(cor3_by_geo, title = "Correlations between 30-day shifted cases and mobility signal",
      range = c(-1, 1), choro_col = c("orange","lightblue", "purple"))
 ```
 
@@ -385,7 +384,7 @@ plot.all.Corr.Median.by.shift(covidcastlike.signals,
                               by_method)
 ```
 
-![](00_initial_exploration_files/figure-html/other-signals-correlate-with-future-restaurant-visit-Pearson-slicing-by-state-1.png)<!-- -->
+![](00_initial_exploration_files/figure-html/other-signals-correlate-with-future-restaurant-visit-Pearson-slicing by-state-1.png)<!-- -->
 
 #### Pearson correlation (slicing by time)
 

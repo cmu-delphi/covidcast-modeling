@@ -382,6 +382,7 @@ factored_data$weekday <- weekdays(as.Date(factored_data$time_value))
 
 p <- ggplot(factored_data, aes(x=weekday, y=full_time_work_prop)) + 
   geom_boxplot()
+
 p
 
 # Drop the weekend
