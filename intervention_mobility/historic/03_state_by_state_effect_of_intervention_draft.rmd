@@ -65,6 +65,10 @@ GEO_VALUE <- paste("06",ca.county.codes,sep="")
 ```
 
 ```{r load data,  warning = FALSE, message=FALSE}
+ca.county.codes <- fips_codes[fips_codes$state=="CA",]$county_code
+GEO_VALUE <- paste("06",ca.county.codes,sep="")
+
+
 # Full time away home mobility
 ftime <- covidcast_signal(data_source = "safegraph", 
                             signal ="full_time_work_prop",

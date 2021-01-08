@@ -24,6 +24,7 @@ shiftDays <- function(filtered.df, original.df, shifted.days, columns.vec){
     }
   }else{
     if(length(columns.vec)==1){
+      
       # Get the data starting from the speificed date for CASE COUNT
       confounders.shifted.by.day <- filtered.df[1: (nrow(filtered.df)-shifted.days), columns.vec]
       # Get the number of rows 

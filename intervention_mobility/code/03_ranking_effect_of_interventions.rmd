@@ -1,8 +1,15 @@
 ---
-title: "03_ranking_effect_of_intervention"
+title: "Ranking the effect of intervention at countylevel"
 author: "Kenneth Lee"
 date: "06/01/2021"
-output: html_document
+output:
+  html_document:
+    code_folding: hide
+    keep_md: yes
+    toc: yes
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
 ---
 
 # Abstract
@@ -13,26 +20,301 @@ Due to the limitation of computation, we focus on analyzing the state of Califor
 
 ```{r load_data, message=F, warning=F}
 library(dplyr)
+library(lubridate)
+library(covidcast)
+library(RcppRoll)
+library(tidycensus)
+library(reshape2)
+library(zoo)
+library(readxl)
 
-# Case count signals
-confirmed_7dav_cumulative_prop <- read.csv("data/case_signals/ca-county-confirmed_7dav_cumulative_prop.csv")
+source("code/loader.r")
+source("code/parser.r")
 
-confirmed_7dav_incidence_prop <- read.csv("data/case_signals/ca-county-confirmed_7dav_incidence_prop.csv")
+# Load files 
+confirmed_7dav_cumulative_prop <- read_excel("data/case_signals/ca-county-confirmed_7dav_cumulative_prop.xlsx")
+ 
+confirmed_7dav_incidence_prop <- read_excel("data/case_signals/ca-county-confirmed_7dav_incidence_prop.xlsx")
+ 
+deaths_7dav_cumulative_prop <- read_excel("data/case_signals/ca-county-deaths_7dav_cumulative_prop.xlsx")
+# 
+deaths_7dav_incidence_prop <- read_excel("data/case_signals/ca-county-deaths_7dav_incidence_prop.xlsx")
 
-deaths_7dav_cumulative_prop <- read.csv("data/case_signals/ca-county-deaths_7dav_cumulative_prop.csv")
+STARTDATE <- "2020-02-20"
+ENDDATE <- "2021-01-03"
 
-deaths_7dav_incidence_prop <- read.csv("data/case_signals/ca-county-deaths_7dav_incidence_prop.csv")
+# Get fips codes
+ca.fips_codes <- fips_codes %>% filter(state=="CA") %>%
+  mutate(fips = paste(state_code, county_code , sep=""))
 
-smoothed_adj_cli <- read.csv("data/case_signals/ca-county-smoothed_adj_cli.csv")
 
-# California mobility signal
-ca.ftime <- read.csv("data/ca.ftime.csv")
-ca.ftime$county <- as.character(ca.ftime$county)
-ca.ftime$geo_value <- as.character(ca.ftime$geo_value)
-ca.ftime$signal <- as.character(ca.ftime$signal)
+temp.ca.ftime <- read.csv("data/20200220-ca-ftime.csv",
+                                       stringsAsFactors = F)
+
+#temp.ca.ftime <- covidcast_signal(data_source = "safegraph", 
+#                            signal ="full_time_work_prop",
+#                            start_day = STARTDATE, 
+#                            end_day = ENDDATE,
+#                            geo_type = "county", 
+#                            geo_values = ca.fips_codes$fips)
+
+
+# preprocess data types
+ confirmed_7dav_cumulative_prop$time_value <- as.Date(confirmed_7dav_cumulative_prop$time_value)
+ 
+ confirmed_7dav_incidence_prop$time_value <- as.Date(confirmed_7dav_incidence_prop$time_value)
+ 
+ deaths_7dav_cumulative_prop$time_value <- as.Date(deaths_7dav_cumulative_prop$time_value)
+ 
+ deaths_7dav_incidence_prop$time_value <- as.Date(deaths_7dav_incidence_prop$time_value)
+ 
+ temp.ca.ftime$time_value <- as.Date(temp.ca.ftime$time_value)
+ 
+ confirmed_7dav_cumulative_prop$geo_value <- paste("0", confirmed_7dav_cumulative_prop$geo_value, sep="" )
+ 
+ confirmed_7dav_incidence_prop$geo_value <- paste("0", confirmed_7dav_incidence_prop$geo_value, sep="" )
+ 
+ deaths_7dav_cumulative_prop$geo_value <- paste("0", deaths_7dav_cumulative_prop$geo_value, sep="" )
+ 
+ deaths_7dav_incidence_prop$geo_value <- paste("0", deaths_7dav_incidence_prop$geo_value, sep="" )
+ 
+temp.ca.ftime$geo_value <- paste("0",temp.ca.ftime$geo_value, sep="")
 
 
 # Policy data
 policy <- load_policy()
-ca.policy <- policy %>% filter(StatePostal == "ca")
+ca.policy <- policy %>% filter(StatePostal == "ca", StateWide == 1)
+
+# filter all counties
+# California mobility signal
+ca.ftime <- read.csv("data/ca.ftime.csv")
+ca.counties <- as.character(unique(ca.ftime$county))
+
+
+ca.policy_signal<- getSumOfPolicy(ca.policy , STARTDATE, ENDDATE)
+
+# Turn the polical signal to be factors
+factored.ca.policy.signal <- cbind(ca.policy_signal[1], 
+                                lapply(ca.policy_signal[3:14],
+                                       as.factor),
+                                ca.policy_signal[15:16])
+
+
+```
+
+```{r helper-function, message=F, warning=F}
+################ getForwardDays () ###################
+# compute the number of days within a given day range that
+# gives the highest spearman correlation between df1 and df2
+
+# argument
+# df1: a dataframe 
+# df2: a dataframe that the data needs to be forwarded
+# dt_vec: a vector contains a range of integers
+
+getForwardDays <- function(df1, df2, dt_vec){
+  # Empty list
+  df_list <- vector("list", length(dt_vec))
+  
+  for (i in 1:length(dt_vec)) {
+    df_list[[i]] <- covidcast_cor(df1, df2, dt_y = dt_vec[i],
+                                  by = "geo_value", 
+                                  method="spearman")
+
+    df_list[[i]]$dt <- dt_vec[i]
+  }
+  
+  # Stack into one big data frame
+  df <- do.call(rbind, df_list)
+  
+
+  return(df)
+}
+
+```
+
+# Lag analysis
+
+We would like to forward mobility in time that is most correlated with the respective case count signals and use those case count signals in regression.
+
+```{r ca-lag-analysis, message=F, warning=F}
+# We want to select the day in which the case count is most correlated with the mobility in terms of spearman correlation in time
+
+dt_vec = 0:100
+
+# Confirmed cases
+cum.confirmed.case.cor.df <- getForwardDays(temp.ca.ftime,confirmed_7dav_cumulative_prop, dt_vec)
+
+
+daily.new.case.cor.df <- getForwardDays(temp.ca.ftime,confirmed_7dav_incidence_prop, dt_vec)
+
+# Death case
+cum.death.cor.df <- getForwardDays(temp.ca.ftime,deaths_7dav_cumulative_prop, dt_vec)
+
+daily.death.case.cor.df <- getForwardDays(temp.ca.ftime,deaths_7dav_incidence_prop, dt_vec)
+
+```
+
+
+```{r shiftday, message=F, warning=F}
+# Combine case and mobility
+cum.confirmed.case <- confirmed_7dav_cumulative_prop[c("time_value","geo_value","value")]
+new.confirmed.case <- confirmed_7dav_incidence_prop[c("time_value","geo_value","value")]
+cum.death.case <- deaths_7dav_cumulative_prop[c("time_value","geo_value","value")]
+new.death.case <- deaths_7dav_incidence_prop[c("time_value","geo_value","value")]
+mobility <- temp.ca.ftime
+
+# change name
+colnames(mobility)[7] <- "full_time_work_prop"
+colnames(cum.confirmed.case)[3] <- "confirmed_7dav_cumulative_prop"
+colnames(new.confirmed.case)[3] <- "confirmed_7dav_incidence_prop"
+colnames(cum.death.case)[3] <- "deaths_7dav_cumulative_prop"
+colnames(new.death.case)[3] <- "deaths_7dav_incidence_prop"
+
+# A list of confounders
+confounders <- list(cum.confirmed.case, 
+                    new.confirmed.case, 
+                    cum.death.case,
+                    new.death.case)
+
+# Left join again with all other potential confounders
+for (confounder in confounders){
+  mobility <- left_join(mobility, confounder, by=c("time_value", "geo_value"))
+}
+
+# combine with policy signal
+mobility <- left_join(mobility, factored.ca.policy.signal, by=c("time_value"))
+
+```
+
+## Model 1:
+
+$$Y_t = \beta_{0}+ \sum_{i}\beta_{i}S_{i_{t}} + \sum_{k}\beta_{k}P_{k_{t-r}}$$, where $r$ varies depending on the county and the correlation between case signal and response
+
+```{r model1, warning=F}
+cof_ls <- list()
+count <- 1
+
+for(county in ca.fips_codes$fips){
+  
+  selected.df <- mobility %>% filter(geo_value==county)
+  county.mobility <- mobility %>% filter(geo_value==county)
+  
+  # Get the days for most correlated
+  
+  # filter the data
+  filtered.confirmed.case.df <- cum.confirmed.case.cor.df %>%
+    filter(geo_value == county)
+  
+  filtered.daily.new.case.df <- daily.new.case.cor.df %>%
+    filter(geo_value == county)
+  
+  filtered.cum.death.df <- cum.death.cor.df %>%
+    filter(geo_value == county)
+  
+  filtered.daily.death.case.df <- daily.death.case.cor.df %>%
+    filter(geo_value == county)
+  
+  # if there is no missing value, we go ahead to compute the switch time
+  if(!any(is.na(filtered.confirmed.case.df$value))){
+    
+    days <- min(filtered.confirmed.case.df[abs(filtered.confirmed.case.df$value) == max(abs(filtered.confirmed.case.df$value)),]$dt)
+    
+    # switch the column 
+    state<-county
+    
+    selected.df <- shiftDays(county.mobility, selected.df, days, c("confirmed_7dav_cumulative_prop"))
+    
+  }
+  
+  if(!any(is.na(filtered.daily.new.case.df$value))){
+    
+    days <- min(filtered.daily.new.case.df[abs(filtered.daily.new.case.df$value) == max(abs(filtered.daily.new.case.df$value)),]$dt)
+      
+    # switch the column 
+    state<-county
+    
+    selected.df <- shiftDays(county.mobility, selected.df, days, c("confirmed_7dav_incidence_prop"))
+    
+  }
+  
+  if(!any(is.na(filtered.cum.death.df$value))){
+    
+    days <- min(filtered.cum.death.df[abs(filtered.cum.death.df$value) == max(abs(filtered.cum.death.df$value)),]$dt)
+      
+    # switch the column 
+    state<-county
+    
+    selected.df <- shiftDays(county.mobility, selected.df, days, c("deaths_7dav_cumulative_prop"))
+    
+  }
+  
+  if(!any(is.na(filtered.daily.death.case.df$value))){
+    
+    days <- min(filtered.daily.death.case.df[abs(filtered.daily.death.case.df$value) == max(abs(filtered.daily.death.case.df$value)),]$dt)
+      
+    # switch the column 
+    state<-county
+    
+    selected.df <- shiftDays(county.mobility, selected.df, days, c("deaths_7dav_incidence_prop"))
+    
+  }
+
+
+  # fit the regression
+   p <- selected.df  %>% 
+     mutate(sumEmergDec = roll_sum(EmergDec, 2, align = "right", fill = NA),
+            sumGathRestrict=roll_sum(GathRestrict, 2, align = "right", fill = NA),
+            sumSchoolClose=roll_sum(SchoolClose, 2, align = "right", fill = NA),
+            sumBarRestrict=roll_sum(BarRestrict, 2, align = "right", fill = NA),
+            sumNEBusinessClose=roll_sum(NEBusinessClose, 2, align = "right", fill = NA),
+            sumRestaurantRestrict=roll_sum(RestaurantRestrict, 2, align = "right", fill = NA),
+            sumStayAtHome=roll_sum(StayAtHome, 2, align = "right", fill = NA),
+            sumPublicMask=roll_sum(PublicMask, 2, align = "right", fill = NA),
+            sumOtherBusinessClose=roll_sum(OtherBusinessClose, 2, align = "right", fill = NA),
+            sumSchoolMask=roll_sum(SchoolMask, 2, align = "right", fill = NA),
+            sumQuarantine=roll_sum(Quarantine, 2, align = "right", fill = NA),
+            sumBusinessMask=roll_sum(BusinessMask, 2, align = "right", fill = NA)
+            ) %>%
+     lm(full_time_work_prop ~ confirmed_7dav_cumulative_prop+confirmed_7dav_incidence_prop+deaths_7dav_cumulative_prop+sumEmergDec + sumGathRestrict+sumSchoolClose+sumBarRestrict+sumNEBusinessClose+sumRestaurantRestrict+sumStayAtHome+sumPublicMask+sumOtherBusinessClose+sumBusinessMask+sumSchoolMask+sumQuarantine, data=.)
+   
+   # record the result
+   cof_ls[[count]] <- p
+   count <- count + 1
+}
+
+# Print all summaries
+for(fit in cof_ls){
+  print(summary(fit))
+}
+```
+
+## Model 2:
+
+$$Y_t = \beta_{0}+ \sum_{i}\beta_{i}S_{i_{t}} + \sum_{k}\beta_{k}P_{k_{t}}$$
+
+```{r model2, warning=F}
+mod2_cof_ls <- list()
+count <- 1
+for(county in ca.fips_codes$fips){
+  p <- mobility%>%filter(geo_value==county)%>%
+    lm(full_time_work_prop ~ confirmed_7dav_cumulative_prop+confirmed_7dav_incidence_prop+deaths_7dav_cumulative_prop+deaths_7dav_incidence_prop+EmergDec + GathRestrict+BarRestrict+NEBusinessClose+RestaurantRestrict+StayAtHome+PublicMask+OtherBusinessClose+BusinessMask+SchoolMask+Quarantine, data=.)
+  mod2_cof_ls[[count]] <- p
+  count <- count + 1
+}
+
+# Show all results for county level mobility
+counter <- 1
+for (i in mod2_cof_ls){
+  print(ca.fips_codes$county[counter])
+  print(summary(i))
+  counter <- counter + 1
+}
+
+```
+
+* We can also examine the effect when the weekends are droppped.
+
+```{r model2-without-weekend}
+
 ```
