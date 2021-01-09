@@ -13,6 +13,10 @@ Mobility is one of the potential factors in contributing to the spread of COVID-
 
   * Do mandatory policies seem to be more effective than recommended policies in reducing mobility?
 
+## Conclusion and future work
+
+Based on assumptions, we have found that state-wide government interventions tend to have a larger effect in reducing mobility in the areas with a large population, a small percentage of people in poverty, a high percent of people with education backgrounds, and a low unemployment rate. Secondly,we can see that recommended polcies, gathering restriction and school closure, may not have a sigificant effect in reducing mobility, whereas some mandatory policies such as public masks and business closures have a significant effect on mobility in California counties. We rank the effectiveness of the intervention on mobility in terms of the regression coefficient in a linear regression setting. Other regression methods should also be used for further study. In future, we need to collect more data about county-level intervention to measure the start dates and end dates of the policies more accurately. Also, we can examine other mobility signals available in the Dephi API. 
+
 
 ## Deliverables
 

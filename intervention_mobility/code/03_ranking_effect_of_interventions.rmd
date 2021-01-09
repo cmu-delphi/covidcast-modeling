@@ -27,6 +27,9 @@ library(tidycensus)
 library(reshape2)
 library(zoo)
 library(readxl)
+library(ggplot2)
+library(gridExtra)
+
 
 source("code/loader.r")
 source("code/parser.r")
@@ -191,6 +194,8 @@ mobility <- left_join(mobility, factored.ca.policy.signal, by=c("time_value"))
 
 $$Y_t = \beta_{0}+ \sum_{i}\beta_{i}S_{i_{t}} + \sum_{k}\beta_{k}P_{k_{t-r}}$$, where $r$ varies depending on the county and the correlation between case signal and response
 
+We transform the intervention variables by replacing it with the duration of the intervention. Otherwise, we may have all elements to be 1 in the intervention variable because we forwarded the case signals in time and R automatically ignores the missing values and only evaluates the days that are not NAs. 
+
 ```{r model1, warning=F}
 cof_ls <- list()
 count <- 1
@@ -262,21 +267,19 @@ for(county in ca.fips_codes$fips){
 
 
   # fit the regression
-   p <- selected.df  %>% 
+   p <- selected.df  %>%
      mutate(sumEmergDec = roll_sum(EmergDec, 2, align = "right", fill = NA),
             sumGathRestrict=roll_sum(GathRestrict, 2, align = "right", fill = NA),
             sumSchoolClose=roll_sum(SchoolClose, 2, align = "right", fill = NA),
             sumBarRestrict=roll_sum(BarRestrict, 2, align = "right", fill = NA),
-            sumNEBusinessClose=roll_sum(NEBusinessClose, 2, align = "right", fill = NA),
-            sumRestaurantRestrict=roll_sum(RestaurantRestrict, 2, align = "right", fill = NA),
-            sumStayAtHome=roll_sum(StayAtHome, 2, align = "right", fill = NA),
             sumPublicMask=roll_sum(PublicMask, 2, align = "right", fill = NA),
             sumOtherBusinessClose=roll_sum(OtherBusinessClose, 2, align = "right", fill = NA),
             sumSchoolMask=roll_sum(SchoolMask, 2, align = "right", fill = NA),
             sumQuarantine=roll_sum(Quarantine, 2, align = "right", fill = NA),
             sumBusinessMask=roll_sum(BusinessMask, 2, align = "right", fill = NA)
             ) %>%
-     lm(full_time_work_prop ~ confirmed_7dav_cumulative_prop+confirmed_7dav_incidence_prop+deaths_7dav_cumulative_prop+sumEmergDec + sumGathRestrict+sumSchoolClose+sumBarRestrict+sumNEBusinessClose+sumRestaurantRestrict+sumStayAtHome+sumPublicMask+sumOtherBusinessClose+sumBusinessMask+sumSchoolMask+sumQuarantine, data=.)
+     lm(full_time_work_prop ~ confirmed_7dav_cumulative_prop+confirmed_7dav_incidence_prop+deaths_7dav_cumulative_prop+deaths_7dav_incidence_prop+sumEmergDec + sumGathRestrict+sumSchoolClose+sumBarRestrict+sumPublicMask+sumOtherBusinessClose+sumBusinessMask+sumSchoolMask+sumQuarantine, data=.)
+   
    
    # record the result
    cof_ls[[count]] <- p
@@ -295,11 +298,17 @@ $$Y_t = \beta_{0}+ \sum_{i}\beta_{i}S_{i_{t}} + \sum_{k}\beta_{k}P_{k_{t}}$$
 
 ```{r model2, warning=F}
 mod2_cof_ls <- list()
+mod2_log_cof_ls <- list()
 count <- 1
 for(county in ca.fips_codes$fips){
   p <- mobility%>%filter(geo_value==county)%>%
-    lm(full_time_work_prop ~ confirmed_7dav_cumulative_prop+confirmed_7dav_incidence_prop+deaths_7dav_cumulative_prop+deaths_7dav_incidence_prop+EmergDec + GathRestrict+BarRestrict+NEBusinessClose+RestaurantRestrict+StayAtHome+PublicMask+OtherBusinessClose+BusinessMask+SchoolMask+Quarantine, data=.)
+     lm(full_time_work_prop ~ confirmed_7dav_cumulative_prop+confirmed_7dav_incidence_prop+deaths_7dav_cumulative_prop+deaths_7dav_incidence_prop+EmergDec + GathRestrict+SchoolClose+BarRestrict+PublicMask+OtherBusinessClose+BusinessMask+SchoolMask+Quarantine, data=.)
   mod2_cof_ls[[count]] <- p
+  
+   j <- mobility%>%filter(geo_value==county)%>%
+    lm(log(full_time_work_prop) ~ confirmed_7dav_cumulative_prop+confirmed_7dav_incidence_prop+deaths_7dav_cumulative_prop+deaths_7dav_incidence_prop+EmergDec + GathRestrict+SchoolClose+BarRestrict+PublicMask+OtherBusinessClose+BusinessMask+SchoolMask+Quarantine, data=.)
+   
+  mod2_log_cof_ls[[count]] <- j
   count <- count + 1
 }
 
@@ -313,8 +322,63 @@ for (i in mod2_cof_ls){
 
 ```
 
-* We can also examine the effect when the weekends are droppped.
+## Rank of the effectiveness of the intervention
 
-```{r model2-without-weekend}
+We can see that the effects of public mask and other business closures on reducing mobility are statistically significant at 0.05 level after we have counted for the case count signals. It also depends on the county regarding which intervention is more effective. For example, we see that school mask has a large effect on Stanislaus county, but may not have any effects on Alpine county. In addition, the interventions of gathering restriction and school closure in California are advisory, which appear to be not significant, whereas other mandatory policies have a significant effect on mobility.
+
+```{r CI for regression coefficients}
+plot_bar <- function(df,
+                     x,
+                     y,
+                     lower.bound,
+                     upper.bound,
+                     gp,
+                     name){
+  p<- ggplot(df, aes_string(x=x, y=y, group=gp, color=gp)) + 
+  #geom_line() +
+  geom_point()+
+  geom_errorbar(aes_string(xmin=lower.bound, xmax=upper.bound), width=.2,
+                 position=position_dodge(0.05))+
+    ggtitle(name)
+      
+  return(p)
+}
+
+select_col <- c("EmergDec1","GathRestrict1","SchoolClose1","BarRestrict1","PublicMask1","OtherBusinessClose1","BusinessMask1", "SchoolMask1" ,"Quarantine1")
+
+plist <- list()
+count <- 1
+for(i in 1:length(mod2_cof_ls)){
+  # Same the summary
+  lm.fit <- summary(mod2_cof_ls[[i]])
+  name <- c("EmergDec","GathRestrict","SchoolClose","BarRestrict","PublicMask"        ,"OtherBusinessClose","BusinessMask", "SchoolMask" ,"Quarantine")
+  df <- data.frame(fit= lm.fit$coefficients[select_col,1], interventions=name)
+revised_df <- cbind(df,confint(mod2_cof_ls[[i]])[select_col,])
+  colnames(revised_df)[3] <- "LCI"
+  colnames(revised_df)[4] <- "UCI"
+  
+  p <- plot_bar(revised_df,
+                "fit",
+                "interventions",
+                "LCI",
+                "UCI",
+                "fit",
+                ca.counties[i]) 
+  plist[[count]] <- p
+  count <- count + 1
+}
+
+  
+# Plot all counties mobility signal
+n <- length(plist[c(2,19,10,58)])
+nCol <- floor(sqrt(n))
+do.call("grid.arrange", c(plist[c(2,19,10,58)], ncol=nCol))
+
+do.call("grid.arrange", c(plist[c(1,38,43,50)], ncol=nCol))
 
 ```
+
+## Conclusion
+
+We assume that every county will follow the state-wide policy accordingly. We can see that gathering restriction and school closure may not have a sigificant effect in reducing mobility, whereas some mandatory policies such as public masks and business closures have a significant effect on mobility. We rank the effectiveness of the intervention on mobility in terms of the regression coefficient in a linear regression setting. Other regression methods should also be used for further study. 
+
