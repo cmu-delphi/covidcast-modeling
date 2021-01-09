@@ -30,10 +30,14 @@ In future, we need to collect more data about county-level intervention to measu
 
 * ANOVA and multiple comparisons [See 01_regression_ANOVA.md](reports/01_regression_ANOVA.md)
 
-  * Analyze the difference in mean mobility among interventions
+  * Analyze the difference in mean mobility among interventions at a state-level.
 
 * Regression discontinuity design to measure the effects of interventions on mobility. [See 02_estimating_effect_of_intervention_via_RDD.md](reports/02_estimating_effect_of_intervention_via_RDD.md)
+
+* The relationship between demographics and the effect of the emergency declaration. [See 02_estimating_effect_of_intervention_via_RDD.md](reports/02_estimating_effect_of_intervention_via_RDD.md)
   
+* Rank of the effectiveness of the intervention at a county-level[See 03_ranking_effect_of_interventions.md](reports/03_ranking_effect_of_interventions.md)
+
 
 ## File Directory Description
 
