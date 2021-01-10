@@ -59,6 +59,10 @@ In future, we need to collect more data about county-level intervention to measu
 
     * [Data attributes at a glance](https://github.com/COVID19StatePolicy/SocialDistancing/tree/master/codebooks)
 
+### Demographics
+
+  * [County-level Datasets USDA-ERS](https://www.ers.usda.gov/data-products/county-level-data-sets/)
+
 ### Potential Confounders
 
   * [Delphi's COVIDcast](https://cmu-delphi.github.io/delphi-epidata/api/covidcast_signals.html)
