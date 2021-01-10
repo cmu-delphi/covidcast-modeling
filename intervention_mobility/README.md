@@ -32,7 +32,7 @@ In future, we need to collect more data about county-level intervention to measu
 
 * Correlation between demographics and the effect of the emergency declaration. [See 02_estimating_effect_of_intervention_via_RDD.md](reports/02_estimating_effect_of_intervention_via_RDD.md)
   
-* Rank of the effectiveness of the intervention at a county-level[See 03_ranking_effect_of_interventions.md](reports/03_ranking_effect_of_interventions.md)
+* Rank of the effectiveness of the intervention at a county-level. [See 03_ranking_effect_of_interventions.md](reports/03_ranking_effect_of_interventions.md)
 
 
 ## File Directory Description
