@@ -2141,7 +2141,7 @@ pairs(all_of_demographics[,c(8,11,13,14,15,16,17)],
       )
 ```
 
-![](02_estimating_effect_of_intervention_via_RDD_files/figure-html/scatterplot matrix-1.png)<!-- -->
+![](02_estimating_effect_of_intervention_via_RDD_files/figure-html/scatterplot-matrix-1.png)<!-- -->
 
 # Conclusion and future work
 

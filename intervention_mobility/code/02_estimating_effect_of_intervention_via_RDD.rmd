@@ -1801,7 +1801,7 @@ p + ggtitle("Mean difference in two samples by poverty and political stand")
 
 * For the ease of visual appearance, we can put the scatterplots all in one scatterplot matrix.
 
-```{r scatterplot matrix, warning=FALSE, message= FALSE}
+```{r scatterplot-matrix, warning=FALSE, message= FALSE}
 
 all_of_demographics <- cbind(all_population,
 all.pop.education$Percent.of.adults.with.less.than.a.high.school.diploma..2014.18,
