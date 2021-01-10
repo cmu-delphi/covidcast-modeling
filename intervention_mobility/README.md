@@ -24,9 +24,9 @@ In future, we need to collect more data about county-level intervention to measu
 
 ## Deliverables
 
-* Lag analysis for case count signals, doctor visits on mobility across states [See 00_initial_exploration.md](reports/00_initial_exploration.md)
+* Lag analysis for case count signals, doctor visits on mobility across states. [See 00_initial_exploration.md](reports/00_initial_exploration.md)
 
-* Mobility signals across states under different interventions [See 00_initial_exploration.md](reports/00_initial_exploration.md)
+* Mobility signals across states under different interventions. [See 00_initial_exploration.md](reports/00_initial_exploration.md)
 
 * Regression discontinuity design to measure the effects of interventions on mobility. [See 02_estimating_effect_of_intervention_via_RDD.md](reports/02_estimating_effect_of_intervention_via_RDD.md)
 
