@@ -1,0 +1,386 @@
+---
+title: "Effect of Individual Intervention on Mobility"
+author: Shuyi Tan
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+editor_options:
+  chunk_output_type: inline
+---
+Before dive into the interventions, let's recap what interventions we have:  
+- EmergDec  
+- GathRestrict   
+- BarRestrict   
+- OtherBusinessClose  
+- RestaurantRestrict   
+- SchoolClose  
+- NEBusinessClose  
+- StayAtHome   
+- BusinessMask
+- PublicMask  
+- Quarantine   
+- SchoolMask
+
+###  Categories of main predictors  
+* $I_{i,t}$: (binary interventions of interest)*score  
+* $E_{i,t}$: a binary variable indicating whether an intervention has been eased(1) or not (0) 
+  `Note`: 
+* $\bar{\textbf{I}_{t}}$: Mean of other concurring interventions 
+
+                                           
+
+##### Score
+In the multiple events case, we can use the level of intensity of each policy. This variation of policy intensity allows us to identify separately the effect of the policy of interest $I$, while taking into account other concurrent interventions, $I'$. 
+
+I referred to the event-study principle on scoring the qualitative time-varying information on their intensity. Intensity is measured in a scale from 1 to 4 by the following rule:  
+
+1. Recommended - 1 point   
+2. Mandatory with some flexibility - 2 point   
+3. Mandatory with no flexibility  - 3 point  
+4. Statewide with not   - 1 point (bonus)
+
+The scores are roughly computed based on the intervention description.
+
+
+Policy              Mandatory         Statewide              Scoring 
+--------           --------------   ----------------       --------------
+EmergDec              1                 1                    2+1=3 
+GathRestrict          1                 0                    2+0=2
+BarRestrict           1                 1                    2+1=3
+OtherBusinessClose    1                 1                    3+1=4
+RestaurantRestrict    1                 1                    2+1=3
+SchoolClose           1                 1                    3+1=4
+NEBusinessClose       1                 1                    2+1=3
+StayAtHome            1                 1                    2+1=3
+BusinessMask          1                 1                    3+1=4
+public mask           1                 1                    3+1=4
+Quarantine            1                 1                    3+1=4
+SchoolMask            1                 1                    3+1=4
+---------          --------------   ----------------     ---------------- 
+
+
+The model refers to the paper [Lockdown Strategies, Mobility Patterns and COVID-19](http://ftp.iza.org/dp13293.pdf)  
+
+
+### Models
+
+$Y_{t}$ is the mobility at time $t$  
+$E_{i,t}$： Binary variable, with $1$ indicating that an intervention $i$ is being eased at time $t$, and $0$ not eased 
+$I_{i,t}$: The intensity score of an intervention $i$ at time $t$. Otherwise $0$ means that this intervention is not active at this point.  
+`Note`: A policy being eased does not mean is inacive, indeed it means that a policy is being implemented with more flexibility. 
+
+$$
+  \text{Model 1}: Y_{t} = \beta_{0} +  \beta_{1} I_{i,t} + \beta_{2} E_{i,t} + \beta_{3}\bar{\mathbf{I}_{t}}
+$$  
+$$
+\text{Model 2}: Y_{t} = \beta_{0} +  \beta_{1} I_{i,t} + \beta_{2} E_{i,t}
+$$
+
+```{r warning=FALSE,message=FALSE}
+source("load_data.R")
+source("helper_function.R")
+```
+
+
+
+
+# New York State
+New York state is one of the states having severe Covid-19 breakout in the United States. We would like to explore the effect of interventions on the mobility signal in the rural and urban counties respectively.  
+
+### Rural Area  
+
+The following grid plots the regression coefficient estimates $\beta_{1}$ of $I_{i,t}$, which measure the unit level intensity effect of each intervention at time $t$ on the mobility. We can observe from the plot that in most rural counties, **restaurant restriction**, **bar restriction**, **gather restriction**, **closure of other business**, and **closure of non-essential business** have obvious effect in reducing mobility, while wearing mask and quarantine supreasing increase people getting out.  
+  
+  
+  
+
+```{r Rural Area in NY, fig.height = 26, fig.width = 9}
+rural_areas <- c("Allegany", "Cattaraugus", "Cayuga", "Chautauqua" ,
+                 "Chenango","Clinton" ,"Columbia" ,"Cortland" ,
+                 "Delaware", "Essex" ,"Franklin" ,"Fulton" ,"Genesee", 
+                 "Greene", "Hamilton", "Lewis" ,"Montgomery" ,
+                 "Otsego" ,"Schuyler" ,"Seneca","St Lawrence",
+                 "Steuben" ,"Sullivan", "Wyoming")
+
+rural_cty <- intervention_mobility %>% right_join(ny_county %>% filter(county %in% rural_areas) %>%
+                                                    select(geo_value, county), by = "geo_value") 
+
+rural <- county_intervention_beta(rural_cty)
+grid.arrange(grobs=rural[[1]],ncol = 2,
+             top=textGrob("Rural Counties in NY: The Unit Level Intensity Effect of an Intervention",gp=gpar(fontsize=30,font=3)))
+
+```
+
+### Urban Area  
+  
+The following grid demonstrates the unit level intensity effect of each intervention at time $t$ on the mobility in urban areas. 
+
+```{r Urban Area, message = FALSE, warning = FALSE,fig.height = 30, fig.width = 7}
+urban_cty <- intervention_mobility %>% right_join(ny_county %>% filter(county %notin% rural_areas) %>%
+   select(geo_value, county), by = "geo_value") 
+
+urban <- county_intervention_beta(urban_cty)
+
+grid.arrange(grobs=urban[[1]],ncol = 2,
+             top=textGrob("Urban Counties in NY: The Unit Level Intensity Effect of an Intervention",gp=gpar(fontsize=28)))
+            
+
+```
+
+```{r}
+ny_cty  <- intervention_mobility %>% right_join(ny_county %>%
+   select(geo_value, county), by = "geo_value") 
+
+ny <- county_intervention_beta(ny_cty)
+```
+
+### Rank the effect
+The effect of interventions are ranked by 1-12 based on their regression coefficient estimates. The the average rank is calculated by $\Sigma$(rank)/number of counties.
+
+```{r Comparison through ranking,fig.height = 4.5, fig.width = 7.5}
+
+rural_rank <- rural[[2]] %>% ggplot(aes(x= reorder(policy,rank_sum), y = rank_sum,fill=rank_sum)) + 
+  geom_bar(stat="identity") +
+  ggtitle("Rank of Effectiveness in Rual Counties (NY)") +
+  labs(x = "Interventions" ,y='') +
+  theme(legend.title = element_blank(),plot.title = element_text(size=18,face = "bold"))
+
+
+urban_rank <- urban[[2]] %>% ggplot(aes(x= reorder(policy,rank_sum), y = rank_sum,fill=rank_sum)) + 
+  geom_bar(stat="identity") +
+  ggtitle("Rank of Effectiveness in Urban Counties (NY)") +
+  labs(x = "Interventions" ,y='') +
+  theme(legend.title = element_blank(),plot.title = element_text(size=18,face = "bold"))
+
+ny_rank <- ny[[2]] %>% ggplot(aes(x= reorder(policy,rank_sum), y = rank_sum,fill=rank_sum)) + 
+  geom_bar(stat="identity") +
+  ggtitle("Rank of Effectiveness in NY") +
+  labs(x = "Interventions" ,y='') +
+  theme(legend.title = element_blank(),plot.title = element_text(size=18,face = "bold"))
+
+
+grid.arrange(ggplotGrob(rural_rank),ggplotGrob(urban_rank),ggplotGrob(ny_rank),nrow = 3,top=textGrob("The Averge Rank of intervention",gp=gpar(fontsize=20,font=3)))
+
+
+```
+
+
+```{r}
+tx_county <- county %>% filter(State == "TX")
+FIPS <- as.vector(tx_county$FIPS)
+tx_ftime <- ftime %>% filter(geo_value %in% FIPS)
+
+
+policy_tx <- policy %>% filter(StatePostal == "TX")
+
+policy_tx[, c("DateIssued", "DateEnacted", "DateExpiry" ,"DateEased", "DateEnded", "DateReexpanded1", "DateReeased1")] <- data.frame(lapply(policy_tx[, c("DateIssued", "DateEnacted", "DateExpiry" ,"DateEased", "DateEnded", "DateReexpanded1", "DateReeased1")], function(x) as.Date(as.character(x), "%Y%m%d")))
+
+
+# Get the dates between start and end date
+all.dates <- seq(as.Date(STARTDATE), as.Date(ENDDATE), by="days")
+time_value <- sort(rep(all.dates, 1)) 
+
+
+
+# Generate geo_value
+state <- rep("TX", length(all.dates))
+policy_signal_new <- data.frame(time_value = time_value, state = state)
+
+policy_signal_new[,unique(policy_tx$StatePolicy)] <- 0
+
+for (i in unique(policy_tx$StatePolicy)) {
+  new_column_name <- paste0(i,"_ease")
+  policy_signal_new[,new_column_name] <- 0
+}
+
+
+for (row in (1:nrow(policy_tx))){
+  current.policy <- policy_tx[row,]$StatePolicy
+  current.policy.ease <- paste0(current.policy,"_ease")
+  #current.state <- policy[row,]$StatePostal
+  
+  if (is.na(policy_tx[row,]$DateEnded)){
+    
+    if(is.na(policy_tx[row,]$DateEased)) {
+      
+      if (is.na(policy_tx[row,]$DateExpiry)) {
+        
+        policy_signal_new[policy_signal_new$time_value > as.Date(policy_tx[row,]$DateEnacted), current.policy] <- 1
+        
+      }else{
+        time.range_1 <- seq(as.Date(policy_tx[row,]$DateEnacted), as.Date(policy_tx[row,]$DateExpiry), by = "days")
+        policy_signal_new[policy_signal_new$time_value %in% time.range_1, current.policy] <- 1
+      }
+      
+    }else{
+      time.range_2 <- seq(as.Date(policy_tx[row,]$DateEnacted), as.Date(policy_tx[row,]$DateEased), by = "days")
+      policy_signal_new[policy_signal_new$time_value %in% time.range_2, current.policy] <- 1
+      
+      if (is.na(policy_tx[row,]$DateExpiry) == "FALSE") {
+        
+        time.range_3 <- seq(as.Date(policy_tx[row,]$DateEased), as.Date(policy_tx[row,]$DateExpiry), by = "days")
+        policy_signal_new[policy_signal_new$time_value %in% time.range_3, current.policy.ease] <- 1
+        
+      }
+    }
+    
+    
+  }else{
+    
+    # Get time range between Date Enacted and Date Ended
+    if(policy_tx[row,]$DateEnacted > as.Date(policy_tx[row,]$DateEnded)){
+      next
+    }else{ 
+      
+      time_range_4 <- seq(as.Date(policy_tx[row,]$DateEnacted), as.Date(policy_tx[row,]$DateEnded), by = "days")
+      policy_signal_new[policy_signal_new$time_value %in% time_range_4, current.policy] <- 1
+      
+      if(is.na(policy_tx[row,]$DateEased) == "FALSE") {
+        
+        time.range_5 <- seq(as.Date(policy_tx[row,]$DateEased), as.Date(policy_tx[row,]$DateEnded), by = "days")
+        policy_signal_new[policy_signal_new$time_value %in% time.range_5, current.policy.ease] <- 1
+        
+      }
+    }
+    
+    
+  }}
+
+
+#remove weekends
+tx_ftime[which(weekdays(as.Date(tx_ftime$time_value, format = "%m/%d/%Y"))
+               %in% c('Monday','Tuesday', 'Wednesday', 'Thursday', 'Friday')), ]
+
+
+policy_signal_new[which(weekdays(as.Date(policy_signal_new$time_value, format = "%m/%d/%Y"))
+                        %in% c('Monday','Tuesday', 'Wednesday', 'Thursday', 'Friday')), ]
+
+#combining mobility and interventions
+policy_signal_new$time_value <- as.character(policy_signal_new$time_value)
+intervention_mobility <- left_join(tx_ftime, policy_signal_new, by=c("time_value"))
+
+
+#convert Ease column to factors
+ease_col <- c("EmergDec_ease","GathRestrict_ease",
+              "BarRestrict_ease","OtherBusinessClose_ease",
+              "RestaurantRestrict_ease" ,"SchoolClose_ease" ,     
+              "StayAtHome_ease","PublicMask_ease","PublicMask_ease")
+
+
+intervention_mobility <- intervention_mobility %>%
+  mutate_each_(funs(factor(.)),ease_col)
+
+
+# Assign score to each intervention
+
+intervention_mobility <- intervention_mobility %>% select(everything()) %>% mutate(
+  EmergDec = EmergDec*3,
+  GathRestrict = GathRestrict*2,
+  BarRestrict = BarRestrict*3,
+  OtherBusinessClose = OtherBusinessClose*4,
+  RestaurantRestrict = RestaurantRestrict*3,
+  SchoolClose = SchoolClose*4,
+  #NEBusinessClose = NEBusinessClose*3,
+  StayAtHome = StayAtHome*3,
+  #BusinessMask = BusinessMask*4,
+  #PublicMask = PublicMask*4,
+  Quarantine = Quarantine*4,
+  #SchoolMask = SchoolMask*4,
+  time_value = as.Date(time_value))
+
+
+
+
+```
+
+```{r Rural Area in TX, fig.height = 30, fig.width = 9}
+#rural_areas_tx <- read_excel("tx-rural.xlsx") 
+#tx_county$geo_value <- tx_county$FIPS 
+#tx_county$county <- tx_county$Name
+#intervention_mobility$geo_value <- as.character(intervention_mobility$geo_value)
+
+#rural_cty_tx <- intervention_mobility %>% right_join(tx_county %>% filter(county %in% rural_areas_tx$county) %>%
+                                                    #select(geo_value, county), by = "geo_value") 
+
+#rural_tx <- county_intervention_beta_tx(rural_cty_tx)
+grid.arrange(grobs=rural_tx[[1]][1:30],ncol = 2,
+             top=textGrob("Rural Counties in TX: The Unit Level Intensity Effect of an Intervention",gp=gpar(fontsize=30,font=3)))
+```
+
+
+```{r Urban Area in TX, fig.height = 30, fig.width = 9}
+
+urban_cty_tx <- intervention_mobility %>% right_join(tx_county %>% filter(county %notin% rural_areas_tx$county) %>%
+                                                    select(geo_value, county), by = "geo_value") 
+
+urban_tx <- county_intervention_beta_tx(urban_cty_tx)
+grid.arrange(grobs=urban_tx[[1]][1:30],ncol = 2,
+             top=textGrob("Rural Counties in TX: The Unit Level Intensity Effect of an Intervention",
+                          gp=gpar(fontsize=30,font=3)))
+```
+
+
+```{r}
+tx_cty  <- intervention_mobility %>% right_join(tx_county %>%
+   select(geo_value, county), by = "geo_value") 
+
+tx <- county_intervention_beta_tx(tx_cty)
+```
+
+### Rank the effect
+The effect of interventions are ranked by 1-12 based on their regression coefficient estimates. The the average rank is calculated by $\Sigma$(rank)/number of counties.
+
+```{r Comparison through ranking,fig.height = 4.5, fig.width = 7.5}
+
+rural_rank_tx <- rural_tx[[2]] %>% ggplot(aes(x= reorder(policy,rank_sum), y = rank_sum,fill=rank_sum)) + 
+  geom_bar(stat="identity") +
+  ggtitle("Rank of Effectiveness in Rural Counties (TX)") +
+  labs(x = "Interventions" ,y='') +
+  theme(legend.title = element_blank(),plot.title = element_text(size=18,face = "bold"))
+
+
+urban_rank_tx <- urban_tx[[2]] %>% ggplot(aes(x= reorder(policy,rank_sum), y = rank_sum,fill=rank_sum)) + 
+  geom_bar(stat="identity") +
+  ggtitle("Rank of Effectiveness in Urban Counties (TX)") +
+  labs(x = "Interventions" ,y='') +
+  theme(legend.title = element_blank(),plot.title = element_text(size=18,face = "bold"))
+
+tx_rank <- tx[[2]] %>% ggplot(aes(x= reorder(policy,rank_sum), y = rank_sum,fill=rank_sum)) + 
+  geom_bar(stat="identity") +
+  ggtitle("Rank of Effectiveness in TX") +
+  labs(x = "Interventions" ,y='') +
+  theme(legend.title = element_blank(),plot.title = element_text(size=18,face = "bold"))
+
+
+grid.arrange(ggplotGrob(rural_rank_tx),ggplotGrob(urban_rank_tx),ggplotGrob(tx_rank),nrow = 3,top=textGrob("The Averge Rank of intervention in TX",gp=gpar(fontsize=20,font=3)))
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
