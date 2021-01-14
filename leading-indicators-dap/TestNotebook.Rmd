@@ -17,10 +17,7 @@ print(length(prepared$cases))
 ```
 
 ```{r}
-source("LeadingIndicatorTools_V3.R")
-
 final_cases_indicator_list = get_increase_points(prepared$cases, prepared$indicator)
-
 
 print(final_cases_indicator_list[[1]])
 print(final_cases_indicator_list[[50]])
@@ -31,8 +28,6 @@ print(final_cases_indicator_list[[442]])
 
 ```
 ```{r}
-source("LeadingIndicatorTools_V3.R")
-
 plot_signals(final_cases_indicator_list, "39011", smooth_and_show_increase_point=FALSE, "Dr visits")
 plot_signals(final_cases_indicator_list, "12031", smooth_and_show_increase_point=TRUE, "Dr visits")
 plot_signals(final_cases_indicator_list, "05119", smooth_and_show_increase_point=TRUE, "Dr visits")
@@ -48,8 +43,6 @@ plot_signals(final_cases_indicator_list, "18163", smooth_and_show_increase_point
 ```
 
 ```{r}
-source("LeadingIndicatorTools_V3.R")
-
 success_examples = get_success_examples(final_cases_indicator_list, 14)
 length(success_examples)
 ```
@@ -66,8 +59,6 @@ plot_signals(final_cases_indicator_list, success_examples[[20]], "Dr visits", sm
 
 ```
 ```{r}
-source("LeadingIndicatorTools_V3.R")
-
 recall = get_recall_strict(final_cases_indicator_list)
 recall
 
