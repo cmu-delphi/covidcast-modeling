@@ -388,12 +388,12 @@ plot_bar <- function(df,
 
 ```
 
-## Model:
+# Model:
 
 $$Y_t = \beta_{0}+ \sum_{i}\beta_{i}S_{i_{t}} + \sum_{k}\beta_{k}P_{k_{t}}$$
 
 
-### Completely stay at home: CA
+## Completely stay at home: CA
 
 ```{r model, warning=F}
 interventions <- c("EmergDec",
@@ -444,14 +444,14 @@ for(code in filtered_fips$fips){
     lm(formula1,data=.)
     ls[[count]] <- p 
   count <- count + 1 
-  print(fips_to_name(code))
-  print(summary(p))
+  #print(fips_to_name(code))
+  #print(summary(p))
 }
 
 
 ```
 
-### Completely stay at home: TX
+## Completely stay at home: TX
 
 ```{r tx-stayathome}
 
@@ -461,7 +461,8 @@ interventions <- c("EmergDec",
                    "BarRestrict",
                    "PublicMask",
                    "OtherBusinessClose",
-                   "Quarantine")
+                   "Quarantine",
+                   "StayAtHome")
 
 mobility.name <- "completely_home_prop"
 
@@ -493,6 +494,7 @@ interventions <- c("EmergDec",
                    "PublicMask",
                    "OtherBusinessClose",
                    "Quarantine",
+                   "StayAtHome",
                    "weekend",
                    "holiday")
 
@@ -509,14 +511,14 @@ for(code in tx_fips$fips){
   
   txls[[count]] <- p
   count <- count + 1
-  print(fips_to_name(code))
-  print(summary(p))
+  #print(fips_to_name(code))
+  #print(summary(p))
 }
 
 ```
 
 
-### Restaurant visit: CA
+## Restaurant visit: CA
 
 ```{r ca-restaurant-visit}
 interventions <- c("EmergDec",
@@ -582,8 +584,8 @@ for(code in filtered_fips$fips){
     countyname <- fips_to_name(code)
     ca.counties_filtered[count] <- countyname
     count <- count + 1 
-    print(countyname)
-    print(summary(p))
+    #print(countyname)
+    #print(summary(p))
   }
 }
 
@@ -599,7 +601,7 @@ for(code in filtered_fips$fips){
 
 ```
 
-### Restaurant Visit: TX
+## Restaurant Visit: TX
 
 ```{r tx-restaurant-visit}
 interventions <- c("EmergDec",
@@ -660,22 +662,24 @@ for(code in filtered_fips$fips){
     tx.counties.filtered[count] <- countyname
     count <- count + 1
     # print all the information
-    print(countyname)
-    print(summary(p))
+    #print(countyname)
+    #print(summary(p))
   }
 }
 ```
 
 
 
-## Rank of the effectiveness of the intervention
+# Rank of the effectiveness of the intervention
 
 We can see that the effects of public mask and other business closures on reducing mobility are statistically significant at 0.05 level after we have counted for the case count signals. It also depends on the county regarding which intervention is more effective. For example, we see that school mask has a large effect on Stanislaus county, but may not have any effects on Alpine county. In addition, the interventions of gathering restriction and school closure in California are advisory, which appear to be not significant, whereas other mandatory policies have a significant effect on mobility.
 
 
-### The effect of California's intervention on stay home signal
+## The effect of California's intervention on stay home signal
 
-```{r ca-intervention-on-stay-home}
+### CA: Urban counties
+
+```{r ca-intervention-on-stay-home, fig.height= 12, fig.width = 10}
 select_col <- c("EmergDec1","GathRestrict1","SchoolClose1","BarRestrict1","PublicMask1","OtherBusinessClose1","BusinessMask1", "SchoolMask1" ,"Quarantine1")
 plist <- list()
 count <- 1
@@ -702,23 +706,40 @@ revised_df <- cbind(df,confint(ls[[i]])[select_col,])
 
   
 # Plot all counties mobility signal
-n <- length(plist[c(2,19,41,53)])
-nCol <- floor(sqrt(n))
-do.call("grid.arrange", c(plist[c(2,19,41,53)], ncol=nCol))
+#n <- length(plist[c(2,19,41,53)])
+#nCol <- floor(sqrt(n))
+#do.call("grid.arrange", c(plist[c(2,19,41,53)], ncol=nCol))
+
+idx <- which(ca.counties %in% c("Orange County", "Santa Clara County", "Alameda County", "Yolo County", "Marin County", "San Bernardino County"))
+
+# Urban counties
+do.call("grid.arrange", c(plist[idx], ncol=2))
 
 ```
 
-### The effect of Texas's intervention on stay home signal
+### CA: Rural counties
 
-```{r tx-intervention-on-stay-home}
-select_col <- c("EmergDec1","GathRestrict1","SchoolClose1","BarRestrict1","PublicMask1","Quarantine1")
+```{r ca-rural-counties-on-stayhome, fig.height= 12, fig.width = 10}
+# select counties
+idx <- which(ca.counties %in% c("Humboldt County", "Siskiyou County", "Del Norte County", "Mono County", "Plumas County", "Glenn County"))
+# Rural counties
+do.call("grid.arrange", c(plist[idx], ncol=2))
+
+```
+
+## The effect of Texas's intervention on stay home signal
+
+### TX: Urban counties
+
+```{r tx-intervention-on-stay-home, fig.height= 12, fig.width = 10}
+select_col <- c("EmergDec1","GathRestrict1","SchoolClose1","BarRestrict1","PublicMask1","Quarantine1","StayAtHome1")
 
 plist <- list()
 count <- 1
 for(i in 1:length(txls)){
   # Same the summary
   lm.fit <- summary(txls[[i]])
-  name <- c("EmergDec","GathRestrict","SchoolClose","BarRestrict","PublicMask","Quarantine")
+  name <- c("EmergDec","GathRestrict","SchoolClose","BarRestrict","PublicMask","Quarantine","StayAtHome")
   df <- data.frame(fit= lm.fit$coefficients[select_col,1], interventions=name)
 revised_df <- cbind(df,confint(txls[[i]])[select_col,])
   colnames(revised_df)[3] <- "LCI"
@@ -736,15 +757,37 @@ revised_df <- cbind(df,confint(txls[[i]])[select_col,])
 }
 
 # Plot all counties mobility signal
-nCol <- 1
-for(i in 1:length(plist)){
-  do.call("grid.arrange", c(plist[i], ncol=nCol))
-}
+#nCol <- 1
+#for(i in 1:length(plist)){
+#  do.call("grid.arrange", c(plist[i], ncol=nCol))
+#}
+
+
+# Urban counties
+idx <- which(fips_to_name(unique(tx.stayhome$geo_value.x)) %in% c("Chambers County","Hardin County"  ,"Harris County", "Fort Bend County","Liberty County","Austin County"))
+
+do.call("grid.arrange", c(plist[idx], ncol=2))
+
 ```
 
-### The effect of California's intervention on restaurant visit 
+### TX: Rural counties
 
-```{r ca-restaurant-rank}
+```{r tx-urban-stay-home, fig.height= 12, fig.width = 10}
+
+# Rural counties
+
+idx <- which(fips_to_name(unique(tx.stayhome$geo_value.x)) %in%  c("Anderson County", "Andrews County", "Angelina County", "Somervell County", "Pecos County", "Ward County"))
+
+do.call("grid.arrange", c(plist[idx], ncol=2))
+
+```
+
+
+## The effect of California's intervention on restaurant visit 
+
+### CA: Urban counties
+
+```{r ca-restaurant-rank, fig.height= 12, fig.width = 10}
 select_col <- c("EmergDec1","GathRestrict1","SchoolClose1","BarRestrict1","PublicMask1","OtherBusinessClose1","BusinessMask1", "SchoolMask1" ,"Quarantine1")
 
 plist <- list()
@@ -773,16 +816,34 @@ revised_df <- cbind(df,confint(ca.restls[[i]])[select_col,])
 }
 
 # Plot all counties mobility signal
-nCol <- 1
-for(i in 1:length(plist)){
-  do.call("grid.arrange", c(plist[i], ncol=nCol))
-}
+#nCol <- 1
+#for(i in 1:length(plist)){
+#  do.call("grid.arrange", c(plist[i], ncol=nCol))
+#}
+
+idx <- which(fips_to_name(unique(ca.restvisit$geo_value.x)) %in% c("Orange County", "Santa Clara County", "Alameda County", "Yolo County", "Marin County", "San Bernardino County"))
+
+# Urban counties
+do.call("grid.arrange", c(plist[idx], ncol=2))
 
 ```
 
-### The effect of Texas's intervention on restaurant visit
+### CA: Rural counties
 
-```{r tx-intervention-on-restaurant}
+```{r ca-rural-counties-restaurant, fig.height= 12, fig.width = 10}
+# select counties
+idx <-which(fips_to_name(unique(ca.restvisit$geo_value.x)) %in% c("Humboldt County", "Siskiyou County", "Del Norte County", "Mono County", "Plumas County", "Glenn County"))
+# Rural counties
+do.call("grid.arrange", c(plist[idx], ncol=2))
+
+```
+
+
+## The effect of Texas's intervention on restaurant visit
+
+### TX: Urban counties
+
+```{r tx-intervention-on-restaurant, fig.height= 12, fig.width = 10}
 select_col <- c("EmergDec1","GathRestrict1","SchoolClose1","BarRestrict1","PublicMask1","Quarantine1")
 
 plist <- list()
@@ -808,17 +869,29 @@ revised_df <- cbind(df,confint(tx.restls[[i]])[select_col,])
 }
 
 # Plot all counties mobility signal
-nCol <- 1
-for(i in 1:length(plist)){
-  do.call("grid.arrange", c(plist[i], ncol=nCol))
-}
+#nCol <- 1
+#for(i in 1:length(plist)){
+#  do.call("grid.arrange", c(plist[i], ncol=nCol))
+#}
 
+# Urban counties
+idx <- which(tx.counties.filtered %in% c("Chambers County","Hardin County"  ,"Harris County", "Fort Bend County","Liberty County","Austin County"))
+do.call("grid.arrange", c(plist[idx], ncol=2))
+
+```
+
+### TX: Rural counties
+
+```{r tx-rural-counties-restaurant, fig.height= 12, fig.width = 10}
+# Rural counties
+
+idx <- which(tx.counties.filtered %in% c("Anderson County", "Andrews County", "Angelina County", "Somervell County", "Pecos County", "Ward County"))
+do.call("grid.arrange", c(plist[idx], ncol=2))
 ```
 
 
 
-
-## Conclusion
+# Conclusion
 
 We assume that every county will follow the state-wide policy accordingly. Having accounted for weekends and holidays, bar restriction and school clousure seem to have a greater effect on increasing staying at home signal among all other interventions in California. Other interventions, in contrary, reduce stay at home signal in California. The effects of the interventions vary across counties. On the other hand, emergency declaration increases the stay home signal in some counties of Texas. Also, in general, public mask reduces stay at home signal in Texas. 
 
