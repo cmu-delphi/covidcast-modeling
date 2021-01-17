@@ -62,24 +62,66 @@ Various governments have released different policies with an aim to control the 
 # for faster retrival 
 # library(tidycensus)
 # data(fips_codes)
-# 
+# # 
 # STARTDATE <- "2020-02-20"
-# ENDDATE <- lubridate::today()
-# 
+# ENDDATE <- "2020-12-15"
+# GEO_TYPE <- "county"
+# # 
 # fips_codes$fips <- paste(fips_codes$state_code, 
-#                          fips_codes$county_code, 
-#                          sep="")
-# 
-# # "NY","WA", "TX", "UT", "ND"
+#                           fips_codes$county_code, 
+#                           sep="")
+# # 
+# # # "NY","WA", "TX", "UT", "ND"
 # GEO_VALUE <- fips_codes[fips_codes$state %in% c("CA"),]$fips
 # 
-# confirmed_7dav_cumulative_prop <- covidcast_signal(data_source =
-#                                                   "indicator-combination",                                            
-#                                           signal="confirmed_7dav_cumulative_prop",
-#                                                   start_day = STARTDATE,
-#                                                   end_day = ENDDATE,
-#                                                   geo_type = GEO_TYPE,
-#                                                   geo_values = GEO_VALUE)
+# ca.chome <- covidcast_signal(data_source = "safegraph", 
+#                              signal ="completely_home_prop",
+#                              start_day = STARTDATE, 
+#                              end_day = ENDDATE,
+#                              geo_type = GEO_TYPE, 
+#                              geo_values = GEO_VALUE)
+# 
+# ca.rest <- covidcast_signal(data_source = "safegraph", 
+#                              signal ="restaurants_visit_prop",
+#                              start_day = STARTDATE, 
+#                              end_day = ENDDATE,
+#                              geo_type = GEO_TYPE, 
+#                              geo_values = GEO_VALUE)
+# 
+# 
+# 
+# GEO_VALUE <- fips_codes[fips_codes$state %in% c("TX"),]$fips
+# 
+# tx.chome <- covidcast_signal(data_source = "safegraph", 
+#                              signal ="completely_home_prop",
+#                              start_day = STARTDATE, 
+#                              end_day = ENDDATE,
+#                              geo_type = GEO_TYPE, 
+#                              geo_values = GEO_VALUE)
+# 
+# tx.bar <- covidcast_signal(data_source = "safegraph", 
+#                              signal ="bars_visit_prop",
+#                              start_day = STARTDATE, 
+#                              end_day = ENDDATE,
+#                              geo_type = GEO_TYPE, 
+#                              geo_values = GEO_VALUE)
+# 
+# tx.rest <- covidcast_signal(data_source = "safegraph", 
+#                              signal ="restaurants_visit_prop",
+#                              start_day = STARTDATE, 
+#                              end_day = ENDDATE,
+#                              geo_type = GEO_TYPE, 
+#                              geo_values = GEO_VALUE)
+
+
+# # 
+confirmed_7dav_cumulative_prop <- covidcast_signal(data_source =
+                                                 "indicator-combination",                                            
+                                   signal="confirmed_7dav_cumulative_prop",
+                                                    start_day = STARTDATE,
+                                                    end_day = ENDDATE,
+                                                    geo_type = GEO_TYPE,
+                                                   geo_values=GEO_VALUE)
 # 
 # 
 # 
@@ -1826,6 +1868,9 @@ pairs(all_of_demographics[,c(8,11,13,14,15,16,17)],
                  "Unemployment.rate",
                  "Median.income")
       )
+
+library(GGally)
+ggpairs(all_of_demographics[,c(8,11,12,13,14,15,16,17)], aes(colour = stand, alpha = 0.4))
 ```
 
 # Conclusion and future work
