@@ -4,14 +4,14 @@ output: html_notebook
 ---
 
 ```{r}
-source("LeadingIndicatorTools_V3.R")
+source("LeadingIndicatorTools.R")
 library(covidcast)
 library(magrittr)
 library(tidyverse)
 library(assertthat)
 library(lubridate)
 
-prepared = get_and_prepare_signals("2020-09-01", "2020-11-30", "doctor-visits", "smoothed_adj_cli", 2000, 80)
+prepared = get_and_parse_signals("2020-09-01", "2020-11-30", "doctor-visits", "smoothed_adj_cli", 2000, 80)
 print(length(prepared$cases))
 
 ```
@@ -29,7 +29,9 @@ print(final_cases_indicator_list[[442]])
 ```
 ```{r}
 plot_signals(final_cases_indicator_list, "39011", smooth_and_show_increase_point=FALSE, "Dr visits")
-plot_signals(final_cases_indicator_list, "12031", smooth_and_show_increase_point=TRUE, "Dr visits")
+plot_signals(final_cases_indicator_list, "39011", smooth_and_show_increase_point=TRUE, "Dr visits")
+plot_signals(final_cases_indicator_list, "17007", smooth_and_show_increase_point=FALSE, "Dr visits")
+plot_signals(final_cases_indicator_list, "17007", smooth_and_show_increase_point=TRUE, "Dr visits")
 plot_signals(final_cases_indicator_list, "05119", smooth_and_show_increase_point=TRUE, "Dr visits")
 plot_signals(final_cases_indicator_list, "06029", smooth_and_show_increase_point=TRUE, "Dr visits")
 plot_signals(final_cases_indicator_list, "06067", smooth_and_show_increase_point=TRUE, "Dr visits")
@@ -55,10 +57,16 @@ plot_signals(final_cases_indicator_list, success_examples[[10]], "Dr visits", sm
 plot_signals(final_cases_indicator_list, success_examples[[10]], "Dr visits", smooth_and_show_increase_point = FALSE)
 plot_signals(final_cases_indicator_list, success_examples[[20]], "Dr visits", smooth_and_show_increase_point = TRUE)
 plot_signals(final_cases_indicator_list, success_examples[[20]], "Dr visits", smooth_and_show_increase_point = FALSE)
+plot_signals(final_cases_indicator_list, success_examples[[40]], "Dr visits", smooth_and_show_increase_point = TRUE)
+plot_signals(final_cases_indicator_list, success_examples[[40]], "Dr visits", smooth_and_show_increase_point = FALSE)
+plot_signals(final_cases_indicator_list, success_examples[[45]], "Dr visits", smooth_and_show_increase_point = TRUE)
+plot_signals(final_cases_indicator_list, success_examples[[45]], "Dr visits", smooth_and_show_increase_point = FALSE)
 
 
 ```
 ```{r}
+source("LeadingIndicatorTools.R")
+
 recall = get_recall_strict(final_cases_indicator_list)
 recall
 
