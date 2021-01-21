@@ -3,7 +3,7 @@
 
 ## Goals and Research Questions
 
-Mobility is one of the potential factors in contributing to the spread of COVID-19. Our goal is to estimate the effect of state-wide policies on mobility signals at a county-level in this work to answer the following questions: 
+Mobility is one of the potential factors in contributing to the spread of COVID-19. We assume that every county will follow the state-wide policy accordingly. Our goal is to estimate the effect of state-wide policies on mobility signals at a county-level in this work to answer the following questions: 
 
   * Do mobility signals decrease more because of the governemnt interventions or public reaction to case counts?
 
@@ -13,13 +13,15 @@ Mobility is one of the potential factors in contributing to the spread of COVID-
 
   * Do mandatory policies seem to be more effective than recommended policies in reducing mobility?
 
-## Conclusion and future work
+## Conclusion
 
-Based on assumptions, we have found that state-wide government interventions tend to have a larger effect in reducing mobility in the areas with a large population, a small percentage of people in poverty, a high percent of people with education backgrounds, and a low unemployment rate. 
+This work has shown a way to estimate the effect of the emergency declaration on mobility during the pandemic. The mandatory COVID19 policies tend to be more effective on the areas that have large population, small percent of people in poverty, high percent of people with education backgrounds, low unemployment rate. 
 
-Secondly, recommended policies, gathering restrictions, and school closure, may not have a significant effect in reducing mobility, whereas some mandatory policies such as public masks and business closures have a significant effect on mobility in California counties. We rank the effectiveness of the intervention on mobility in terms of the regression coefficient in a linear regression setting. Other regression methods should also be used for further study. 
+In general, having accounted for the case count signals, government interventions are more effective to increase staying at home signal and restaurant visit. Bar restriction and school clousure seem to have a greater effect to increase staying at home signal among all other interventions in California. Other interventions, in contrary, reduce stay at home signal in California. The effects of the interventions vary across counties. On the other hand, emergency declaration increases the stay home signal in some counties of Texas. Also, in general, public mask reduces stay at home signal in Texas. 
 
-In future, we need to collect more data about county-level intervention to measure the start dates and end dates of the policies more accurately. Also, we can examine other mobility signals available in the Dephi API. 
+Also, we see that wearing masks may help increase restaurant visit. For example, business mask seems to stimulate the increase of the restaurant visit. Moreover, public masks increases the number of restaurant visit in most of the counties in California.
+
+We rank the effectiveness of the intervention on mobility in terms of the regression coefficient in a multiple regression setting. We leave characterization for the ranks of the effect of intervention on county-level as a future work. Other regression methods such as non-parametric regression should also be used for further study.
 
 
 ## Deliverables
@@ -33,6 +35,8 @@ In future, we need to collect more data about county-level intervention to measu
 * Correlation between demographics and the effect of the emergency declaration. [See 02_estimating_effect_of_intervention_via_RDD.md](reports/02_estimating_effect_of_intervention_via_RDD.md)
   
 * Rank of the effectiveness of the intervention at a county-level. [See 03_ranking_effect_of_interventions.md](reports/03_ranking_effect_of_interventions.md)
+
+* Main report: a summary of the entire project [See 04_main_report.md](reports/04_main_report.md)
 
 
 ## File Directory Description

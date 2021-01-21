@@ -423,17 +423,17 @@ ca.stayhome <- prepDF(ca.chome,
           fips_codes)
 
 # weekends filter
-ca.stayhome <- ca.stayhome%>% 
-      mutate(weekday= weekdays(as.Date(time_value)))%>% 
-      mutate(weekend= as.factor(ifelse(weekday %in% c("Saturday", "Sunday"), 1, 0)),
-             holiday = as.factor(ifelse(as.Date(time_value) %in% as.Date(ca.holidays), 1, 0)),
-             wildfire= as.factor(ifelse(as.Date(time_value) %in% as.Date(ca.wildfire_seasons), 1, 0)))
+#ca.stayhome <- ca.stayhome%>% 
+#      mutate(weekday= weekdays(as.Date(time_value)))%>% 
+#      mutate(weekend= as.factor(ifelse(weekday %in% c("Saturday", "Sunday"), 1, 0)),
+#             holiday = as.factor(ifelse(as.Date(time_value) %in% as.Date(ca.holidays), 1, 0)),
+#             wildfire= as.factor(ifelse(as.Date(time_value) %in% as.Date(ca.wildfire_seasons), 1, 0)))
 
 
 
-interventions <- c("EmergDec","GathRestrict","SchoolClose","BarRestrict","PublicMask","OtherBusinessClose","BusinessMask", "SchoolMask" ,"Quarantine","weekend","holiday")
+#interventions <- c("EmergDec","GathRestrict","SchoolClose","BarRestrict","PublicMask","OtherBusinessClose","BusinessMask", "SchoolMask" ,"Quarantine")
 
-formula1 <- as.formula(paste(mobility.name, paste(c(confounders.names, interventions ), collapse=" + "), sep=" ~ "))
+#formula1 <- as.formula(paste(mobility.name, paste(c(confounders.names, interventions ), collapse=" + "), sep=" ~ "))
 
 
 # Filter the fips codes
@@ -479,25 +479,25 @@ tx.stayhome <- prepDF(tx.chome,
           fips_codes)
 
 # weekends filter
-tx.stayhome <- tx.stayhome%>% 
-      mutate(weekday= weekdays(as.Date(time_value)))%>% 
-      mutate(weekend= as.factor(ifelse(weekday %in% c("Saturday", "Sunday"), 1, 0)),
-             holiday = as.factor(ifelse(as.Date(time_value) %in% as.Date(tx.holidays), 1, 0)),
-             wildfire = as.factor(ifelse(as.Date(time_value) %in% as.Date(tx.wildfire_seasons), 1, 0)))
+#tx.stayhome <- tx.stayhome%>% 
+#      mutate(weekday= weekdays(as.Date(time_value)))%>% 
+#      mutate(weekend= as.factor(ifelse(weekday %in% c("Saturday", "Sunday"), 1, 0)),
+#             holiday = as.factor(ifelse(as.Date(time_value) %in% as.Date(tx.holidays), 1, 0)),
+#             wildfire = as.factor(ifelse(as.Date(time_value) %in% as.Date(tx.wildfire_seasons), 1, 0)))
 
 
-interventions <- c("EmergDec",
-                   "GathRestrict",
-                   "SchoolClose",
-                   "BarRestrict",
-                   "PublicMask",
-                   "OtherBusinessClose",
-                   "Quarantine",
-                   "StayAtHome",
-                   "weekend",
-                   "holiday")
-
-txformula <- as.formula(paste(mobility.name, paste(c(confounders.names, interventions), collapse=" + "), sep=" ~ "))
+# interventions <- c("EmergDec",
+#                    "GathRestrict",
+#                    "SchoolClose",
+#                    "BarRestrict",
+#                    "PublicMask",
+#                    "OtherBusinessClose",
+#                    "Quarantine",
+#                    "StayAtHome",
+#                    "weekend",
+#                    "holiday")
+# 
+# txformula <- as.formula(paste(mobility.name, paste(c(confounders.names, interventions), collapse=" + "), sep=" ~ "))
 
 
 txls <- list()
@@ -548,24 +548,24 @@ ca.restvisit <- prepDF(ca.rest,
           fips_codes)
 
 
-# weekends filter
-ca.restvisit <- ca.restvisit%>% 
-      mutate(weekday= weekdays(as.Date(time_value)))%>% 
-      mutate(weekend= as.factor(ifelse(weekday %in% c("Saturday", "Sunday"), 1, 0)),
-             holiday = as.factor(ifelse(as.Date(time_value) %in% as.Date(ca.holidays), 1, 0)))
-
-
-interventions <- c("EmergDec",
-                   "GathRestrict",
-                   "SchoolClose",
-                   "BarRestrict",
-                   "PublicMask",
-                   "OtherBusinessClose",
-                   "BusinessMask",
-                   "SchoolMask",
-                   "Quarantine",
-                   "weekend",
-                   "holiday")
+# # weekends filter
+# ca.restvisit <- ca.restvisit%>% 
+#       mutate(weekday= weekdays(as.Date(time_value)))%>% 
+#       mutate(weekend= as.factor(ifelse(weekday %in% c("Saturday", "Sunday"), 1, 0)),
+#              holiday = as.factor(ifelse(as.Date(time_value) %in% as.Date(ca.holidays), 1, 0)))
+# 
+# 
+# interventions <- c("EmergDec",
+#                    "GathRestrict",
+#                    "SchoolClose",
+#                    "BarRestrict",
+#                    "PublicMask",
+#                    "OtherBusinessClose",
+#                    "BusinessMask",
+#                    "SchoolMask",
+#                    "Quarantine",
+#                    "weekend",
+#                    "holiday")
 
 formula2 <- as.formula(paste(mobility.name, paste(c(confounders.names, interventions ), collapse=" + "), sep=" ~ "))
 
@@ -629,21 +629,21 @@ tx.restvisit <- prepDF(tx.rest,
 
 
 # weekends filter
-tx.restvisit <- tx.restvisit%>% 
-      mutate(weekday= weekdays(as.Date(time_value)))%>% 
-      mutate(weekend= as.factor(ifelse(weekday %in% c("Saturday", "Sunday"), 1, 0)),
-             holiday = as.factor(ifelse(as.Date(time_value) %in% as.Date(tx.holidays), 1, 0)))
-
-interventions <- c("EmergDec",
-                   "GathRestrict",
-                   "SchoolClose",
-                   "BarRestrict",
-                   "PublicMask",
-                   "OtherBusinessClose",
-                   "Quarantine",
-                   "weekend",
-                   "holiday")
-formula2 <- as.formula(paste(mobility.name, paste(c(confounders.names, interventions ), collapse=" + "), sep=" ~ "))
+# tx.restvisit <- tx.restvisit%>% 
+#       mutate(weekday= weekdays(as.Date(time_value)))%>% 
+#       mutate(weekend= as.factor(ifelse(weekday %in% c("Saturday", "Sunday"), 1, 0)),
+#              holiday = as.factor(ifelse(as.Date(time_value) %in% as.Date(tx.holidays), 1, 0)))
+# 
+# interventions <- c("EmergDec",
+#                    "GathRestrict",
+#                    "SchoolClose",
+#                    "BarRestrict",
+#                    "PublicMask",
+#                    "OtherBusinessClose",
+#                    "Quarantine",
+#                    "weekend",
+#                    "holiday")
+# formula2 <- as.formula(paste(mobility.name, paste(c(confounders.names, interventions ), collapse=" + "), sep=" ~ "))
 
 # Filter the fips codes
 filtered_fips <- fipscodes %>%filter(state %in% "TX")
