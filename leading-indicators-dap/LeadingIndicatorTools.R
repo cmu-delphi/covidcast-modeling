@@ -183,7 +183,7 @@ plot_signals <- function(case_indicator_list, county_fips, ylab2 = "",
 # @return list of county fips codes where all indicator rise points precede a case rise point by success_window_max or fewer days, and more than success_window_min days
 #         and all case rise points are preceded by an indicator rise point by success_window_max or fewer days, and more than success_window_min days
 get_success_examples <- function(case_indicator_list, success_window_max = 14, success_window_min = 3) {
-  success_counties = vector("list", length(case_indicator_list))
+  success_counties = vector("list", length(case_indicator_list)) 
 
   for (i in (1:length(case_indicator_list))) {
     case_points = 1 %in% case_indicator_list[[i]]$case_rise_point

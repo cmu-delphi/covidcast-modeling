@@ -66,7 +66,6 @@ plot_signals(final_cases_indicator_list, success_examples[[45]], "Dr visits", sm
 ```
 ```{r}
 source("LeadingIndicatorTools.R")
-
 recall = get_recall_strict(final_cases_indicator_list)
 recall
 
