@@ -12,27 +12,27 @@ load_covidcast_data <- function(STARTDATE, ENDDATE, GEO_TYPE, GEO_VALUE, EXCLUDE
     filter(!(geo_value %in% EXCLUDED_AREAS))
   
   # Part time away from home signal
-  ptime <- covidcast_signal(data_source = "safegraph", 
-                            signal ="part_time_work_prop",
-                            start_day = STARTDATE, 
-                            end_day = ENDDATE,
-                            geo_type = GEO_TYPE, 
-                            geo_values = GEO_VALUE)
+  #ptime <- covidcast_signal(data_source = "safegraph", 
+  #                          signal ="part_time_work_prop",
+  #                          start_day = STARTDATE, 
+  #                          end_day = ENDDATE,
+  #                          geo_type = GEO_TYPE, 
+  #                          geo_values = GEO_VALUE)
   
-  ptime <- ptime %>%  
-    filter(!(geo_value %in% EXCLUDED_AREAS))
+  #ptime <- ptime %>%  
+  #  filter(!(geo_value %in% EXCLUDED_AREAS))
   
   # The fraction of mobile devices that 
   # did not leave the immediate area of their home
-  # completely_home_prop <- covidcast_signal(data_source = "safegraph", 
-  #                           signal ="completely_home_prop",
-  #                           start_day = STARTDATE, 
-  #                           end_day = ENDDATE,
-  #                           geo_type = GEO_TYPE, 
-  #                           geo_values = GEO_VALUE)
+  completely_home_prop <- covidcast_signal(data_source = "safegraph", 
+                             signal ="completely_home_prop",
+                             start_day = STARTDATE, 
+                             end_day = ENDDATE,
+                             geo_type = GEO_TYPE, 
+                             geo_values = GEO_VALUE)
   # 
-  # completely_home_prop <- completely_home_prop %>%  
-  #   filter(!(geo_value %in% EXCLUDED_AREAS))
+  completely_home_prop <- completely_home_prop %>%  
+     filter(!(geo_value %in% EXCLUDED_AREAS))
   # 
   # 
   # # The median time spent at home for all devices at this location 
@@ -144,7 +144,7 @@ load_covidcast_data <- function(STARTDATE, ENDDATE, GEO_TYPE, GEO_VALUE, EXCLUDE
     sample_size = NA,
     data_source = 'Weekly Patterns')
   return(list(full_time_work_prop=ftime, 
-              part_time_work_prop=ptime,
+              completely_home_prop=completely_home_prop,
               Avg.Confirmed.Case.Count=case_avg,  
               Cum.Avg.Case.Count=cum_case, 
               Cum.Avg.Case.Count.Prop = cum_case_prop, 

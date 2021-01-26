@@ -41,7 +41,7 @@ Also, we look at intervention data from [State-level social distancing policies 
 
 We can see that full-time away home signal drops across all the states in April and gradually increase. We can also plot out the completely staying at home on the vertical axis to compare. 
 
-```{r import packages, warning = FALSE, message = FALSE, }
+```{r import packages, warning = FALSE, message = FALSE}
 library(ggplot2)
 library (readr)
 library(tidyverse)
