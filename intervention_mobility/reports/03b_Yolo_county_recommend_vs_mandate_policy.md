@@ -30,6 +30,30 @@ source("code/parser.r")
 ```
 
 
+
+```r
+STARTDATE <- "2019-01-01"  # Forward the mobility one day in time
+ENDDATE <- lubridate::today()
+state <- "ca"
+GEO_VALUE <- "06113" # Allegheny_County fip 
+GEO_TYPE <- "county"
+
+restvisit <-  covidcast_signal(data_source = "safegraph",
+                                    signal ="restaurants_visit_prop",
+                                    start_day = STARTDATE, 
+                                    end_day = ENDDATE,
+                                    geo_type = GEO_TYPE, 
+                                    geo_values = GEO_VALUE)
+
+p <- ggplot(restvisit, aes(x=time_value, y=value)) +
+  geom_line() + 
+  labs(title = "Number of daily restaurant visit by time in Yolo county", y= "# of resturant visit per 100,000 population")
+p
+```
+
+![](03b_Yolo_county_recommend_vs_mandate_policy_files/figure-html/plotting-for-fun-1.png)<!-- -->
+
+
 ```r
 state <- "ca"
 GEO_VALUE <- "06113" # Allegheny_County fip 
@@ -64,26 +88,6 @@ dailydeath <- covidcast_signal(data_source = "indicator-combination",
                                     geo_type = GEO_TYPE, 
                                     geo_values = GEO_VALUE)
 
-cumconfirmed <- covidcast_signal(data_source = "indicator-combination",
-                                    signal ="confirmed_7dav_cumulative_prop",
-                                    start_day = STARTDATE, 
-                                    end_day = ENDDATE,
-                                    geo_type = GEO_TYPE, 
-                                    geo_values = GEO_VALUE)
-
-cumdeath <- covidcast_signal(data_source = "indicator-combination",
-                                    signal ="deaths_7dav_cumulative_prop",
-                                    start_day = STARTDATE, 
-                                    end_day = ENDDATE,
-                                    geo_type = GEO_TYPE, 
-                                    geo_values = GEO_VALUE)
-
-adjcli  <- covidcast_signal(data_source = "doctor-visits",
-                                    signal ="smoothed_adj_cli",
-                                    start_day = STARTDATE, 
-                                    end_day = ENDDATE,
-                                    geo_type = GEO_TYPE, 
-                                    geo_values = GEO_VALUE)
 
 
 # Fetch mobility signals of interests 
@@ -192,6 +196,8 @@ concatCaseNPolicy <- function(case.df){
 ```
 
 
+Let's only look at the data from February 2020 onward because we only have case count signals available starting from February 2020. 
+
 
 ```r
 # Filter the dates that we don't have mobility signals
@@ -208,29 +214,23 @@ dailydeath.f <- dailydeath %>%
   mutate(dailydeath_prop = value) %>%
   select(dailydeath_prop)
 
-cumconfirmed.f <- cumconfirmed %>% 
-  filter(!(time_value %in% missingdates)) %>%
-  mutate(cumconfirmed_prop = value) %>%
-  select(cumconfirmed_prop)
-
-cumdeath.f <- cumdeath %>% 
-  filter(!(time_value %in% missingdates)) %>%
-  mutate(cumdeath_prop = value) %>%
-  select(cumdeath_prop)
-
-adjcli.f <- adjcli %>% 
-  filter(!(time_value %in% missingdates)) %>%
-  mutate(smoothed_adj_cli = value ) %>%
-  select(smoothed_adj_cli)
-
 # Concatnate case counts and 
 restvisit$dailyconfirmed_prop <- dailyconfirmed.f$dailyconfirmed_prop
 restvisit$dailydeath_prop <- dailydeath.f$dailydeath_prop
-restvisit$cumconfirmed_prop <- cumconfirmed.f$cumconfirmed_prop 
-restvisit$cumdeath_prop <- cumdeath.f$cumdeath_prop
-restvisit$smoothed_adj_cli <-adjcli.f$smoothed_adj_cli
 colnames(restvisit)[7] <- "restaurants_visit_prop"
+
+
+
+# Plot the signal
+p <- ggplot(restvisit, aes(x=time_value, y=restaurants_visit_prop)) +
+  geom_line() + 
+  labs(title = "Number of daily restaurant visit by time in Yolo county (weekends included)", y= "# of resturant visit per 100,000 population")
+p
 ```
+
+![](03b_Yolo_county_recommend_vs_mandate_policy_files/figure-html/preprocess-case-signals-1.png)<!-- -->
+
+
 
 
 ```r
@@ -253,8 +253,9 @@ statepolicy[gathering.idx,]$policy <- paste(limit.idx[gathering.idx],statepolicy
 
 lmdf <- concatCaseNPolicy(restvisit)
 
+  
 # convert to factor
-lmdf[,c(16:ncol(lmdf))] <- sapply(lmdf[,c(16:ncol(lmdf))], function(x) as.factor(x)) 
+lmdf[,c(13:ncol(lmdf))] <- sapply(lmdf[,c(13:ncol(lmdf))], function(x) as.factor(x)) 
 ```
 
 ## Restaurant visit prop
@@ -269,9 +270,9 @@ names <- colnames(df)[-1]
 lm.fit <- lm(restaurants_visit_prop ~ ., df)
 sum.lm.fit <- summary(lm.fit)
 
-plt.df <- data.frame(fit= sum.lm.fit$coefficients[c(-1:-6),1], interventions=names(sum.lm.fit$coefficients[c(-1:-6),1]))
+plt.df <- data.frame(fit= sum.lm.fit$coefficients[c(-1:-3),1], interventions=names(sum.lm.fit$coefficients[c(-1:-3),1]))
 
-revised_df <- cbind(plt.df, confint(lm.fit)[which(names(lm.fit$coefficients) %in% names(sum.lm.fit$coefficients[c(-1:-6),1])),])
+revised_df <- cbind(plt.df, confint(lm.fit)[which(names(lm.fit$coefficients) %in% names(sum.lm.fit$coefficients[c(-1:-3),1])),])
 
 colnames(revised_df)[3] <- "LCI"
 colnames(revised_df)[4] <- "UCI"
@@ -286,38 +287,35 @@ sum.lm.fit
 ## 
 ## Residuals:
 ##     Min      1Q  Median      3Q     Max 
-## -39.671  -5.853  -0.230   6.457  46.376 
+## -39.671  -6.212  -0.230   5.874  46.371 
 ## 
 ## Coefficients: (4 not defined because of singularities)
-##                                   Estimate Std. Error t value Pr(>|t|)    
-## (Intercept)                      1.073e+02  3.016e+00  35.560  < 2e-16 ***
-## dailyconfirmed_prop             -4.958e-01  1.285e-01  -3.859 0.000139 ***
-## dailydeath_prop                 -1.966e+00  4.735e+00  -0.415 0.678315    
-## cumconfirmed_prop                9.609e-04  6.777e-03   0.142 0.887345    
-## cumdeath_prop                    3.313e-01  5.986e-01   0.554 0.580309    
-## smoothed_adj_cli                -2.081e-01  2.940e-01  -0.708 0.479720    
-## EmergDec11                       6.286e+00  4.969e+00   1.265 0.206856    
-## `250-250-250-250GathRestrict0`1 -2.065e+01  8.378e+00  -2.465 0.014243 *  
-## SchoolClose01                    2.101e+00  9.538e+00   0.220 0.825833    
-## `NA-NA-NA-NAGathRestrict0`1     -6.311e+01  1.196e+01  -5.278 2.47e-07 ***
-## BarRestrict11                   -8.871e+01  1.520e+01  -5.836 1.36e-08 ***
-## `NA-NA-0-NAGathRestrict1`1       8.703e+00  1.078e+01   0.807 0.420083    
-## NEBusinessClose11                       NA         NA      NA       NA    
-## RestaurantRestrict11                    NA         NA      NA       NA    
-## StayAtHome11                            NA         NA      NA       NA    
-## PublicMask01                     8.488e-01  3.797e+00   0.224 0.823285    
-## OtherBusinessClose13             3.672e+00  4.635e+00   0.792 0.428886    
-## `NA-NA-100-NAGathRestrict1`1            NA         NA      NA       NA    
-## BusinessMask11                   2.677e+01  1.068e+01   2.507 0.012705 *  
-## PublicMask11                     4.474e+00  4.883e+00   0.916 0.360219    
-## SchoolMask11                    -1.175e+00  2.998e+00  -0.392 0.695440    
-## Quarantine01                    -6.709e-01  4.013e+00  -0.167 0.867337    
+##                                  Estimate Std. Error t value Pr(>|t|)    
+## (Intercept)                     107.25909    3.05388  35.122  < 2e-16 ***
+## dailyconfirmed_prop              -0.31702    0.09718  -3.262  0.00123 ** 
+## dailydeath_prop                  -3.75209    4.69539  -0.799  0.42484    
+## EmergDec11                        6.27940    5.03129   1.248  0.21295    
+## `250-250-250-250GathRestrict0`1 -20.65680    8.48202  -2.435  0.01544 *  
+## SchoolClose01                     2.10086    9.65721   0.218  0.82793    
+## `NA-NA-NA-NAGathRestrict0`1     -63.12363   12.10595  -5.214 3.38e-07 ***
+## BarRestrict11                   -88.46158   15.37959  -5.752 2.12e-08 ***
+## `NA-NA-0-NAGathRestrict1`1        8.47604   10.90024   0.778  0.43740    
+## NEBusinessClose11                      NA         NA      NA       NA    
+## RestaurantRestrict11                   NA         NA      NA       NA    
+## StayAtHome11                           NA         NA      NA       NA    
+## PublicMask01                      1.71508    3.49068   0.491  0.62354    
+## OtherBusinessClose13              5.79653    3.12093   1.857  0.06422 .  
+## `NA-NA-100-NAGathRestrict1`1           NA         NA      NA       NA    
+## BusinessMask11                   26.83506   10.80781   2.483  0.01356 *  
+## PublicMask11                      3.52340    4.63638   0.760  0.44786    
+## SchoolMask11                      3.60393    2.21446   1.627  0.10466    
+## Quarantine01                      0.91174    3.36188   0.271  0.78642    
 ## ---
 ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ## 
-## Residual standard error: 10.45 on 307 degrees of freedom
-## Multiple R-squared:  0.7385,	Adjusted R-squared:  0.724 
-## F-statistic: 51.01 on 17 and 307 DF,  p-value: < 2.2e-16
+## Residual standard error: 10.58 on 310 degrees of freedom
+## Multiple R-squared:  0.7293,	Adjusted R-squared:  0.7171 
+## F-statistic: 59.67 on 14 and 310 DF,  p-value: < 2.2e-16
 ```
 
 ```r

@@ -28,6 +28,27 @@ source("code/loader.r")
 source("code/parser.r")
 ```
 
+
+```{r plotting-for-fun, warning=F, message=F}
+STARTDATE <- "2019-01-01"  # Forward the mobility one day in time
+ENDDATE <- lubridate::today()
+state <- "ca"
+GEO_VALUE <- "06113" # Allegheny_County fip 
+GEO_TYPE <- "county"
+
+restvisit <-  covidcast_signal(data_source = "safegraph",
+                                    signal ="restaurants_visit_prop",
+                                    start_day = STARTDATE, 
+                                    end_day = ENDDATE,
+                                    geo_type = GEO_TYPE, 
+                                    geo_values = GEO_VALUE)
+
+p <- ggplot(restvisit, aes(x=time_value, y=value)) +
+  geom_line() + 
+  labs(title = "Number of daily restaurant visit by time in Yolo county", y= "# of resturant visit per 100,000 population")
+p
+```
+
 ```{r load-data, warning=FALSE, message=FALSE}
 state <- "ca"
 GEO_VALUE <- "06113" # Allegheny_County fip 
@@ -62,26 +83,6 @@ dailydeath <- covidcast_signal(data_source = "indicator-combination",
                                     geo_type = GEO_TYPE, 
                                     geo_values = GEO_VALUE)
 
-cumconfirmed <- covidcast_signal(data_source = "indicator-combination",
-                                    signal ="confirmed_7dav_cumulative_prop",
-                                    start_day = STARTDATE, 
-                                    end_day = ENDDATE,
-                                    geo_type = GEO_TYPE, 
-                                    geo_values = GEO_VALUE)
-
-cumdeath <- covidcast_signal(data_source = "indicator-combination",
-                                    signal ="deaths_7dav_cumulative_prop",
-                                    start_day = STARTDATE, 
-                                    end_day = ENDDATE,
-                                    geo_type = GEO_TYPE, 
-                                    geo_values = GEO_VALUE)
-
-adjcli  <- covidcast_signal(data_source = "doctor-visits",
-                                    signal ="smoothed_adj_cli",
-                                    start_day = STARTDATE, 
-                                    end_day = ENDDATE,
-                                    geo_type = GEO_TYPE, 
-                                    geo_values = GEO_VALUE)
 
 
 # Fetch mobility signals of interests 
@@ -95,6 +96,8 @@ restvisit <-  covidcast_signal(data_source = "safegraph",
                                     end_day = ENDDATE,
                                     geo_type = GEO_TYPE, 
                                     geo_values = GEO_VALUE)
+
+
 
 
 ```
@@ -194,6 +197,8 @@ concatCaseNPolicy <- function(case.df){
 ```
 
 
+Let's only look at the data from February 2020 onward because we only have case count signals available starting from February 2020. 
+
 ```{r preprocess-case-signals}
 # Filter the dates that we don't have mobility signals
 missingdates <- c(seq(as.Date("2020-12-13"),as.Date("2020-12-19"), 1),
@@ -209,31 +214,22 @@ dailydeath.f <- dailydeath %>%
   mutate(dailydeath_prop = value) %>%
   select(dailydeath_prop)
 
-cumconfirmed.f <- cumconfirmed %>% 
-  filter(!(time_value %in% missingdates)) %>%
-  mutate(cumconfirmed_prop = value) %>%
-  select(cumconfirmed_prop)
-
-cumdeath.f <- cumdeath %>% 
-  filter(!(time_value %in% missingdates)) %>%
-  mutate(cumdeath_prop = value) %>%
-  select(cumdeath_prop)
-
-adjcli.f <- adjcli %>% 
-  filter(!(time_value %in% missingdates)) %>%
-  mutate(smoothed_adj_cli = value ) %>%
-  select(smoothed_adj_cli)
-
 # Concatnate case counts and 
 restvisit$dailyconfirmed_prop <- dailyconfirmed.f$dailyconfirmed_prop
 restvisit$dailydeath_prop <- dailydeath.f$dailydeath_prop
-restvisit$cumconfirmed_prop <- cumconfirmed.f$cumconfirmed_prop 
-restvisit$cumdeath_prop <- cumdeath.f$cumdeath_prop
-restvisit$smoothed_adj_cli <-adjcli.f$smoothed_adj_cli
 colnames(restvisit)[7] <- "restaurants_visit_prop"
 
 
+
+# Plot the signal
+p <- ggplot(restvisit, aes(x=time_value, y=restaurants_visit_prop)) +
+  geom_line() + 
+  labs(title = "Number of daily restaurant visit by time in Yolo county (weekends included)", y= "# of resturant visit per 100,000 population")
+p
+
 ```
+
+
 
 ```{r preprocess-policy}
 # Combine some information for gathering restriction
@@ -255,8 +251,9 @@ statepolicy[gathering.idx,]$policy <- paste(limit.idx[gathering.idx],statepolicy
 
 lmdf <- concatCaseNPolicy(restvisit)
 
+  
 # convert to factor
-lmdf[,c(16:ncol(lmdf))] <- sapply(lmdf[,c(16:ncol(lmdf))], function(x) as.factor(x)) 
+lmdf[,c(13:ncol(lmdf))] <- sapply(lmdf[,c(13:ncol(lmdf))], function(x) as.factor(x)) 
 
 ```
 
@@ -271,9 +268,9 @@ names <- colnames(df)[-1]
 lm.fit <- lm(restaurants_visit_prop ~ ., df)
 sum.lm.fit <- summary(lm.fit)
 
-plt.df <- data.frame(fit= sum.lm.fit$coefficients[c(-1:-6),1], interventions=names(sum.lm.fit$coefficients[c(-1:-6),1]))
+plt.df <- data.frame(fit= sum.lm.fit$coefficients[c(-1:-3),1], interventions=names(sum.lm.fit$coefficients[c(-1:-3),1]))
 
-revised_df <- cbind(plt.df, confint(lm.fit)[which(names(lm.fit$coefficients) %in% names(sum.lm.fit$coefficients[c(-1:-6),1])),])
+revised_df <- cbind(plt.df, confint(lm.fit)[which(names(lm.fit$coefficients) %in% names(sum.lm.fit$coefficients[c(-1:-3),1])),])
 
 colnames(revised_df)[3] <- "LCI"
 colnames(revised_df)[4] <- "UCI"
