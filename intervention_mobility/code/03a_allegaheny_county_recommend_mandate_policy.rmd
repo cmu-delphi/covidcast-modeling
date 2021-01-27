@@ -1,0 +1,600 @@
+---
+title: "Evaluating recommend and mandatory policy for Allegheny county"
+author: "Kenneth Lee"
+date: "24/01/2021"
+output:
+  html_document:
+    code_folding: hide
+    keep_md: yes
+    toc: yes
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
+---
+
+# Introduction
+
+This report is to compare the impacts of recommended policy and mandatory policies on restaurant visit and staying at home in Alleghency county. We will use the following model:
+
+$$Y_t = \beta_{0} + \sum_{i}\beta_{i}C_{i,t-1} + \sum_{k}\beta_{k}I_{k,t} \text{    for  } i = \{1,\dots,6\}, k = \{1,\dots,19\}$$
+
+
+
+```{r import-packages, warning=FALSE, message=FALSE}
+library(covidcast)
+library(dplyr)
+library(lubridate)
+library(mgcv)
+library(ggplot2)
+library(readxl)
+library(gridExtra)
+
+source("code/loader.r")
+source("code/parser.r")
+```
+
+```{r load-data, warning=FALSE, message=FALSE}
+state <- "pa"
+GEO_VALUE <- "42003" # Allegheny_County fip 
+GEO_TYPE <- "county"
+STARTDATE <- "2020-02-20" # Start from where we have case count signals
+ENDDATE <- "2021-01-17" # fix a recent end date
+
+# Read in county-level intervention data 
+# from stanford crowdsourced data
+allcountypolicy <- read.csv("data/stanford-county-level-intervention-data.csv")
+# filter down to county of intersts
+countypolicy <- allcountypolicy %>% filter(county == "Allegheny County")
+
+# Read in state-wide policy data from UW
+policy <- load_policy()
+statepolicy <- policy %>% 
+  filter(StatePostal==state, StateWide==1)
+
+
+# Fetch case signals
+dailyconfirmed <- covidcast_signal(data_source = "indicator-combination",
+                                    signal ="confirmed_7dav_incidence_prop",
+                                    start_day = STARTDATE, 
+                                    end_day = ENDDATE,
+                                    geo_type = GEO_TYPE, 
+                                    geo_values = GEO_VALUE)
+
+dailydeath <- covidcast_signal(data_source = "indicator-combination",
+                                    signal ="deaths_7dav_incidence_prop",
+                                    start_day = STARTDATE, 
+                                    end_day = ENDDATE,
+                                    geo_type = GEO_TYPE, 
+                                    geo_values = GEO_VALUE)
+
+# Fetch mobility signals of interests 
+
+STARTDATE <- as.Date(STARTDATE) + 1  # Forward the mobility one day in time
+ENDDATE <- as.Date(ENDDATE) + 1
+
+restvisit <-  covidcast_signal(data_source = "safegraph",
+                                    signal ="restaurants_visit_prop",
+                                    start_day = STARTDATE, 
+                                    end_day = ENDDATE,
+                                    geo_type = GEO_TYPE, 
+                                    geo_values = GEO_VALUE)
+
+barvisit <-  covidcast_signal(data_source = "safegraph",
+                                    signal ="bars_visit_prop",
+                                    start_day = STARTDATE, 
+                                    end_day = ENDDATE,
+                                    geo_type = GEO_TYPE, 
+                                    geo_values = GEO_VALUE)
+
+
+chome <- covidcast_signal(data_source = "safegraph", 
+                             signal ="completely_home_prop",
+                             start_day = STARTDATE, 
+                             end_day = ENDDATE,
+                             geo_type = GEO_TYPE, 
+                             geo_values = GEO_VALUE)
+```
+
+```{r helper-functions, warning=FALSE, message=FALSE}
+plot_bar <- function(df,
+                     x,
+                     y,
+                     lower.bound,
+                     upper.bound,
+                     gp,
+                     name){
+  p<- ggplot(df, aes_string(x=x, y=y, group=gp, color=gp)) + 
+  #geom_line() +
+  geom_point()+
+  geom_errorbar(aes_string(xmin=lower.bound, xmax=upper.bound), width=.2,
+                 position=position_dodge(0.05))+
+    ggtitle(name)
+      
+  return(p)
+}
+
+# process each policy as follows
+# 1. look for the policy enact time, call it start date
+# 2. then look for the policy ended time
+# 3. if ended time is NA, look for expiry date, if not, set it as end date
+# 4. if expiry date is NA, then it means the policy hasn't ended, if not, set it as enddate
+# 5. Form a sequence of start date and end dates, assign 1 to any dates fall into this sequence.
+concatCaseNPolicy <- function(case.df){
+  # Loop through each row in the column called policy
+  for(row in (1:nrow(statepolicy))){
+    # for each policy, we do
+    policy.name <- statepolicy[row,]$StatePolicy
+    modified.policyName <- statepolicy[row,]$policy
+
+    # Set the start date of the policy
+    start <- statepolicy[row,]$DateEnacted
+    
+    # Set the end date of the policy
+    if(is.na(statepolicy[row,]$DateEnded)){
+      # if DateEnded is NA, then look for DateExpiry
+      if(is.na(statepolicy[row,]$DateExpiry)){
+        # if DateExpiry is NA, then the policy is in effect until the next policy with the same name happens
+        
+        # check to see if the same policy exist
+        if(row == nrow(statepolicy)){
+          # If this is the last policy in the data,
+          # take the last day of the case signal
+          end <- lubridate::today()
+        }else{
+          # if it is not the last policy, then look for the next one 
+          
+          # check if we still have the same policy
+          if(policy.name %in% statepolicy[row+1:nrow(statepolicy),]$StatePolicy){
+            # if so, we look for the first one
+            for(k in (row+1:nrow(statepolicy))){
+              if(statepolicy[k,]$StatePolicy==policy.name){
+                if(statepolicy[k,]$DateEnacted == start){
+                   end <- lubridate::today()
+                }else{
+                  end <- statepolicy[k,]$DateEnacted-1
+                }
+                break
+              }
+            }
+          }else{
+            # if not, then we will assign 
+            end <- lubridate::today()
+          }
+        }
+      }else{
+        end <- statepolicy[row,]$DateExpiry - 1
+      }
+    }else{
+      end <- statepolicy[row,]$DateEnded - 1
+    }
+    
+    policy.period <- seq(start, end, 1)
+    
+    assigned <- ifelse(case.df$time_value %in% policy.period, 1, 0)
+    
+    # check if there are any duplicate names
+    if(modified.policyName %in% colnames(case.df)){
+      # if so, we assign 1's to that created column
+
+      case.df[, modified.policyName] <- case.df[, modified.policyName] + assigned
+    }else{
+      # if not, create a new column and assign one to that column within the time
+      case.df[, modified.policyName] <- assigned
+    }
+  }
+  return(case.df)
+}
+
+
+```
+
+```{r preprocess-temperature}
+patemp <- read_excel("data/temperature/patemp.xlsx")
+patemp$DATE <- as.Date(patemp$DATE)
+patemp.df <- patemp %>% select(DATE, PRCP, TAVG)
+colnames(patemp.df) <- c("time_value", "precipitation", "Avg.temperature")
+
+```
+
+
+
+```{r preprocess-case-signals}
+# Add data to chome
+chome$dailyconfirmed_prop <- dailyconfirmed$value
+chome$dailydeath_prop <- dailydeath$value
+colnames(chome)[7] <- "completely_home_prop"
+
+# Filter the dates that we don't have mobility signals
+missingdates <- c(seq(as.Date("2020-12-13"),as.Date("2020-12-19"), 1),
+                  as.Date("2021-01-17"))
+
+# Filter the case signals
+dailyconfirmed.f <- dailyconfirmed %>% 
+  filter(!(time_value %in% missingdates)) %>%
+  mutate(dailyconfirmed_prop = value)
+
+dailydeath.f <- dailydeath %>% 
+  filter(!(time_value %in% missingdates)) %>%
+  mutate(dailydeath_prop = value)
+
+# Concatnate case counts and 
+restvisit$dailyconfirmed_prop <- dailyconfirmed.f$dailyconfirmed_prop
+restvisit$dailydeath_prop <- dailydeath.f$dailydeath_prop
+
+colnames(restvisit)[7] <- "restaurants_visit_prop"
+
+barvisit$dailyconfirmed_prop <- dailyconfirmed.f$dailyconfirmed_prop
+barvisit$dailydeath_prop <- dailydeath.f$dailydeath_prop
+
+colnames(barvisit)[7] <- "bars_visit_prop"
+
+```
+
+```{r preprocess-policy}
+# Combine some information for gathering restriction
+
+# get all indicies that are gathering restriction
+gathering.idx <- which(statepolicy$StatePolicy == "GathRestrict")
+
+statepolicy$policy <- paste(statepolicy$StatePolicy,statepolicy$Mandate, sep="")
+
+limit.idx <- paste(statepolicy$InGathLim,
+      statepolicy$OutGathLim,
+      statepolicy$InGathLimReligious,
+      statepolicy$OutGathLimReligious,
+      sep="-")
+
+# Get all the indicies wrt gathering restriction
+statepolicy[gathering.idx,]$policy <- paste(limit.idx[gathering.idx],statepolicy[gathering.idx,]$policy , sep="")
+
+
+
+   
+```
+
+## Restaurant visit prop
+
+Having accounted for the potential confounding variables in terms of case count, we can see that manadatory stay home order has significantly reduced restaurant visit among all the interventions. Secondly, gathering restriction tends to be more effective as the gathering limit decreases. 
+
+```{r plot-restvisit-with-weekends}
+# Plot the signal
+p <- ggplot(restvisit, aes(x=time_value, y=restaurants_visit_prop)) +
+  geom_line() + 
+  labs(title = "Number of daily restaurant visit by time in Allegaheny county (weekends included)", y= "# of resturant visit per 100,000 population")
+p
+
+```
+
+### With weekends
+
+```{r analysis-parametric-restvisit}
+restvisit.temp <- left_join(restvisit, patemp.df, by ="time_value")
+
+lmdf <- concatCaseNPolicy(restvisit.temp)
+
+# Add holidays
+county.holidays <- as.Date(c("2020-01-01", 
+                 "2020-01-20",
+                 "2020-02-17",
+                 "2020-04-28",
+                 "2020-05-25",
+                 "2020-07-03",
+                 "2020-09-07",
+                 "2020-10-12",
+                 "2020-11-11",
+                 "2020-11-26",
+                 "2020-12-25",
+                 "2021-01-01",
+                 "2021-01-18"))
+
+# Drop all weekends
+lmdf <- lmdf %>% 
+      mutate(holiday = as.factor(ifelse(time_value %in% county.holidays, 1, 0)))
+
+colnames(lmdf) <- make.names(colnames(lmdf))
+# convert to factor
+lmdf[,c(15:ncol(lmdf))] <- sapply(lmdf[,c(15:ncol(lmdf))], function(x) as.factor(x)) 
+
+
+# Covaraites: all case signals t-1, all interventions, ease indicator, expand indicator
+# reponse: restaurant visit/ bar visits
+df <- lmdf[,c(7, c(11:ncol(lmdf)))]
+names <- colnames(df)[-1]
+
+lm.fit <- lm(restaurants_visit_prop ~ ., df)
+sum.lm.fit <- summary(lm.fit)
+
+plt.df <- data.frame(fit= sum.lm.fit$coefficients[c(-1:-5, -25),1], interventions=names(sum.lm.fit$coefficients[c(-1:-5, -25),1]))
+
+revised_df <- cbind(plt.df, confint(lm.fit)[which(names(lm.fit$coefficients) %in% names(sum.lm.fit$coefficients[c(-1:-5, -25),1])),])
+
+colnames(revised_df)[3] <- "LCI"
+colnames(revised_df)[4] <- "UCI"
+  
+sum.lm.fit
+
+plot_bar(revised_df,
+              "fit",
+              "interventions",
+              "LCI",
+              "UCI",
+              "fit",
+               "Allegheny County; Restaurant visit; Weekends included") 
+```
+
+
+### Without weekends
+
+```{r plot-restvisit-without-weekends}
+lmdf <- concatCaseNPolicy(restvisit.temp)
+
+# Drop all weekends
+lmdf <- lmdf %>% 
+      mutate(weekday= weekdays(as.Date(time_value)),
+             holiday = as.factor(ifelse(time_value %in% county.holidays, 1, 0)))%>% 
+      filter(!(weekday %in% c("Saturday", "Sunday"))) 
+   
+# Drop the weekday variable
+lmdf <- lmdf[, !(colnames(lmdf) %in% c("weekday"))]
+
+
+
+# Plot the signal
+p <- ggplot(lmdf, aes(x=time_value, y=restaurants_visit_prop)) +
+  geom_line() + 
+  labs(title = "Number of daily restaurant visit by time in Allegaheny county (weekends dropped)", y= "# of resturant visit per 100,000 population")
+p
+
+# Plot the interventions
+plist <- list()
+count <- 1
+
+colnames(lmdf) <- make.names(colnames(lmdf))
+for(i in 15:(ncol(lmdf)-1)){
+  name <- colnames(lmdf)[i]
+  plist[[count]] <- ggplot(lmdf, aes_string(x="time_value", y=name)) +
+    geom_line() + 
+  labs(title = name, y= "In effect or not")
+  
+  count <- count + 1
+}
+
+# Plot all the plots
+do.call("grid.arrange", c(plist[c(1:5)], ncol=1))
+do.call("grid.arrange", c(plist[c(6:10)], ncol=1))
+do.call("grid.arrange", c(plist[c(11:15)], ncol=1))
+do.call("grid.arrange", c(plist[c(16:20)], ncol=1))
+do.call("grid.arrange", c(plist[c(21:22)], ncol=1))
+
+
+# convert to factor
+lmdf[,c(15:ncol(lmdf))] <- sapply(lmdf[,c(15:ncol(lmdf))], function(x) as.factor(x)) 
+
+
+# Covaraites: all case signals t-1, all interventions, ease indicator, expand indicator
+# reponse: restaurant visit/ bar visits
+df <- lmdf[,c(7, c(11:ncol(lmdf)))]
+names <- colnames(df)[-1]
+
+lm.fit <- lm(restaurants_visit_prop ~ ., df)
+sum.lm.fit <- summary(lm.fit)
+
+plt.df <- data.frame(fit= sum.lm.fit$coefficients[c(-1:-5, -25),1], interventions=names(sum.lm.fit$coefficients[c(-1:-5, -25),1]))
+
+revised_df <- cbind(plt.df, confint(lm.fit)[which(names(lm.fit$coefficients) %in% names(sum.lm.fit$coefficients[c(-1:-5, -25),1])),])
+
+colnames(revised_df)[3] <- "LCI"
+colnames(revised_df)[4] <- "UCI"
+  
+sum.lm.fit
+
+plot_bar(revised_df,
+              "fit",
+              "interventions",
+              "LCI",
+              "UCI",
+              "fit",
+               "Allegheny County; Restaurant visit; Weekends dropped") 
+```
+
+
+
+## Bar visit prop
+
+We can see a similar pattern as we change the response variable to bar visit per 100,000 population. However, only mandatory stay at home order's regression coefficient does not contain 0, meaning that it is statistically siginificant at 0.05 level that stay-at-home order reduces bar visit.
+
+### With weekends
+
+```{r plot-bar-withweekends}
+# Plot the signal
+p <- ggplot(barvisit, aes(x=time_value, y=bars_visit_prop)) +
+  geom_line() + 
+  labs(title = "Number of daily bars visit by time in Allegaheny county (weekends included)", y= "# of bars visit per 100,000 population")
+p
+```
+
+
+```{r analysis-parametric-barvisit-with-weekends}
+barvisit.df <- left_join(barvisit, patemp.df, by ="time_value")
+barlmdf <- concatCaseNPolicy(barvisit.df)
+
+# Add holidays
+barlmdf <- barlmdf %>% 
+      mutate(holiday = as.factor(ifelse(time_value %in% county.holidays, 1, 0)))
+
+colnames(barlmdf) <- make.names(colnames(barlmdf))
+
+# convert to factor
+barlmdf[,c(15:ncol(barlmdf))] <- sapply(barlmdf[,c(15:ncol(barlmdf))], function(x) as.factor(x)) 
+
+
+# Covaraites: all case signals t-1, all interventions, ease indicator, expand indicator
+# reponse: restaurant visit/ bar visits
+df <- barlmdf[,c(7, c(11:ncol(barlmdf)))]
+names <- colnames(df)[-1]
+
+lm.fit <- lm(bars_visit_prop ~ ., df)
+sum.lm.fit <- summary(lm.fit)
+
+plt.df <- data.frame(fit= sum.lm.fit$coefficients[c(-1:-5, -25),1], interventions=names(sum.lm.fit$coefficients[c(-1:-5, -25),1]))
+
+revised_df <- cbind(plt.df, confint(lm.fit)[which(names(lm.fit$coefficients) %in% names(sum.lm.fit$coefficients[c(-1:-5, -25),1])),])
+
+colnames(revised_df)[3] <- "LCI"
+colnames(revised_df)[4] <- "UCI"
+  
+sum.lm.fit
+
+plot_bar(revised_df,
+              "fit",
+              "interventions",
+              "LCI",
+              "UCI",
+              "fit",
+               "Allegheny County; Bars visit; Weekends included") 
+```
+
+### Without weekends
+
+```{r analysis-parametric-barvisit-without-weekends}
+barvisit.df <- left_join(barvisit, patemp.df, by ="time_value")
+barlmdf <- concatCaseNPolicy(barvisit.df)
+
+# Drop all weekends
+barlmdf <- barlmdf %>% 
+      mutate(weekday= weekdays(as.Date(time_value)),
+             holiday = as.factor(ifelse(time_value %in% county.holidays, 1, 0)))%>% 
+      filter(!(weekday %in% c("Saturday", "Sunday"))) 
+
+# Drop the weekday variable
+barlmdf <- barlmdf[, !(colnames(barlmdf)%in% c("weekday"))]
+
+# Plot one without weekends
+p <- ggplot(barlmdf, aes(x=time_value, y=bars_visit_prop)) +
+  geom_line() + 
+  labs(title = "Number of daily bars visit by time in Allegaheny county (weekends dropped)", y= "# of bars visit per 100,000 population")
+p
+
+colnames(barlmdf) <- make.names(colnames(barlmdf))
+# convert to factor
+barlmdf[,c(15:ncol(barlmdf))] <- sapply(barlmdf[,c(15:ncol(barlmdf))], function(x) as.factor(x)) 
+
+
+# Covaraites: all case signals t-1, all interventions, ease indicator, expand indicator
+# reponse: restaurant visit/ bar visits
+df <- barlmdf[,c(7, c(11:ncol(barlmdf)))]
+names <- colnames(df)[-1]
+
+lm.fit <- lm(bars_visit_prop ~ ., df)
+sum.lm.fit <- summary(lm.fit)
+
+plt.df <- data.frame(fit= sum.lm.fit$coefficients[c(-1:-5, -25),1], interventions=names(sum.lm.fit$coefficients[c(-1:-5, -25),1]))
+
+revised_df <- cbind(plt.df, confint(lm.fit)[which(names(lm.fit$coefficients) %in% names(sum.lm.fit$coefficients[c(-1:-5, -25),1])),])
+
+colnames(revised_df)[3] <- "LCI"
+colnames(revised_df)[4] <- "UCI"
+  
+sum.lm.fit
+
+plot_bar(revised_df,
+              "fit",
+              "interventions",
+              "LCI",
+              "UCI",
+              "fit",
+               "Allegheny County; Bars visit; Weekends dropped") 
+
+```
+
+## Completely staying home
+
+### With weekends
+
+```{r chome-analysis-with-weekend}
+chome.df <- left_join(chome, patemp.df, by ="time_value")
+chomedf <- concatCaseNPolicy(chome.df)
+
+# Add holidays
+chomedf <- chomedf %>% 
+      mutate(holiday = as.factor(ifelse(time_value %in% county.holidays, 1, 0)))
+
+colnames(chomedf) <- make.names(colnames(chomedf))
+
+# convert to factor
+chomedf[,c(15:ncol(chomedf))] <- sapply(chomedf[,c(15:ncol(chomedf))], function(x) as.factor(x)) 
+
+
+# Covaraites: all case signals t-1, all interventions, ease indicator, expand indicator
+# reponse: restaurant visit/ bar visits
+df <- chomedf[,c(7, c(11:ncol(chomedf)))]
+names <- colnames(df)[-1]
+
+lm.fit <- lm(completely_home_prop ~ ., df)
+sum.lm.fit <- summary(lm.fit)
+
+plt.df <- data.frame(fit= sum.lm.fit$coefficients[c(-1:-5, -25),1], interventions=names(sum.lm.fit$coefficients[c(-1:-5, -25),1]))
+
+revised_df <- cbind(plt.df, confint(lm.fit)[which(names(lm.fit$coefficients) %in% names(sum.lm.fit$coefficients[c(-1:-5, -25),1])),])
+
+colnames(revised_df)[3] <- "LCI"
+colnames(revised_df)[4] <- "UCI"
+  
+sum.lm.fit
+
+plot_bar(revised_df,
+              "fit",
+              "interventions",
+              "LCI",
+              "UCI",
+              "fit",
+               "Allegheny County; Completely Staying Home; With weekends") 
+
+```
+
+### Without weekends
+
+```{r}
+chome.df <- left_join(chome, patemp.df, by ="time_value")
+chomedf <- concatCaseNPolicy(chome.df)
+
+# Add holidays
+chomedf <- chomedf %>% 
+      mutate(weekday= weekdays(as.Date(time_value)),
+             holiday = as.factor(ifelse(time_value %in% county.holidays, 1, 0)))%>% 
+      filter(!(weekday %in% c("Saturday", "Sunday"))) 
+
+
+# Drop the weekday variable
+chomedf<- chomedf[, !(colnames(chomedf)%in% c("weekday"))]
+
+colnames(chomedf) <- make.names(colnames(chomedf))
+# convert to factor
+chomedf[,c(15:ncol(chomedf))] <- sapply(chomedf[,c(15:ncol(chomedf))], function(x) as.factor(x)) 
+
+
+# Covaraites: all case signals t-1, all interventions, ease indicator, expand indicator
+# reponse: restaurant visit/ bar visits
+df <- chomedf[,c(7, c(11:ncol(chomedf)))]
+names <- colnames(df)[-1]
+
+lm.fit <- lm(completely_home_prop ~ ., df)
+sum.lm.fit <- summary(lm.fit)
+
+plt.df <- data.frame(fit= sum.lm.fit$coefficients[c(-1:-5, -25),1], interventions=names(sum.lm.fit$coefficients[c(-1:-5, -25),1]))
+
+revised_df <- cbind(plt.df, confint(lm.fit)[which(names(lm.fit$coefficients) %in% names(sum.lm.fit$coefficients[c(-1:-5, -25),1])),])
+
+colnames(revised_df)[3] <- "LCI"
+colnames(revised_df)[4] <- "UCI"
+  
+sum.lm.fit
+
+plot_bar(revised_df,
+              "fit",
+              "interventions",
+              "LCI",
+              "UCI",
+              "fit",
+               "Allegheny County; Completely Staying Home; Weekends dropped") 
+```

@@ -4,45 +4,16 @@ library(tidyverse)
 library(dplyr)
 library(covidcast)
 
-# A function to compute the corrlation by various number of shifts
-getCorrByShift <- function(num_shift, signal_1, signal_2, corr_method, by){
-  # num_shift: specify how many days to forward signal_1
-  # signal_1: the first signal
-  # signal_2: the second signal
-  # corr_method: correlation method
-  # by: select either time_value or geo_value
-  dt_vec <- 0:num_shift
-  df_list <- vector("list", length(dt_vec))
-  for (i in 1:length(dt_vec)) {
-    df_list[[i]] <- covidcast_cor(signal_1, signal_2, dt_x = dt_vec[i], by = by, method= corr_method)
-    df_list[[i]]$dt <- dt_vec[i]
-  }
-  df <- do.call(rbind, df_list)
-  return(df)
-}
+########## plot.all.Corr.Median.by.shift() ################
 
-# A function to derive median of the signal from each shift 
-getMedian <-function(df){
-  df_med <- df %>%
-    group_by(dt) %>%
-    summarize(median = median(value, na.rm = TRUE), .groups = "drop_last")
-  return(df_med)
-}
-
-getMedianCorr <- function(shiftday, covidcast.like_signal.1, covidcast.like_signal.2, corr.method, name, by){
-  # shiftday: specify the number of days you want to shift
-  # covidcast.like_signal.1: a dataframe that has covidcast package ouput dataframe 
-  # covidcast.like_signal.2: another dataframe that has covidcast package ouput dataframe 
-  # corr.method: specify a correlation method
-  # name: specify the name of the signal
+plot.all.Corr.Median.by.shift <- function(other_signals, 
+                                          main_signal, 
+                                          shiftday, 
+                                          names, 
+                                          corr.method, 
+                                          title, 
+                                          by_method){
   
-  df <- getCorrByShift(shiftday, covidcast.like_signal.1, covidcast.like_signal.2, corr.method, by)
-  med <- getMedian(df)
-  med$Comparison <- name
-  return(med)
-}
-
-plot.all.Corr.Median.by.shift <- function(other_signals, main_signal, shiftday, names, corr.method, title, by_method){
   # Compute correlation between other covidcast-like signals and mobility
   df.ls = list()
   for (i in 1:length(other_signals)){
@@ -61,48 +32,207 @@ plot.all.Corr.Median.by.shift <- function(other_signals, main_signal, shiftday, 
 }
 
 
-# Multiple plot function
-#
-# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
-# - cols:   Number of columns in layout
-# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
-#
-# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
-# then plot 1 will go in the upper left, 2 will go in the upper right, and
-# 3 will go all the way across the bottom.
-#
-multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
-  library(grid)
+########## plotInterventionTime() ################
+# Plot the first day of the intervention over time via ggplot
+# arguments:
+
+# intervention_mobility_case (data.frame): a dataframe that contains mobility
+# left joined by specified policy dataframe
+
+# mobility.name (character) : 
+# intervention.first.day(character): a string that specify the first date of 
+#                                   intervention
+
+# ylab (character): name for y axis 
+# xlab (character): name for x axis
+
+plotInterventionTime <-function(intervention_mobility_case, 
+                                mobility.name,
+                                intervention.first.day,
+                                ylab,
+                                xlab){
   
-  # Make a list from the ... arguments and plotlist
-  plots <- c(list(...), plotlist)
+  # Plot the time-series: mobility signal as y, time as x 
+  intervention_mobility_case %>%
+    ggplot(aes_string(x = "time_value", y = mobility.name)) + 
+    geom_point() +
+    geom_vline(xintercept = intervention.first.day) + 
+    labs(y = ylab, 
+         x = xlab)
   
-  numPlots = length(plots)
+}
+
+################## plotRD () ############################
+# a helper function to draw the regression discontinuty design
+# arguments:
+
+# mobility.df(data.frame): a covidcast like signal dataframe with single
+#                           mobiility signal
+
+# policy.df (data.frame): a policy dataframe that output by load_policy()
+
+# policyName(character): the name of the policy you are looking at
+
+# stateName(character): the name of the state postal, e.g. "ca"
+
+# STARTDATE(date): the start date to filter the policy dataframe
+
+# ENDDATE(date): the start date to filter the policy dataframe
+
+plotRD <- function(mobility.df,
+                   policy.df,
+                   policyName,
+                   stateName,
+                   countyName,
+                   STARTDATE,
+                   ENDDATE,
+                   policy.firstday,
+                   dropDaysAfterIntervention,
+                   showMultiplePolicies,
+                   plotMultiple=F,
+                   count=NULL){
   
-  # If layout is NULL, then use 'cols' to determine layout
-  if (is.null(layout)) {
-    # Make the panel
-    # ncol: Number of columns of plots
-    # nrow: Number of rows needed, calculated from # of cols
-    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
-                     ncol = cols, nrow = ceiling(numPlots/cols))
+  # filter mobility by the specified state
+  mobility.df <- mobility.df %>% filter(geo_value == stateName)
+  
+  # Get the mobility signal name
+  mobilityName <- unique(mobility.df$signal)
+  
+  # filter the policy data
+  policy.df <- policy.df %>% filter(StatePostal == stateName)
+  
+  # compute the number of policies and rolling mean of the number
+  # for each day between start and end dates
+  policy_signal <- getSumOfPolicy(policy.df, STARTDATE, ENDDATE)
+  
+  # left join mobility with policy signal by time 
+  df <- left_join(mobility.df, policy_signal, by = "time_value")
+  
+  # drop all the weekends in the data
+  filtered.df <- df %>% 
+    mutate(weekday= weekdays(as.Date(time_value)))%>% 
+    filter(weekday %in% c("Saturday", "Sunday"))
+  
+  # Drop 2-weeks of data to account for the lag 
+  if(dropDaysAfterIntervention){
+    
+    # Define the 2 weeks time interval 
+    drop_period <- seq(as.Date(policy.firstday), 
+        as.Date(policy.firstday)+14, by="days")
+    
+    # Filter the dataframe
+    filtered.df<- filtered.df %>% 
+      filter(!(time_value %in% drop_period))
   }
   
-  if (numPlots==1) {
-    print(plots[[1]])
+  # Compute the difference in means of the matched samples.
+  diff <- as.numeric(as.Date(policy.firstday)-as.Date("2020-01-05"))
+  
+  first_sample_period <- seq(as.Date("2020-01-05"), 
+                             as.Date(policy.firstday), by="days")
+  
+  first_sample <- filtered.df %>%
+    filter(time_value %in% first_sample_period)
+  
+  num_data_points <- nrow(first_sample)
+  
+  idx <- which(filtered.df$time_value > as.Date(policy.firstday))
+  
+  selected_idx <- idx[1:num_data_points]
+
+  second_sample <- filtered.df[selected_idx,]
+  
+  print("The number of data points:")
+  print(num_data_points)
+  print(t.test(first_sample$value, second_sample$value, paired=F))
+  
+  test.result <- t.test(first_sample$value, second_sample$value, paired=F)
+  
+  # Get the mean difference
+  mean.diff <- as.numeric(test.result$estimate[1]-test.result$estimate[2])
+  
+  LCI <- test.result$conf.int[1]
+  UCI <- test.result$conf.int[2]
     
-  } else {
-    # Set up the page
-    grid.newpage()
-    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
-    
-    # Make each plot, in the correct location
-    for (i in 1:numPlots) {
-      # Get the i,j matrix positions of the regions that contain this subplot
-      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
-      
-      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
-                                      layout.pos.col = matchidx$col))
+  if(plotMultiple){
+    if(showMultiplePolicies){
+      # Plot the RD 
+      p <- filtered.df %>% 
+        mutate(intervention= as.factor(total.num.policy)) %>%
+        ggplot(aes(x = time_value, 
+                   y = value, 
+                   color = intervention)) +
+        geom_point() + 
+        geom_smooth(method = "lm")+
+        labs(title = as.character(count))+ 
+        theme(axis.title.x=element_blank(),
+              axis.text.x=element_blank(),
+              axis.ticks.x=element_blank(),
+              axis.title.y=element_blank(),
+              axis.text.y=element_blank(),
+              axis.ticks.y=element_blank(),
+              legend.position = "none")
+    }else{
+      # Plot the RD 
+      p <- filtered.df %>% 
+        mutate(intervention= as.factor(eval(parse(text=policyName)))) %>%
+        ggplot(aes(x = time_value, 
+                   y = value, 
+                   color = intervention)) +
+        geom_point() + 
+        geom_smooth(method = "lm")+
+        labs(title = as.character(count))+ 
+        theme(axis.title.x=element_blank(),
+              axis.text.x=element_blank(),
+              axis.ticks.x=element_blank(),
+              axis.title.y=element_blank(),
+              axis.text.y=element_blank(),
+              axis.ticks.y=element_blank(),
+              legend.position = "none")
     }
+    
+  }else{
+    if(showMultiplePolicies){
+      # Plot the RD 
+      p <- filtered.df %>% 
+        mutate(intervention= as.factor(total.num.policy)) %>%
+        ggplot(aes(x = time_value, y = value, color = intervention)) +
+        geom_point() + 
+        geom_smooth(method = "lm")+
+        labs(title = paste(" Mobility ~ time (", 
+                           stateName,
+                           "-",
+                           countyName,
+                           ")",
+                           ",", 
+                           policyName,
+                           ";",
+                           as.numeric(ENDDATE-STARTDATE)," day(s)"), 
+             x = "Time", 
+             y =  mobilityName)
+    }else{
+      # Plot the RD 
+      p <- filtered.df %>% 
+        mutate(intervention= as.factor(eval(parse(text=policyName)))) %>%
+        ggplot(aes(x = time_value, y = value, color = intervention)) +
+        geom_point() + 
+        geom_smooth(method = "lm")+
+        labs(title = paste(" Mobility ~ time (", 
+                           stateName,
+                           "-",
+                           countyName,
+                           ")",
+                           ",", 
+                           policyName,
+                           ";",
+                           as.numeric(ENDDATE-STARTDATE)," day(s)"), 
+             x = "Time", 
+             y =  mobilityName)
+    }
+
   }
+
+  
+  return(list(p=p, mean.difference=mean.diff, LCI=LCI, UCI=UCI))
+  
 }

@@ -1,0 +1,915 @@
+---
+title: "Ranking the effect of intervention at countylevel"
+author: "Kenneth Lee"
+date: "06/01/2021"
+output:
+  html_document:
+    code_folding: hide
+    keep_md: yes
+    toc: yes
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
+---
+
+# Abstract
+
+This notebook has two objectives. Firstly, it aims to measure the effect of interventions on mobility with other potential confounding signals such as confirmed case counts. The motivation is to observe whether the effect of intervention is greater than the effect of case signals on mobility. Secondly, we will rank the effects of various government interventions.
+
+Due to the limitation of computation, we focus on analyzing the state of California and its counties. We will regress mobility signals on the covariates of interests and measure the effect of the covariates based on its regression coefficients.
+
+
+```r
+library(dplyr)
+library(lubridate)
+library(covidcast)
+library(RcppRoll)
+library(tidycensus)
+library(reshape2)
+library(zoo)
+library(readxl)
+library(ggplot2)
+library(gridExtra)
+
+
+source("code/loader.r")
+source("code/parser.r")
+
+# Load files 
+confirmed_7dav_cumulative_prop <- read_excel("data/case_signals/ca-county-confirmed_7dav_cumulative_prop.xlsx")
+ 
+confirmed_7dav_incidence_prop <- read_excel("data/case_signals/ca-county-confirmed_7dav_incidence_prop.xlsx")
+ 
+deaths_7dav_cumulative_prop <- read_excel("data/case_signals/ca-county-deaths_7dav_cumulative_prop.xlsx")
+
+deaths_7dav_incidence_prop <- read_excel("data/case_signals/ca-county-deaths_7dav_incidence_prop.xlsx")
+
+tx.confirmed_7dav_cumulative_prop <- read_excel("data/case_signals/tx.confirmed_7dav_cumulative_prop.xlsx")
+
+tx.confirmed_7dav_incidence_prop <- read_excel("data/case_signals/tx.confirmed_7dav_incidence_prop.xlsx")
+
+tx.deaths_7dav_cumulative_prop <- read_excel("data/case_signals/tx.deaths_7dav_cumulative_prop.xlsx")
+
+
+tx.deaths_7dav_incidence_prop <- read_excel("data/case_signals/tx.deaths_7dav_incidence_prop.xlsx")
+
+STARTDATE <- "2020-02-20"
+ENDDATE <- "2020-12-15"
+
+
+fipscodes <- fips_codes%>%
+  mutate(fips =paste(state_code, county_code, sep=""))
+
+# Get counties names
+ca.counties <- fipscodes%>%
+  filter(state=="CA")%>% select(county)
+ca.counties <- ca.counties$county
+
+tx.counties <- fipscodes%>%
+  filter(state=="TX")%>% select(county)
+tx.counties <- tx.counties$county
+
+ca.rest <- read.csv("data/ca.rest.csv",stringsAsFactors = F)
+
+ca.chome <- read.csv("data/ca.chome.csv",stringsAsFactors = F)
+
+
+tx.rest <- read.csv("data/tx.rest.csv",stringsAsFactors = F)
+
+tx.chome <- read.csv("data/tx.chome.csv",stringsAsFactors = F)
+
+tx.chome$time_value <- as.Date(tx.chome$time_value)
+tx.rest$time_value <- as.Date(tx.rest$time_value)
+ca.chome$time_value <- as.Date(ca.chome$time_value)
+ca.rest$time_value <- as.Date(ca.rest$time_value)
+
+ca.rest$geo_value <- paste("0",ca.rest$geo_value, sep="")
+ca.chome$geo_value <- paste("0",ca.chome$geo_value, sep="")
+tx.chome$geo_value <- as.character(tx.chome$geo_value)
+tx.rest$geo_value <- as.character(tx.rest$geo_value)
+
+# Convert the time_value to DATE
+ confirmed_7dav_cumulative_prop$time_value <- as.Date(confirmed_7dav_cumulative_prop$time_value)
+ 
+confirmed_7dav_incidence_prop$time_value <- as.Date(confirmed_7dav_incidence_prop$time_value)
+ 
+deaths_7dav_cumulative_prop$time_value <- as.Date(deaths_7dav_cumulative_prop$time_value)
+ 
+deaths_7dav_incidence_prop$time_value <- as.Date(deaths_7dav_incidence_prop$time_value)
+# time value
+tx.confirmed_7dav_cumulative_prop$time_value <- as.Date(tx.confirmed_7dav_cumulative_prop$time_value)
+
+tx.confirmed_7dav_incidence_prop$time_value <- as.Date(tx.confirmed_7dav_incidence_prop$time_value)
+ 
+tx.deaths_7dav_cumulative_prop$time_value <- as.Date(tx.deaths_7dav_cumulative_prop$time_value)
+ 
+tx.deaths_7dav_incidence_prop$time_value <- as.Date(tx.deaths_7dav_incidence_prop$time_value)
+
+
+# Convert the county fips codes to character
+
+tx.confirmed_7dav_cumulative_prop$geo_value <- as.character(tx.confirmed_7dav_cumulative_prop$geo_value)
+ 
+tx.confirmed_7dav_incidence_prop$geo_value <- as.character(tx.confirmed_7dav_incidence_prop$geo_value)
+ 
+tx.deaths_7dav_cumulative_prop$geo_value <- as.character(tx.deaths_7dav_cumulative_prop$geo_value)
+ 
+tx.deaths_7dav_incidence_prop$geo_value <- as.character(tx.deaths_7dav_incidence_prop$geo_value)
+ 
+
+
+
+# Pad 0 to all CA data
+confirmed_7dav_cumulative_prop$geo_value <- paste("0", confirmed_7dav_cumulative_prop$geo_value, sep="" )
+ 
+confirmed_7dav_incidence_prop$geo_value <- paste("0", confirmed_7dav_incidence_prop$geo_value, sep="" )
+ 
+deaths_7dav_cumulative_prop$geo_value <- paste("0", deaths_7dav_cumulative_prop$geo_value, sep="" )
+ 
+deaths_7dav_incidence_prop$geo_value <- paste("0", deaths_7dav_incidence_prop$geo_value, sep="" )
+ 
+
+
+# Policy data
+policy <- load_policy()
+ca.policy <- policy %>% filter(StatePostal == "ca", StateWide == 1)
+tx.policy <- policy %>% filter(StatePostal == "tx", StateWide == 1)
+
+ca.rest$county <- fips_to_name(ca.rest$geo_value)
+ca.chome$county <- fips_to_name(ca.chome$geo_value)
+tx.rest$county <- fips_to_name(tx.rest$geo_value)
+tx.chome$county <- fips_to_name(tx.chome$geo_value)
+
+
+ca.policy_signal<- getSumOfPolicy(ca.policy , STARTDATE, ENDDATE)
+tx.policy_signal<- getSumOfPolicy(tx.policy , STARTDATE, ENDDATE)
+
+# Turn the polical signal to be factors
+factored.ca.policy.signal <- cbind(ca.policy_signal[1], 
+                                lapply(ca.policy_signal[3:14],
+                                       as.factor),
+                                ca.policy_signal[15:16])
+
+
+ca.holidays <- c("2019-01-01",
+                 "2019-01-21",
+                 "2019-02-18",
+                 "2019-04-01",
+                 "2019-05-27",
+                 "2019-07-04",
+                 "2019-09-02",
+                 "2019-09-09",
+                 "2019-09-27",
+                 "2019-11-11",
+                 "2019-11-28",
+                 "2019-12-25",
+                 "2020-01-01", 
+                 "2020-01-20",
+                 "2020-02-17",
+                 "2020-03-31",
+                 "2020-05-25",
+                 "2020-07-03",
+                 "2020-09-07",
+                 "2020-09-09",
+                 "2020-09-25",
+                 "2020-11-11",
+                 "2020-11-26",
+                 "2020-12-25",
+                 "2021-01-01",
+                 "2021-01-18")
+tx.holidays <- c("2019-01-01",
+                 "2019-01-19",
+                 "2019-01-21",
+                 "2019-02-18",
+                 "2019-03-02",
+                 "2019-03-31",
+                 "2019-04-19",
+                 "2019-04-21",
+                 "2019-05-27",
+                 "2019-06-19",
+                 "2019-07-04",
+                 "2019-09-02",
+                 "2019-11-11",
+                 "2019-11-28",
+                 "2019-12-24",
+                 "2019-12-25",
+                 "2019-12-26",
+                 "2020-01-01",
+                 "2020-01-19",
+                 "2020-01-20",
+                 "2020-02-17",
+                 "2020-03-02",
+                 "2020-03-21",
+                 "2020-04-10",
+                 "2020-04-21",
+                 "2020-05-25",
+                 "2020-06-19",
+                 "2020-07-03",
+                 "2020-09-07",
+                 "2020-11-11",
+                 "2020-11-26",
+                 "2020-12-24",
+                 "2020-12-25",
+                 "2020-12-26")
+
+# May through October is wildfire season
+ca.wildfire_seasons <- seq(as.Date("2020-05-01"), as.Date("2020-10-31"), 1)
+
+tx.wildfire_seasons <- seq(as.Date("2020-03-01"), as.Date("2020-05-31"), 1)
+
+# airquality
+
+ca.air.2019 <- read.csv("data/air.quality/ad_viz_plotval_data_pm2.5_2019.csv")
+
+ca.air.2020 <- read.csv("data/air.quality/ad_viz_plotval_data_pm2.5_2020.csv")
+
+ca.air.2021 <- read.csv("data/air.quality/ad_viz_plotval_data_pm2.5_2021.csv")
+
+
+
+tx.air.2019 <- read.csv("data/air.quality/ad_viz_plotval_data_tx_2019.csv")
+
+tx.air.2020 <- read.csv("data/air.quality/ad_viz_plotval_data_tx_2020.csv")
+
+tx.air.2021 <- read.csv("data/air.quality/ad_viz_plotval_data_tx_2021.csv")
+
+ca.air <- rbind(ca.air.2019, ca.air.2020, ca.air.2021)
+tx.air <- rbind(tx.air.2019, tx.air.2020, tx.air.2021)
+sel_col <- c("Date", "DAILY_AQI_VALUE","COUNTY")
+ca.air <- ca.air[sel_col]
+tx.air <- tx.air[sel_col]
+# Change the date format
+ca.air$Date <- as.Date(format(strptime(as.character(ca.air$Date), "%m/%d/%Y"), "%Y-%m-%d"))
+
+tx.air$Date <- as.Date(format(strptime(as.character(tx.air$Date), "%m/%d/%Y"), "%Y-%m-%d"))
+
+ca.air$COUNTY <- paste(ca.air$COUNTY, "County", sep=" ")
+tx.air$COUNTY <- paste(tx.air$COUNTY, "County", sep=" ")
+ca.air$DAILY_AQI_VALUE <- as.numeric(ca.air$DAILY_AQI_VALUE)
+tx.air$DAILY_AQI_VALUE <- as.numeric(tx.air$DAILY_AQI_VALUE)
+
+
+colnames(ca.air)[1] <- "time_value"
+colnames(ca.air)[3] <- "county"
+
+colnames(tx.air)[1] <- "time_value"
+colnames(tx.air)[3] <- "county"
+
+# Take the median AQI
+ca.median_aqi <- ca.air %>%
+  group_by(county, time_value)%>%
+  summarize(median_AQI = median(DAILY_AQI_VALUE))
+
+tx.median_aqi<- tx.air %>%
+  group_by(county, time_value)%>%
+  summarize(median_AQI = median(DAILY_AQI_VALUE))
+```
+
+
+```r
+################ getForwardDays () ###################
+# compute the number of days within a given day range that
+# gives the highest spearman correlation between df1 and df2
+
+# argument
+# df1: a dataframe 
+# df2: a dataframe that the data needs to be forwarded
+# dt_vec: a vector contains a range of integers
+
+getForwardDays <- function(df1, df2, dt_vec){
+  # Empty list
+  df_list <- vector("list", length(dt_vec))
+  
+  for (i in 1:length(dt_vec)) {
+    df_list[[i]] <- covidcast_cor(df1, df2, dt_y = dt_vec[i],
+                                  by = "geo_value", 
+                                  method="spearman")
+
+    df_list[[i]]$dt <- dt_vec[i]
+  }
+  
+  # Stack into one big data frame
+  df <- do.call(rbind, df_list)
+  
+
+  return(df)
+}
+
+################ joinConfounder() ###################
+
+joinConfounder <- function(mobility.df, policy.df, state="ca"){
+  if(state=="ca"){
+    # Combine case and mobility
+  cum.confirmed.case <- confirmed_7dav_cumulative_prop[c("time_value","geo_value","value")]
+  new.confirmed.case <- confirmed_7dav_incidence_prop[c("time_value","geo_value","value")]
+  cum.death.case <- deaths_7dav_cumulative_prop[c("time_value","geo_value","value")]
+  new.death.case <- deaths_7dav_incidence_prop[c("time_value","geo_value","value")]
+  }else{
+    # Combine case and mobility
+    cum.confirmed.case <- tx.confirmed_7dav_cumulative_prop[c("time_value","geo_value","value")]
+  new.confirmed.case <- tx.confirmed_7dav_incidence_prop[c("time_value","geo_value","value")]
+  cum.death.case <- tx.deaths_7dav_cumulative_prop[c("time_value","geo_value","value")]
+  new.death.case <- tx.deaths_7dav_incidence_prop[c("time_value","geo_value","value")]
+  }
+
+  colnames(cum.confirmed.case)[3] <- "confirmed_7dav_cumulative_prop"
+  colnames(new.confirmed.case)[3] <- "confirmed_7dav_incidence_prop"
+  colnames(cum.death.case)[3] <- "deaths_7dav_cumulative_prop"
+  colnames(new.death.case)[3] <- "deaths_7dav_incidence_prop"
+  
+  # A list of confounders
+  confounders <- list(cum.confirmed.case, 
+                      new.confirmed.case, 
+                      cum.death.case,
+                      new.death.case)
+  
+  # Left join again with all other potential confounders
+  for (confounder in confounders){
+    mobility.df <- left_join(mobility.df, confounder, by=c("time_value", "geo_value"))
+  }
+
+  # combine with policy signal
+  mobility.df <- left_join(mobility.df, policy.df, by=c("time_value"))
+  
+  if(state=="ca"){
+    mobility.df <- left_join(mobility.df, ca.median_aqi, by=c("time_value", "county"))
+  }else{
+    mobility.df <- left_join(mobility.df, tx.median_aqi, by=c("time_value", "county"))
+  }
+  return(mobility.df)
+
+}
+
+################ prepDF() ###################
+
+prepDF <- function(mobility.df, 
+                     policy, 
+                     states,
+                     interventions,
+                     fips_codes,
+                     forward=F){
+  
+  # Convert to lower case
+  lowerStates <- tolower(states)
+  
+  # filter policy
+  policy.df <- policy %>% filter(StatePostal%in%lowerStates, StateWide == 1)
+  
+  policy.df <- getSumOfPolicy(policy.df, STARTDATE, ENDDATE)
+  
+  # convert to factor
+  policy.df[interventions] <- lapply(policy.df[interventions], as.factor)
+
+  # join the mobility and policy 
+  df<- joinConfounder(mobility.df, policy.df, state = lowerStates)
+  
+  # Change the value name for fitting regression model
+  colnames(df)[colnames(df)=="value"] <- unique(mobility.df$signal)
+  return(df)
+}
+
+############ plot_bar() ###################
+
+plot_bar <- function(df,
+                     x,
+                     y,
+                     lower.bound,
+                     upper.bound,
+                     gp,
+                     name){
+  p<- ggplot(df, aes_string(x=x, y=y, group=gp, color=gp)) + 
+  #geom_line() +
+  geom_point()+
+  geom_errorbar(aes_string(xmin=lower.bound, xmax=upper.bound), width=.2,
+                 position=position_dodge(0.05))+
+    ggtitle(name)
+      
+  return(p)
+}
+```
+
+# Model:
+
+$$Y_t = \beta_{0}+ \sum_{i}\beta_{i}S_{i_{t}} + \sum_{k}\beta_{k}P_{k_{t}}$$
+
+
+## Completely stay at home: CA
+
+
+```r
+interventions <- c("EmergDec",
+                   "GathRestrict",
+                   "SchoolClose",
+                   "BarRestrict",
+                   "PublicMask",
+                   "OtherBusinessClose",
+                   "BusinessMask",
+                   "SchoolMask",
+                   "Quarantine")
+
+confounders.names <- c("confirmed_7dav_cumulative_prop",
+                  "confirmed_7dav_incidence_prop",
+                  "deaths_7dav_cumulative_prop",
+                  "deaths_7dav_incidence_prop")
+
+mobility.name <- "completely_home_prop"
+
+formula1 <- as.formula(paste(mobility.name, paste(c(confounders.names, interventions ), collapse=" + "), sep=" ~ "))
+
+ca.stayhome <- prepDF(ca.chome, 
+          policy, 
+          states="CA",
+          interventions,
+          fips_codes)
+
+# weekends filter
+#ca.stayhome <- ca.stayhome%>% 
+#      mutate(weekday= weekdays(as.Date(time_value)))%>% 
+#      mutate(weekend= as.factor(ifelse(weekday %in% c("Saturday", "Sunday"), 1, 0)),
+#             holiday = as.factor(ifelse(as.Date(time_value) %in% as.Date(ca.holidays), 1, 0)),
+#             wildfire= as.factor(ifelse(as.Date(time_value) %in% as.Date(ca.wildfire_seasons), 1, 0)))
+
+
+
+#interventions <- c("EmergDec","GathRestrict","SchoolClose","BarRestrict","PublicMask","OtherBusinessClose","BusinessMask", "SchoolMask" ,"Quarantine")
+
+#formula1 <- as.formula(paste(mobility.name, paste(c(confounders.names, interventions ), collapse=" + "), sep=" ~ "))
+
+
+# Filter the fips codes
+filtered_fips <- fipscodes %>%filter(state %in% "CA")
+ls <- list()
+count <- 1
+for(code in filtered_fips$fips){
+  p <- ca.stayhome %>% filter(geo_value.x==code) %>%
+    lm(formula1,data=.)
+    ls[[count]] <- p 
+  count <- count + 1 
+  #print(fips_to_name(code))
+  #print(summary(p))
+}
+```
+
+## Completely stay at home: TX
+
+
+```r
+interventions <- c("EmergDec",
+                   "GathRestrict",
+                   "SchoolClose",
+                   "BarRestrict",
+                   "PublicMask",
+                   "OtherBusinessClose",
+                   "Quarantine",
+                   "StayAtHome")
+
+mobility.name <- "completely_home_prop"
+
+confounders.names <- c("confirmed_7dav_cumulative_prop",
+                  "confirmed_7dav_incidence_prop",
+                  "deaths_7dav_cumulative_prop",
+                  "deaths_7dav_incidence_prop")
+
+txformula <- as.formula(paste(mobility.name, paste(c(confounders.names, interventions), collapse=" + "), sep=" ~ "))
+
+tx.stayhome <- prepDF(tx.chome, 
+          policy, 
+          states="TX",
+          interventions,
+          fips_codes)
+
+# weekends filter
+#tx.stayhome <- tx.stayhome%>% 
+#      mutate(weekday= weekdays(as.Date(time_value)))%>% 
+#      mutate(weekend= as.factor(ifelse(weekday %in% c("Saturday", "Sunday"), 1, 0)),
+#             holiday = as.factor(ifelse(as.Date(time_value) %in% as.Date(tx.holidays), 1, 0)),
+#             wildfire = as.factor(ifelse(as.Date(time_value) %in% as.Date(tx.wildfire_seasons), 1, 0)))
+
+
+# interventions <- c("EmergDec",
+#                    "GathRestrict",
+#                    "SchoolClose",
+#                    "BarRestrict",
+#                    "PublicMask",
+#                    "OtherBusinessClose",
+#                    "Quarantine",
+#                    "StayAtHome",
+#                    "weekend",
+#                    "holiday")
+# 
+# txformula <- as.formula(paste(mobility.name, paste(c(confounders.names, interventions), collapse=" + "), sep=" ~ "))
+
+
+txls <- list()
+count <- 1
+# Filter the fips codes
+tx_fips <- fipscodes %>%filter(state %in% "TX")
+for(code in tx_fips$fips){
+  p <- tx.stayhome %>% filter(geo_value.x==code) %>%
+    lm(txformula,data=.)
+  
+  txls[[count]] <- p
+  count <- count + 1
+  #print(fips_to_name(code))
+  #print(summary(p))
+}
+```
+
+
+## Restaurant visit: CA
+
+
+```r
+interventions <- c("EmergDec",
+                   "GathRestrict",
+                   "SchoolClose",
+                   "BarRestrict",
+                   "PublicMask",
+                   "OtherBusinessClose",
+                   "BusinessMask",
+                   "SchoolMask",
+                   "Quarantine")
+
+confounders.names <- c("confirmed_7dav_cumulative_prop",
+                  "confirmed_7dav_incidence_prop",
+                  "deaths_7dav_cumulative_prop",
+                  "deaths_7dav_incidence_prop")
+
+mobility.name <- "restaurants_visit_prop"
+
+
+formula2 <- as.formula(paste(mobility.name, paste(c(confounders.names, interventions ), collapse=" + "), sep=" ~ "))
+
+# CA restaurant visit
+ca.restvisit <- prepDF(ca.rest, 
+          policy, 
+          states="CA",
+          interventions,
+          fips_codes)
+
+
+# # weekends filter
+# ca.restvisit <- ca.restvisit%>% 
+#       mutate(weekday= weekdays(as.Date(time_value)))%>% 
+#       mutate(weekend= as.factor(ifelse(weekday %in% c("Saturday", "Sunday"), 1, 0)),
+#              holiday = as.factor(ifelse(as.Date(time_value) %in% as.Date(ca.holidays), 1, 0)))
+# 
+# 
+# interventions <- c("EmergDec",
+#                    "GathRestrict",
+#                    "SchoolClose",
+#                    "BarRestrict",
+#                    "PublicMask",
+#                    "OtherBusinessClose",
+#                    "BusinessMask",
+#                    "SchoolMask",
+#                    "Quarantine",
+#                    "weekend",
+#                    "holiday")
+
+formula2 <- as.formula(paste(mobility.name, paste(c(confounders.names, interventions ), collapse=" + "), sep=" ~ "))
+
+
+# Filter the fips codes
+filtered_fips <- fipscodes %>%filter(state %in% "CA")
+ca.restls <- list()
+ca.counties_filtered <- NULL
+count <- 1
+for(code in filtered_fips$fips){
+  if(code %in% unique(ca.restvisit$geo_value.x)){
+    p <- ca.restvisit %>% filter(geo_value.x==code) %>%
+    lm(formula2,data=.)
+    ca.restls[[count]] <- p
+    countyname <- fips_to_name(code)
+    ca.counties_filtered[count] <- countyname
+    count <- count + 1 
+    #print(countyname)
+    #print(summary(p))
+  }
+}
+
+# Show all results for county level mobility
+#counter <- 1
+#temp <- fips_to_name(unique(ca.restvisit$geo_value.x))
+#for (i in ca.restls){
+#  print(temp[counter])
+#  print(summary(i))
+#  counter <- counter + 1
+#}
+```
+
+## Restaurant Visit: TX
+
+
+```r
+interventions <- c("EmergDec",
+                   "GathRestrict",
+                   "SchoolClose",
+                   "BarRestrict",
+                   "PublicMask",
+                   "OtherBusinessClose",
+                   "Quarantine")
+
+confounders.names <- c("confirmed_7dav_cumulative_prop",
+                  "confirmed_7dav_incidence_prop",
+                  "deaths_7dav_cumulative_prop",
+                  "deaths_7dav_incidence_prop")
+
+mobility.name <- "restaurants_visit_prop"
+
+
+formula2 <- as.formula(paste(mobility.name, paste(c(confounders.names, interventions ), collapse=" + "), sep=" ~ "))
+
+# TX restaurant visit
+tx.restvisit <- prepDF(tx.rest, 
+          policy, 
+          states="TX",
+          interventions,
+          fips_codes)
+
+
+# weekends filter
+# tx.restvisit <- tx.restvisit%>% 
+#       mutate(weekday= weekdays(as.Date(time_value)))%>% 
+#       mutate(weekend= as.factor(ifelse(weekday %in% c("Saturday", "Sunday"), 1, 0)),
+#              holiday = as.factor(ifelse(as.Date(time_value) %in% as.Date(tx.holidays), 1, 0)))
+# 
+# interventions <- c("EmergDec",
+#                    "GathRestrict",
+#                    "SchoolClose",
+#                    "BarRestrict",
+#                    "PublicMask",
+#                    "OtherBusinessClose",
+#                    "Quarantine",
+#                    "weekend",
+#                    "holiday")
+# formula2 <- as.formula(paste(mobility.name, paste(c(confounders.names, interventions ), collapse=" + "), sep=" ~ "))
+
+# Filter the fips codes
+filtered_fips <- fipscodes %>%filter(state %in% "TX")
+tx.restls <- list()
+count <- 1
+tx.counties.filtered <- NULL
+exclude_ls <- c("48391") # exclude this county due to lack of data
+for(code in filtered_fips$fips){
+  if(code %in% unique(tx.restvisit$geo_value.x) & !(code %in% exclude_ls)){
+    p <- tx.restvisit %>% filter(geo_value.x==code) %>%
+      lm(formula2,data=.)
+    tx.restls[[count]] <- p
+    countyname <- fips_to_name(code)
+    tx.counties.filtered[count] <- countyname
+    count <- count + 1
+    # print all the information
+    #print(countyname)
+    #print(summary(p))
+  }
+}
+```
+
+
+
+# Rank of the effectiveness of the intervention
+
+We can see that the effects of public mask and other business closures on reducing mobility are statistically significant at 0.05 level after we have counted for the case count signals. It also depends on the county regarding which intervention is more effective. For example, we see that school mask has a large effect on Stanislaus county, but may not have any effects on Alpine county. In addition, the interventions of gathering restriction and school closure in California are advisory, which appear to be not significant, whereas other mandatory policies have a significant effect on mobility.
+
+
+## The effect of California's intervention on stay home signal
+
+### CA: Urban counties
+
+
+```r
+select_col <- c("EmergDec1","GathRestrict1","SchoolClose1","BarRestrict1","PublicMask1","OtherBusinessClose1","BusinessMask1", "SchoolMask1" ,"Quarantine1")
+plist <- list()
+count <- 1
+
+for(i in 1:length(ls)){
+  # Same the summary
+  lm.fit <- summary(ls[[i]])
+  name <- c("EmergDec","GathRestrict","SchoolClose","BarRestrict","PublicMask","OtherBusinessClose","BusinessMask", "SchoolMask" ,"Quarantine")
+  df <- data.frame(fit= lm.fit$coefficients[select_col,1], interventions=name)
+revised_df <- cbind(df,confint(ls[[i]])[select_col,])
+  colnames(revised_df)[3] <- "LCI"
+  colnames(revised_df)[4] <- "UCI"
+  
+  p <- plot_bar(revised_df,
+                "fit",
+                "interventions",
+                "LCI",
+                "UCI",
+                "fit",
+                ca.counties[i]) 
+  plist[[count]] <- p
+  count <- count + 1
+}
+
+  
+# Plot all counties mobility signal
+#n <- length(plist[c(2,19,41,53)])
+#nCol <- floor(sqrt(n))
+#do.call("grid.arrange", c(plist[c(2,19,41,53)], ncol=nCol))
+
+idx <- which(ca.counties %in% c("Orange County", "Santa Clara County", "Alameda County", "Yolo County", "Marin County", "San Bernardino County"))
+
+# Urban counties
+do.call("grid.arrange", c(plist[idx], ncol=2))
+```
+
+![](03_ranking_effect_of_interventions_files/figure-html/ca-intervention-on-stay-home-1.png)<!-- -->
+
+### CA: Rural counties
+
+
+```r
+# select counties
+idx <- which(ca.counties %in% c("Humboldt County", "Siskiyou County", "Del Norte County", "Mono County", "Plumas County", "Glenn County"))
+# Rural counties
+do.call("grid.arrange", c(plist[idx], ncol=2))
+```
+
+![](03_ranking_effect_of_interventions_files/figure-html/ca-rural-counties-on-stayhome-1.png)<!-- -->
+
+## The effect of Texas's intervention on stay home signal
+
+### TX: Urban counties
+
+
+```r
+select_col <- c("EmergDec1","GathRestrict1","SchoolClose1","BarRestrict1","PublicMask1","Quarantine1","StayAtHome1")
+
+plist <- list()
+count <- 1
+for(i in 1:length(txls)){
+  # Same the summary
+  lm.fit <- summary(txls[[i]])
+  name <- c("EmergDec","GathRestrict","SchoolClose","BarRestrict","PublicMask","Quarantine","StayAtHome")
+  df <- data.frame(fit= lm.fit$coefficients[select_col,1], interventions=name)
+revised_df <- cbind(df,confint(txls[[i]])[select_col,])
+  colnames(revised_df)[3] <- "LCI"
+  colnames(revised_df)[4] <- "UCI"
+  
+  p <- plot_bar(revised_df,
+                "fit",
+                "interventions",
+                "LCI",
+                "UCI",
+                "fit",
+                tx.counties[i]) 
+  plist[[count]] <- p
+  count <- count + 1
+}
+
+# Plot all counties mobility signal
+#nCol <- 1
+#for(i in 1:length(plist)){
+#  do.call("grid.arrange", c(plist[i], ncol=nCol))
+#}
+
+
+# Urban counties
+idx <- which(fips_to_name(unique(tx.stayhome$geo_value.x)) %in% c("Chambers County","Hardin County"  ,"Harris County", "Fort Bend County","Liberty County","Austin County"))
+
+do.call("grid.arrange", c(plist[idx], ncol=2))
+```
+
+![](03_ranking_effect_of_interventions_files/figure-html/tx-intervention-on-stay-home-1.png)<!-- -->
+
+### TX: Rural counties
+
+
+```r
+# Rural counties
+
+idx <- which(fips_to_name(unique(tx.stayhome$geo_value.x)) %in%  c("Anderson County", "Andrews County", "Angelina County", "Somervell County", "Pecos County", "Ward County"))
+
+do.call("grid.arrange", c(plist[idx], ncol=2))
+```
+
+![](03_ranking_effect_of_interventions_files/figure-html/tx-urban-stay-home-1.png)<!-- -->
+
+
+## The effect of California's intervention on restaurant visit 
+
+### CA: Urban counties
+
+
+```r
+select_col <- c("EmergDec1","GathRestrict1","SchoolClose1","BarRestrict1","PublicMask1","OtherBusinessClose1","BusinessMask1", "SchoolMask1" ,"Quarantine1")
+
+plist <- list()
+count <- 1
+for(i in 1:length(ca.restls)){
+  if(ca.counties_filtered[[i]]=="Sierra County"){
+    next
+  }
+  # Same the summary
+  lm.fit <- summary(ca.restls[[i]])
+  name <- c("EmergDec","GathRestrict","SchoolClose","BarRestrict","PublicMask"        ,"OtherBusinessClose","BusinessMask", "SchoolMask" ,"Quarantine")
+  df <- data.frame(fit= lm.fit$coefficients[select_col,1], interventions=name)
+revised_df <- cbind(df,confint(ca.restls[[i]])[select_col,])
+  colnames(revised_df)[3] <- "LCI"
+  colnames(revised_df)[4] <- "UCI"
+  
+  p <- plot_bar(revised_df,
+                "fit",
+                "interventions",
+                "LCI",
+                "UCI",
+                "fit",
+                ca.counties_filtered[i]) 
+  plist[[count]] <- p
+  count <- count + 1
+}
+
+# Plot all counties mobility signal
+#nCol <- 1
+#for(i in 1:length(plist)){
+#  do.call("grid.arrange", c(plist[i], ncol=nCol))
+#}
+
+idx <- which(fips_to_name(unique(ca.restvisit$geo_value.x)) %in% c("Orange County", "Santa Clara County", "Alameda County", "Yolo County", "Marin County", "San Bernardino County"))
+
+# Urban counties
+do.call("grid.arrange", c(plist[idx], ncol=2))
+```
+
+![](03_ranking_effect_of_interventions_files/figure-html/ca-restaurant-rank-1.png)<!-- -->
+
+### CA: Rural counties
+
+
+```r
+# select counties
+idx <-which(fips_to_name(unique(ca.restvisit$geo_value.x)) %in% c("Humboldt County", "Siskiyou County", "Del Norte County", "Mono County", "Plumas County", "Glenn County"))
+# Rural counties
+do.call("grid.arrange", c(plist[idx], ncol=2))
+```
+
+![](03_ranking_effect_of_interventions_files/figure-html/ca-rural-counties-restaurant-1.png)<!-- -->
+
+
+## The effect of Texas's intervention on restaurant visit
+
+### TX: Urban counties
+
+
+```r
+select_col <- c("EmergDec1","GathRestrict1","SchoolClose1","BarRestrict1","PublicMask1","Quarantine1")
+
+plist <- list()
+count <- 1
+for(i in 1:length(tx.restls)){
+  # Same the summary
+  lm.fit <- summary(tx.restls[[i]])
+  name <- c("EmergDec","GathRestrict","SchoolClose","BarRestrict","PublicMask","Quarantine")
+  df <- data.frame(fit= lm.fit$coefficients[select_col,1], interventions=name)
+revised_df <- cbind(df,confint(tx.restls[[i]])[select_col,])
+  colnames(revised_df)[3] <- "LCI"
+  colnames(revised_df)[4] <- "UCI"
+  
+  p <- plot_bar(revised_df,
+                "fit",
+                "interventions",
+                "LCI",
+                "UCI",
+                "fit",
+                tx.counties.filtered[i]) 
+  plist[[count]] <- p
+  count <- count + 1
+}
+
+# Plot all counties mobility signal
+#nCol <- 1
+#for(i in 1:length(plist)){
+#  do.call("grid.arrange", c(plist[i], ncol=nCol))
+#}
+
+# Urban counties
+idx <- which(tx.counties.filtered %in% c("Chambers County","Hardin County"  ,"Harris County", "Fort Bend County","Liberty County","Austin County"))
+do.call("grid.arrange", c(plist[idx], ncol=2))
+```
+
+![](03_ranking_effect_of_interventions_files/figure-html/tx-intervention-on-restaurant-1.png)<!-- -->
+
+### TX: Rural counties
+
+
+```r
+# Rural counties
+
+idx <- which(tx.counties.filtered %in% c("Anderson County", "Andrews County", "Angelina County", "Somervell County", "Pecos County", "Ward County"))
+do.call("grid.arrange", c(plist[idx], ncol=2))
+```
+
+![](03_ranking_effect_of_interventions_files/figure-html/tx-rural-counties-restaurant-1.png)<!-- -->
+
+
+
+# Conclusion
+
+We assume that every county will follow the state-wide policy accordingly. Having accounted for weekends and holidays, bar restriction and school clousure seem to have a greater effect on increasing staying at home signal among all other interventions in California. Other interventions, in contrary, reduce stay at home signal in California. The effects of the interventions vary across counties. On the other hand, emergency declaration increases the stay home signal in some counties of Texas. Also, in general, public mask reduces stay at home signal in Texas. 
+
+Also, we see that wearing masks may help increase restaurant visit. For example, business mask seems to stimulate the increase of the restaurant visit. Moreover, public masks increases the number of restaurant visit in most of the counties in California. 
+
+We rank the effectiveness of the intervention on mobility in terms of the regression coefficient in a linear regression setting. We leave characterization for the ranks of the effect of intervention on county-level as a future work. Other regression methods such as non-parametric regression should also be used for further study. 
+
