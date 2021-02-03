@@ -12,11 +12,11 @@ import pandas as pd
 import numpy as np
 
 from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import MinMaxScaler
 
 parser = argparse.ArgumentParser( formatter_class=argparse.ArgumentDefaultsHelpFormatter )
 parser.add_argument( "--setn", type = str)
 parser.add_argument( "--fillmissingness", type = str)
-
 args = parser.parse_args() 
 
 
@@ -89,9 +89,16 @@ if args.fillmissingness == "fillminratio":
 else:
     gs_df = pd.read_csv("./raw/county_smoothed_google_symptoms_allcovid_12_14.csv", parse_dates=["date"])
 gs_df["geo_id"] = [str(x).zfill(5) for x in gs_df["geo_id"]]
-    
 
-def static_sensorization_for_regression(setn, api_df_dict, gs_df): 
+
+
+geo_set = set([])
+for sym in symptom_sets[args.setn]:
+    geo_set = geo_set.union(SYMPTOM_COUNTY_SET[sym])  
+
+geo_list = sorted(list(geo_set))
+
+def static_sensorization_for_regression(setn, api_df_dict, gs_df, geo_list): 
     """
     Statis sensorization for google symptom sets indicators which are
     created based on regression
@@ -112,23 +119,25 @@ def static_sensorization_for_regression(setn, api_df_dict, gs_df):
                              + coef_list + raw_list + ["intercept", "predicted", "cases"])
     j = 0
     print(setn)
-          
-    
             
-    # Train model for each county        
-    geo_set = set([])
-    for sym in symptom_sets[setn]:
-        geo_set = geo_set.union(SYMPTOM_COUNTY_SET[sym])               
-    print("%d counties in total."%len(geo_set))
+    # Train model for each county    
+              
+    print("%d counties in total."%len(geo_list))
     num = 0
-    for county in geo_set:
+    for county in geo_list:
         num+=1
         if num%5 == 0:
             print("%d counties finished"%num)
             
         local_df = gs_df[gs_df["geo_id"] == county]      
-        X = local_df[symptom_sets[setn]].values
+        X = local_df[symptom_sets[setn]].values 
+        
+        # scale the signals to the same level
+        scaler = MinMaxScaler()
+        scaler.fit(X)
+        X = scaler.transform(X)
         date_list = local_df["date"].values
+        
 
         # static regression
         # using entire past used to train lr model for each symptom set
@@ -157,6 +166,6 @@ def static_sensorization_for_regression(setn, api_df_dict, gs_df):
 
     return regression_df
 
-result = static_sensorization_for_regression(args.setn, api_df_dict, gs_df)
+result = static_sensorization_for_regression(args.setn, api_df_dict, gs_df, geo_list)
 
 result.to_csv("./output/%s_regression_%s_sensorization_12_14.csv"%(args.setn, args.fillmissingness), index=False)

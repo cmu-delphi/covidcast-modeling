@@ -5,7 +5,7 @@ Created on Wed Jan 20 18:05:11 2021
 
 @author: jingjingtang
 """
-from datetime import timedelta
+from datetime import timedelta, datetime
 from scipy.stats import spearmanr
 
 import warnings
@@ -31,6 +31,9 @@ all_symptoms = []
 for setn in symptom_sets.keys():
     all_symptoms.extend(symptom_sets[setn])
 all_symptoms = sorted(all_symptoms)
+
+api_df = pd.read_csv("./raw/county_adjusted_usafacts_smoothed_case_rates_12_14.csv", parse_dates=["date", "as_of", "adjusted_as_of"])
+api_df = api_df[api_df["as_of"] == datetime(2020, 12, 13)]
 
 
 
@@ -65,8 +68,13 @@ def create_timewise_corr(setn, method, fillmissingness):
     
     corr_df = pd.DataFrame(columns=["county", "symptom_set", "correlation", "date"])        
     print(setn) 
-    subdf = pd.read_csv("./sensorization_with_as_of/sensored/%s_%s_%s_sensorization_12_14.csv"%(setn, method, fillmissingness), 
-                     parse_dates=["date"]).dropna()
+    #geo_list = pd.read_csv("./sensorization_with_as_of/sensored/%s_%s_%s_sensorization_12_14.csv"%("Sensory", method, fillmissingness), 
+    #                 parse_dates=["date"]).dropna()["geo_id"].unique()
+    subdf = pd.read_csv("./sensorization_with_as_of_02/sensored/%s_%s_%s_sensorization_12_14.csv"%(setn, method, fillmissingness), 
+                     parse_dates=["date"]).dropna().drop("cases", axis=1)
+    subdf = subdf.merge(api_df, on=["date", "geo_id"])
+#     subdf = pd.read_csv("./output/%s_%s_%s_sensorization_12_14.csv"%(setn, method, fillmissingness), 
+#                      parse_dates=["date"]).dropna()
     geo_list = subdf["geo_id"].unique()
     
     print("%d counties in total"%len(geo_list))
@@ -102,14 +110,19 @@ def create_timewise_corr(setn, method, fillmissingness):
     return  corr_df 
 
 
+###############################################################################
+###############################################################################
+###############################################################################
+
 def create_geowise_corr_final_as_of(setn, method, fillmissingness):
     # For each symptom
     
     corr_df = pd.DataFrame(columns=["symptom_set", "correlation", "date"])  
     k = 0
-    print(setn) 
-    df = pd.read_csv("./sensorization_with_as_of/sensored/%s_%s_%s_sensorization_12_14.csv"%(setn, method, fillmissingness), 
-                     parse_dates=["date"]).dropna()
+    print(setn, method, fillmissingness) 
+    df = pd.read_csv("./sensorization_with_as_of_02/sensored/%s_%s_%s_sensorization_12_14.csv"%(setn, method, fillmissingness), 
+                     parse_dates=["date"]).dropna().drop("cases", axis=1)
+    df = df.merge(api_df, on=["date", "geo_id"])
     
     # Calculate computed values using coef and intecept from
     # the most recent as of date
@@ -131,10 +144,16 @@ def create_geowise_corr_final_as_of(setn, method, fillmissingness):
     n_days = df["date"].unique().shape[0]
     date_list = [df["date"].min() + timedelta(days=i) for i in range(n_days)]
     
+    geo_list = pd.read_csv("./sensorization_with_as_of/sensored/%s_%s_%s_sensorization_12_14.csv"%("Sensory", method, fillmissingness), 
+                      parse_dates=["date"]).dropna()["geo_id"].unique()
+    
     print("%d dates in total"%len(date_list))
     for _d in date_list:
-        print(_d)
-        part_df = df[df["date"] == _d]
+        # part_df = df.loc[(df["date"] == _d)]
+        part_df = df.loc[(df["date"] == _d) & df["geo_id"].isin(geo_list)]
+        
+        if k == 0:
+            print("%d counties considered"%part_df.shape[0])
         try:
             corr = spearmanr(part_df[["computed", "cases"]].values,
                               nan_policy="omit")[0]
@@ -144,20 +163,31 @@ def create_geowise_corr_final_as_of(setn, method, fillmissingness):
         k += 1
     return  corr_df 
 
+###############################################################################
+###############################################################################
+###############################################################################
+
 def create_geowise_corr_varying_as_of(setn, method, fillmissingness):
     # For each symptom
-    
+    print(setn, method, fillmissingness) 
     corr_df = pd.DataFrame(columns=["symptom_set", "correlation", "date"])  
     k = 0
-    df = pd.read_csv("./sensorization_with_as_of/sensored/%s_%s_%s_sensorization_12_14.csv"%(setn, method, fillmissingness), 
-                     parse_dates=["date"]).dropna()
+    df = pd.read_csv("./sensorization_with_as_of_02/sensored/%s_%s_%s_sensorization_12_14.csv"%(setn, method, fillmissingness), 
+                     parse_dates=["date"]).dropna().drop("cases", axis=1)
+    df = df.merge(api_df, on=["date", "geo_id"])
                     
     n_days = df["date"].unique().shape[0]
     date_list = [df["date"].min() + timedelta(days=i) for i in range(n_days)]
     
+    geo_list = pd.read_csv("./sensorization_with_as_of_02/sensored/%s_%s_%s_sensorization_12_14.csv"%("Sensory", method, fillmissingness), 
+                      parse_dates=["date"]).dropna()["geo_id"].unique()
+    
     print("%d dates in total"%len(date_list))
     for _d in date_list:
-        part_df = df[df["date"] == _d]
+        #part_df = df.loc[(df["date"] == _d)]
+        part_df = df.loc[(df["date"] == _d) & df["geo_id"].isin(geo_list)]
+        if k == 0:
+            print("%d counties considered"%part_df.shape[0])
         try:
             corr = spearmanr(part_df[["predicted", "cases"]].values,
                               nan_policy="omit")[0]
@@ -167,10 +197,15 @@ def create_geowise_corr_varying_as_of(setn, method, fillmissingness):
         k += 1
     return  corr_df 
 
+###############################################################################
+###############################################################################
+###############################################################################
 
-symptom_sets = ["fatigue", "fever", "gi", "respiratory", "pain", "sensory"]
+symptom_sets = ["Respiratory"]
 for fillmissingness in ["fill0", "fillminratio"]:
     for method in ["rawsum", "regression"]:
         for setn in symptom_sets:
-            corr_df = create_geowise_corr_final_as_of(setn, method, fillmissingness)
-            corr_df.to_csv("./sensorization_with_as_of/geo_wise_final_as_of/%s_static_geowise_corr_df_%s_%s.csv"%(setn, method, fillmissingness), index=False)
+            corr_df = create_timewise_corr(setn, method, fillmissingness)
+            corr_df.to_csv("./sensorization_with_as_of_02/time_wise_corr/%s_corr_df_%s_%s.csv"%(setn, method, fillmissingness), index=False)
+            
+            
