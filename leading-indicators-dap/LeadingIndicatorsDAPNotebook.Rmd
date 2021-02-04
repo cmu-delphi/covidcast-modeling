@@ -1,0 +1,136 @@
+---
+title: "Leading Indicators DAP"
+output: html_notebook
+---
+
+```{r}
+source("LeadingIndicatorTools.R")
+library(covidcast)
+library(magrittr)
+library(tidyverse)
+library(assertthat)
+library(lubridate)
+```
+
+## <span>Section 1: Motivation</span>
+Vishnu's section
+
+## <span>Section 2: Methodology</span>
+
+<details>
+<summary>**Initial exploration: Cross Correlation**</summary>
+
+Our first approach to this DAP looked at the relationship between the indicator and the signal more generally. We first used cross correlation analysis on the time series to identify the relationship between indicators and cases across a time period. We calculated the cross correlation of the two time series for each county, and looked at the max cross correlation values and the lag in days for where that maximum cross correlation occured. An example of this data over all observed counties: ![cross_correlation_plot](cross_correlation_plot.png)
+
+However, this is a more general analysis than our DAP directive, which is dealing with **periods of increase** specifically, rather then the general relationship between two signals. For this DAP, we don't care if there is a cross correlation or not  between indicators and cases when the signals are flat, decreasing, or even rising slightly. We care about sharp upswings in cases, something significant within a county. We want to analyze the leadingness of a **signficant indicator rise** in relation to a **significant case rise**. To do this, we need to define and find periods of significant rise in these signals.
+</details>
+
+#### Identifying Rises in Signals
+
+We determined that to ascertain leadingness of an indicator, we care about whether the indicator began to rise significantly before cases began to rise significantly. So we need a decision rule for identifying significant rises.
+
+
+*TODO add in Vishnu's method here*
+
+**Best Fit Line**<br>
+One option we tried was calculating a line of best fit for the signal for fixed time periods within a larger time period. For example, calculating a line of best fit for every 21 day window within a 3 month window and choosing the period that has the highest slope as the most significant rise period in that county for that signal.
+
+  - Where this worked well:
+    - This method finds periods of consistent rise, not allowing the signal to vary a lot between the beginning and ending points of the rise period.
+  - Where this had drawbacks: 
+    - Many times this method only selects the larger end of a rise, since the window is a fixed size, and leaves out where the rise starts.
+    - This method also only picks one rise period for a signal for every county for the given time period, which isn't always reflective of the signal's actual behavior.
+    
+<details>
+<summary>*Example plot*</summary>
+
+![best_fit_plot](best_fit.png)
+</details>
+<br>
+
+**Estimated Derivative**<br>
+We then tried using multiple derivative estimate methods to identify periods where the estimated derivative at each point is over a certain threshold.
+
+  - Where this worked well:
+    - It can find smaller periods of continuous rise that are flexible in length.
+    - It allows for multiple periods of rise per time period.
+  - Where this had drawbacks: 
+     - Using a large fixed window size (14 or 21 days) in the derivative estimation function means that many identified points are actually within a decreasing period after a rise.
+     - It can label rises too liberally, identifying very small bumps in the signal as rises.
+
+<details>
+<summary>*Example plot*</summary>
+
+Blue is using smoothing spline method, Red is using local linear regression (Purple is where both marked the same point)
+![estimated_deriv_plot](estimated_deriv.png)
+</details>
+<br>
+
+##### **Final Method** 
+We saw that smoothing the signal (on top of the 7 day average smoothing from the API) and using the derivative method produced the best results. Twekaing this method with some other decision rules gave us our best outcome for finding periods of significant rise.
+
+Final criteria for rise periods: A period is a significant rise if
+  
+  1. First derivative at each point is > 0 - *aka signal is in fact rising on every day*
+  
+  2. Period is > a certain number of days (for this analysis we used 5) - *aka it's not just a spurius rise*
+  
+  3. Each first derivative is > a certain % of other derivatives in time period (for this analysis we used 75%) - *aka making sure the rise is a significant one for this county. This ties this decision to the specific time period we are looking at, and the rise point identifications can change based on the time period because of this criteria.*
+  4. Magnitude of increase from start to end of period is > a certain threshold (for this analysis we used 20%) - *aka another way to make sure that the rise is significant, not just a slight uptick in cases*
+  
+
+**Finally**, we take the point at the beginning of each rise period as the best estimation of a point of inflection where a signal begins to rise significantly, so we can answer the question: **Does the beginning of a rise in the indicator come before the beginning of a rise in cases?**
+
+In our analysis, we look at this on a county by county basis, for specific time periods during the pandemic, like the "Summer wave" or the "Fall wave."
+<br>
+<br>
+
+#### County Selection
+ In our analysis, we include all counties that have greater than 2000 cases (a little over 20 cases a day for a 3 month window), 80 days of indicator data for a 3 month window, and do not have zero or negative values for either cases or the indicator.
+<br>
+<br>
+
+#### Recall and Precision
+TODO
+
+<br>
+
+
+### Walkthrough
+##### Step 1. Get and prepare county data
+As an example, we'll use our Dr Visits % CLI as our indicator, and the summer as our time period. We use our LeadingIndicatorTools package for all our main functions.
+```{r}
+drs_visits_prepared_summer = get_and_parse_signals("2020-06-01", "2020-8-31", "doctor-visits", "smoothed_adj_cli", 2000, 80)
+
+```
+<br>
+
+#### Step 2. We can plot the Drs Visits and the case signal together for an example county.
+```{r}
+drs_summer = get_increase_points(drs_visits_prepared_summer$cases, drs_visits_prepared_summer$indicator)
+plot_signals(drs_summer, "01003", smooth_and_show_increase_point=FALSE, "Drs Visits")
+```
+<br>
+
+#### Step 3. Now we can mark the rise points (the points at the beginning of the rise periods) for the Drs Visits and Cases signal. 
+In the respective rise point columns, the day is marked with a 1 if it is found to be a rise point for that signal. We can see here that there is a rise point for Drs Vists on 6/18 and for cases on 6/26.
+```{r}
+drs_summer[1]
+```
+<br>
+
+#### Step 4. Now we can plot the smoothed signal with the beginning rise points. 
+We can see that Drs Visits begins to rise before cases rise. TODO I think we need to tweak our rise point method a bit so we don't have these "double counting" points on a rise.
+```{r}
+plot_signals(drs_summer, "01003", smooth_and_show_increase_point=TRUE, "Drs Visits")
+```
+
+## <span>Section 3: Analysis</span>
+Analyzing each signal in depth.
+
+## <span>Section 4: Performance</span>
+Recall and precision.
+
+## <span>Section 5: Conclusions and Limitations</span>
+
+
