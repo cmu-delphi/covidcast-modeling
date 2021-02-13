@@ -1,0 +1,191 @@
+---
+title: "Identifying Leading Indicators for COVID-19 Cases and Deaths"
+subtitle: "Can we isolate reliable leading indicators for COVID-19 cases and deaths?"
+output:
+  html_document:
+    df_print: paged
+---
+
+# I. Motivation & Introduction
+
+With over 27 million cases and 465,000 deaths, the COVID-19 pandemic has led to unprecedented public health challenges for healthcare providers and policymakers. For one, hospitals and other care facilities in the United States have struggled at various points to keep up with the increase in COVID-19 patients needing critical care. With rapid increases in case counts nationally, there is a need for leading indicator signals that can guide decision makers in proactively allocating health system resources and assisting policy makers in balancing public health safety with economic concerns.
+
+The COVIDcast project is unique in that it includes a combination of multiple signals including public health surveys, mobility, doctors visits, hospitalizations, etc. Based on this available combination, we characterized whether Facebook community signals and doctors visits signals, publicly available through the COVIDcast data project, can be used as leading indicators for case counts at the county level.
+
+```{r}
+source("LeadingIndicatorToolsVS.R")
+library(covidcast)
+library(magrittr)
+library(tidyverse)
+library(assertthat)
+library(lubridate)
+
+
+# fb_survey2 = get_and_prepare_signals(cases_deaths="case", 
+#                                     start_day="2020-05-01", 
+#                                     end_day="2021-01-31",  
+#                                     indicator_source="fb-survey", 
+#                                     indicator_signal="smoothed_hh_cmnty_cli", 
+#                                     case_death_threshold = 2000,
+#                                     indicator_threshold=80,
+#                                     geo_type = "county")
+#saveRDS(fb_survey2, file="fb_survey.RDS")
+#saveRDS(hospitalizations, file="hospitalizations_deaths.RDS")
+
+fb_survey2=readRDS(file="fb_survey.RDS")
+hospitalizations=readRDS(file="hospitalizations_deaths.RDS")
+
+#fb_survey=list("cases" = case_list[large_geos], "indicator" = indicator_list[large_geos])
+
+#hospitalizations=get_and_prepare_signals(cases_deaths="death",
+#                                         start_day="2020-05-01",
+#                                         end_day="2021-01-31",
+#                                         indicator_source = "hospital-admissions",
+#                                         indicator_signal="smoothed_adj_covid19_from_claims",
+#                                         case_death_threshold = 0,
+#                                         indicator_threshold = 0,
+#                                         geo_type = "county")
+#names(hospitalizations)<-c("deaths","indicator")
+```
+
+# Results: 1. FB Survey as a Leading Indicator for COVID-19 Cases
+
+```{r,out.width="50%"}
+fb_survey_cases_indicator_list = get_increase_points(case_list = fb_survey2$cases, 
+                                                     indicator_list = fb_survey2$indicator,
+                                                    local_bandwidth = 12,
+                                                    local_quantile_threshold = 0.75,
+                                                    local_threshold=0.2,
+                                                    local_period=0)
+fb_survey_success_examples = get_success_examples(case_indicator_list = fb_survey_cases_indicator_list, success_window=14,
+                                        min_success_window=3)
+plot_list=vector("list", 5)
+for(i in 1:length(plot_list))
+{
+  county_name = fb_survey_success_examples[[i]]
+  plot_list[[i]]<-plot_signals(case_indicator_list = fb_survey_cases_indicator_list, county_fips = fb_survey_success_examples[[i]],
+             ylab1 = "New COVID-19 Cases",
+             ylab2="FB Survey", smooth_and_show_increase_point = TRUE)
+  print(plot_list[[i]])
+
+}
+
+
+```
+
+```{r}
+leadingness_dist=get_leading_indicator_day_distribution(success_examples = fb_survey_success_examples,final_cases_indicator_list = fb_survey_cases_indicator_list)
+barplot(table(unlist(leadingness_dist)), xlab = "Leadingness (Day)", ylab = "Count", col = 'green', main = "How leading is the indicator?")
+
+```
+
+```{r echo=F}
+#conditions to see
+# performance_df=data.frame(Bandwidth_For_Smoothing=c(10,10,10,12,12,12,14,14,14,7,7,7),
+#                           First_Derivative_Quantile_Threshold=rep(c(0.75,0.85,0.5),4),
+#                           Min_Percent_Increase=rep(c(0.2,0.1,0.15),4),
+#                           Number_Success_Examples=0,
+#                           Most_Frequent_Leadingness=-1,
+#                           Period_Increase=rep(c(5,7,3),4),
+#                           Success_Window=rep(c(14,21,14),4),
+#                           Min_Success_Window=rep(c(1,3,1),4),
+#                           Recall=0,
+#                           Precision=0,
+#                           stringsAsFactors = F)
+# all_combos=expand.grid(performance_df$Bandwidth_For_Smoothing, performance_df$First_Derivative_Quantile_Threshold, performance_df$Min_Percent_Increase, performance_df$Period_Increase, performance_df$Success_Window, performance_df$Min_Success_Window)
+# colnames(all_combos)<-c("Bandwidth_For_Smoothing", "First_Derivative_Quantile_Threshold", "Min_Percent_Increase",
+#                         "Period_Increase", "Success_Window","Min_Success_Window")
+# all_combos=unique(all_combos[,])
+# rownames(all_combos)<-NULL
+# performance_df=all_combos
+# performance_df$Number_Success_Examples=0
+# performance_df$Most_Frequent_Leadingness=-1
+# performance_df$Recall=0
+# performance_df$Precision=0
+# 
+# for(i in 1:nrow(performance_df))
+# {
+#   cat(i," of ", nrow(performance_df), "\n")
+#   fb_survey_cases_indicator_list = get_increase_points(case_list = fb_survey2$cases, 
+#                                                      indicator_list = fb_survey2$indicator,
+#                                                     local_bandwidth = performance_df$Bandwidth_For_Smoothing[i],
+#                                                     local_quantile_threshold = performance_df$First_Derivative_Quantile_Threshold[i],
+#                                                     local_threshold=performance_df$Min_Percent_Increase[i],
+#                                                     local_period=performance_df$Period_Increase[i])
+#   fb_survey_success_examples = get_success_examples(case_indicator_list = fb_survey_cases_indicator_list, success_window=performance_df$Success_Window[i],min_success_window=performance_df$Min_Success_Window[i])
+#   performance_df$Number_Success_Examples[i]=length(fb_survey_success_examples)
+#   leadingness_dist=get_leading_indicator_day_distribution(success_examples = fb_survey_success_examples,final_cases_indicator_list = fb_survey_cases_indicator_list)
+#   if(length(leadingness_dist) > 0)
+#     performance_df$Most_Frequent_Leadingness[i]=as.numeric(names(sort(table(unlist(leadingness_dist)), decreasing = T))[1])
+#  performance_df$Recall[i]=get_recall_strict(case_indicator_list = fb_survey_cases_indicator_list)
+# performance_df$Precision[i]=get_precision_strict(case_indicator_list = fb_survey_cases_indicator_list)
+# 
+# }
+# performance_df$F1_score = 2*(performance_df$Precision * performance_df$Recall)/(performance_df$Precision + performance_df$Recall)
+# performance_df=performance_df[order(performance_df$F1_score, decreasing = T),]
+#write.csv(performance_df, file="performance_df_grid_search.csv")
+performance_df=read.csv(file="performance_df_grid_search.csv",header=T, stringsAsFactors = F)
+kableExtra::kable(performance_df[,-c(1:2)])
+```
+
+```{r, out.width="50%"}
+plot_list=vector("list", performance_df$Number_Success_Examples[1])
+  fb_survey_cases_indicator_list = get_increase_points(case_list = fb_survey2$cases, 
+                                                     indicator_list = fb_survey2$indicator,
+                                                    local_bandwidth = 14,
+                                                    local_quantile_threshold = 0.85,
+                                                    local_threshold=0.2,
+                                                    local_period=7)
+  fb_survey_success_examples = get_success_examples(case_indicator_list = fb_survey_cases_indicator_list, success_window=14,min_success_window=1)
+  leadingness_dist=get_leading_indicator_day_distribution(success_examples = fb_survey_success_examples,final_cases_indicator_list = fb_survey_cases_indicator_list)
+
+# pdf("success_examples_best_parameters_2_09_21.pdf")
+# for(i in 1:length(plot_list))
+# {
+#   county_name = fb_survey_success_examples[[i]]
+#   plot_list[[i]]<-plot_signals(case_indicator_list = fb_survey_cases_indicator_list, county_fips = fb_survey_success_examples[[i]],
+#              ylab1 = "New COVID-19 Cases",
+#              ylab2="FB Survey", smooth_and_show_increase_point = TRUE)
+# }
+# library(gridExtra)
+# ggsave(
+#    filename = "success_examples_best_parameters_2_09_21.pdf", 
+#    plot = marrangeGrob(plot_list, nrow=2, ncol=2), 
+# )
+# 
+# dev.off()
+  
+for(i in 1:length(plot_list))
+{
+  county_name = fb_survey_success_examples[[i]]
+  plot_list[[i]]<-plot_signals(case_indicator_list = fb_survey_cases_indicator_list, county_fips = fb_survey_success_examples[[i]],
+             ylab1 = "New COVID-19 Cases",
+             ylab2="FB Survey", smooth_and_show_increase_point = TRUE)
+  print(plot_list[[i]])
+
+}
+
+```
+
+```{r}
+fb_survey_cases_indicator_list = get_increase_points(case_list = fb_survey2$cases, 
+                                                     indicator_list = fb_survey2$indicator,
+                                                    local_bandwidth = 12,
+                                                    local_quantile_threshold = 0.75,
+                                                    local_threshold=0.2,
+                                                    local_period=0)
+all_guessers=generate_competitors_get_scores(final_cases_indicator_list=fb_survey_cases_indicator_list)
+first_elem=all_guessers[[1]]
+    par(mfrow=c(3,2))
+    plot(first_elem$time_value, first_elem$case_value, col=ifelse(first_elem$case_rise_point==1, 'red','black'), pch=20, xlab = "Case", ylab = "Date",
+         main = "Case Rise Point")
+    plot(first_elem$time_value, first_elem$case_value, col=ifelse(first_elem$indicator_rise_point==1, 'red','black'), pch=20,xlab = "Case", ylab = "Date",
+         main = "Indicator Rise Point")
+    plot(first_elem$time_value, first_elem$case_value, col=ifelse(first_elem$random_guesser==1, 'red','black'), pch=20, xlab = "Case", ylab = "Date",
+         main = "Random Guesser")
+    plot(first_elem$time_value, first_elem$case_value, col=ifelse(first_elem$case_first_deriv_guesser==1, 'red','black'), pch=20, xlab = "Case", ylab = "Date",
+         main = "Case First Derivative > 0")
+    plot(first_elem$time_value, first_elem$case_value, col=ifelse(first_elem$indicator_first_deriv==1, 'red','black'),pch=20, xlab = "Case", ylab = "Date",
+         main = "Indicator First Derivative > 0")
+
+```
