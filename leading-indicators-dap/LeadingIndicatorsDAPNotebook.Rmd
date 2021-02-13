@@ -165,6 +165,18 @@ plot_example_list(success_examples_drs_fall, drs_fall, "Doctor Visits CLI")
 ```{r, echo=FALSE}
 plot_example_intersects(success_examples_drs_summer, success_examples_drs_fall, drs_summer, drs_fall, "Doctor Visits CLI")
 ```
+##### Fall Frequencies
+We can also look at the distribution of the frequency of the number of days by which Doctor Visits' rises lead case rises in successful counties
+```{r echo=FALSE}
+plot_distribution_freq(success_examples_drs_fall, drs_fall)
+```
+
+##### Summer Frequencies
+We can also look at the distribution of the frequency of the number of days by which Doctor Visits' rises lead case rises in successful counties
+```{r echo=FALSE}
+plot_distribution_freq(success_examples_drs_summer, drs_summer)
+```
+
 
 ### Change Healthcare
 ```{r, results='hide', echo=FALSE}
@@ -194,6 +206,17 @@ plot_example_list(success_examples_chng_fall, chng_fall, "Change Healthcare CLI"
 ##### Examples of counties that show successes in both Summer and Fall
 ```{r, echo=FALSE}
 plot_example_intersects(success_examples_chng_summer, success_examples_chng_fall, chng_summer, chng_fall, "Change Healthcare CLI")
+```
+
+##### Fall Frequencies
+We can also look at the distribution of the frequency of the number of days by which Change Healthcare rises lead case rises in successful counties
+```{r echo=FALSE}
+plot_distribution_freq(success_examples_chng_fall, chng_fall)
+```
+##### Summer Frequencies
+We can also look at the distribution of the frequency of the number of days by which Change Healthcare rises lead case rises in successful counties
+```{r echo=FALSE}
+plot_distribution_freq(success_examples_chng_summer, chng_summer)
 ```
 
 ### Indicator Combination
@@ -227,8 +250,19 @@ plot_example_list(success_examples_comb_fall, comb_fall, "Indicator Combination 
 ```{r, echo=FALSE}
 plot_example_intersects(success_examples_comb_summer, success_examples_comb_fall, comb_summer, comb_fall, "Indicator Combination CLI")
 ```
+##### Fall Frequencies
+We can also look at the distribution of the frequency of the number of days by which Indicator Combination rises lead case rises in successful counties
+```{r echo=FALSE}
+plot_distribution_freq(success_examples_comb_fall, comb_fall)
+```
+##### Summer Frequencies
+We can also look at the distribution of the frequency of the number of days by which Change Healthcare rises lead case rises in successful counties
+```{r echo=FALSE}
+plot_distribution_freq(success_examples_comb_summer, comb_summer)
+```
+
 ##
-Note that the counties shown here met the following criteria:
+Note that the counties shown and counted as "successful" here met the following criteria:
 All indicator rise points were followed by a case rise point within 3 to 14 days (and all case rise points were preceded by an indicator rise point within the same time period). This means that the displayed counties almost always have only one rise point per signal and case (the more rise points the harder it is to meet the criteria).
 
 ## <span>Section 4: Performance</span>
@@ -269,4 +303,35 @@ plot_example_intersects = function(success_example_list1, success_example_list2,
                       c(1,2))
   marrangeGrob(grobs = plot_list, layout_matrix=layout)
 }
+
+
+
+get_leading_indicator_day_distribution<-function(success_examples, final_cases_indicator_list)
+{
+  county_names=unlist(lapply(final_cases_indicator_list, function(x) x$geo_value[1]))
+  success_examples_data = final_cases_indicator_list[which(county_names %in% unlist(success_examples))]
+  names(success_examples_data)<-unlist(lapply(success_examples_data, function(x) x$geo_value[1]))
+  # print(names(success_examples_data))
+  return(lapply(success_examples_data, function(x){
+    as.integer(x$time_value[which(x$case_rise_point==1)]-x$time_value[which(x$indicator_rise_point==1)])
+  }))
+}
+
+plot_distribution_freq = function(examples, signal_data) {
+  aheads = get_leading_indicator_day_distribution(examples, signal_data)
+  distribution = data.frame(leadingness=integer(), freq=integer())
+  for (i in 1:length(aheads)) {
+    for (j in 1:length(aheads[[i]])) {
+      if (aheads[[i]][[j]] %in% distribution$leadingness) {
+        distribution$freq[distribution$leadingness == aheads[[i]][[j]]] <- distribution$freq[distribution$leadingness == aheads[[i]][[j]]] + 1
+      } else {
+        distribution[nrow(distribution) + 1,] = c(aheads[[i]][[j]], 1)
+      }
+    }
+  }
+  ggplot(distribution, aes(leadingness, freq)) + 
+    geom_bar(aes(fill =leadingness), stat = 'identity') +
+    scale_x_continuous(breaks = c(2,3,4,5,6,7,8,9,10,11,12,13,14,15))
+}
+
 ```
