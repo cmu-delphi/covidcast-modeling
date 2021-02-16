@@ -1,0 +1,619 @@
+---
+title: "Calibration"
+output: html_notebook
+---
+
+## Introduction
+Ideally, our forecasters should be calibrated. Informally, a forecaster is calibrated if when it assigns a probability $p$ to an event, that event actually occurs with probability $p$. [Gneiting 2007](https://sites.stat.washington.edu/raftery/Research/PDF/Gneiting2007jrssb.pdf) defines a forecaster $F$ as *probabilistically calibrated* if:
+$$
+\lim_{N \rightarrow \infty} \frac1N \sum_{i=1}^N H_i(F^{-1}_{i}(p)) \rightarrow p,
+$$
+where $F_i$ is the forecast's CDF and $H_i$ is the true distribution's CDF for observation $i$.
+
+One way to qualitatively examine whether a forecast is calibrated is to look at the probability integral transform (PIT) distribution. The PIT of a CDF $F$ and observation $y$ is $F(y)$. If a forecaster is calibrated, the PIT distribution will be uniform.
+
+If a forecaster is miscalibrated by making systematic errors, there is a simple post-processing algorithm to recalibrate the forecaster. Let $G$ be the CDF of the PIT distribution for a set of forecasts and observations. $G$ itself is the transformation from the original forecast's CDF to the recalibrated forecast's CDF; that is, if this forecaster produced a forecast with CDF $F$, then the *recalibrated* forecast's CDF is $G \circ F$. This can be thought of an estimation problem, with a training set that defines $G$ and the test set of forecasts which are recalibrated by $G$.
+
+In this notebook, we will show:
+
+1. The CMU-TimeSeries forecaster is not calibrated.
+2. The simple post-processing algorithm improves calibration but hurts the median WIS (even when applied in-sample).
+3. The average WIS decreases because the PIT distribution is different for forecasts of large counts and forecasts of small counts.
+4. Partitioning the training set by the forecast's median decreases the bias in the PIT distribution of the training set, improves calibration of the recalibrated forecasts, and improves the average WIS (even out-of-sample).
+
+
+#### Load forecasts
+
+```{r, error=FALSE,warning=FALSE,message=FALSE}
+library(lubridate)
+library(evalcast)
+library(dplyr)
+library(readr)
+library(covidcast)
+library(ggplot2)
+library(stringr)
+library(tidyverse)
+library(purrr)
+```
+
+```{r, error=FALSE,warning=FALSE,message=FALSE}
+download_signal <- function(...) {
+  args <- list(...)
+  if (is.null(args$start_day)) {
+    msg <- stringr::str_glue(
+      "Downloading {signal} from covidcast through {end}.",
+      start = args$start_day,
+      end = args$end_day,
+      signal = args$signal,
+      .sep = " "
+    )
+  }
+  else {
+    msg <- stringr::str_glue(
+      "Downloading {signal} from covidcast for period from",
+      "{start} to {end}.",
+      start = args$start_day,
+      end = args$end_day,
+      signal = args$signal,
+      .sep = " "
+    )
+  }
+  message(msg)
+  
+  out <- base::suppressMessages({covidcast_signal(...)})
+  if (args$geo_type == "state") {
+    out$geo_value = substr(covidcast::abbr_to_fips(out$geo_value), 1, 2)
+  }
+  out %>% rename(location = .data$geo_value)
+}
+
+get_target_response <- function(response,
+                                forecast_dates,
+                                incidence_period="epiweek",
+                                ahead=1,
+                                geo_type="state") {
+  if (response == "death") {
+    signal = "deaths_incidence_num"
+  } else if (response == "case") {
+    signal = "confirmed_incidence_num"
+  }
+  data_source = "indicator-combination"
+  target_periods <- forecast_dates %>%
+    enframe(name = NULL, value = "forecast_date") %>%
+      mutate(incidence_period = incidence_period,
+           ahead = ahead) %>%
+    pmap_dfr(get_target_period)
+
+  # Compute the actual values that the forecaster is trying to
+  # predict. In particular,
+  # - get most recent data available from covidcast for these target periods
+  # - sum up the response over the target incidence period
+  problems <- target_periods %>%
+    mutate(not_available = .data$end > Sys.Date())
+  # assert_that(!any(problems$not_available),
+  #             msg=paste0("When `ahead` is ", ahead, ", it is too soon to evaluate ",
+  #                        "forecasts on these forecast dates: ",
+  #                        paste(forecast_dates[problems$not_available], collapse=", "),
+  #                        "."))
+  out <- target_periods %>%
+    rename(start_day = .data$start, end_day = .data$end) %>%
+    mutate(data_source = data_source,
+           signal = signal,
+           geo_type = geo_type) %>%
+    pmap(download_signal)
+
+  problem_date <- out %>% map_lgl(~ nrow(.x) == 0) %>% which()
+  # assert_that(length(problem_date) == 0,
+  #             msg=paste0("No data available for the target periods of these ",
+  #                        "forecast dates: ",
+  #                        paste(forecast_dates[problem_date], collapse = ", "),
+  #                        "."))
+  names(out) <- forecast_dates
+  out <- out %>%
+    bind_rows(.id = "forecast_date") %>%
+    mutate(forecast_date = lubridate::ymd(.data$forecast_date)) %>%
+    group_by(.data$location, .data$forecast_date) %>%
+    summarize(actual = sum(.data$value)) %>%
+#    mutate(forecast_date = forecast_dates[as.numeric(.data$forecast_date)]) %>%
+    left_join(target_periods %>% mutate(forecast_date = forecast_dates),
+              by = "forecast_date")
+  # record date that this function was run for reproducibility
+  attr(out, "as_of") <- Sys.Date()
+  return(out)
+}
+```
+
+```{r, error=FALSE,warning=FALSE,message=FALSE,echo=FALSE,results='hide'}
+get_covidhub_predictions <- function(covid_hub_forecaster_name,
+                                     forecast_dates = NULL, ...) {
+  url <- "https://raw.githubusercontent.com/reichlab/covid19-forecast-hub/master/data-processed"
+  pcards <- list()
+  if (is.null(forecast_dates))
+    forecast_dates <- get_forecast_dates(covid_hub_forecaster_name)
+  col_types = cols(
+                   location = col_character(),
+                   forecast_date = col_date(format = ""),
+                   quantile = col_double(),
+                   value = col_double(),
+                   target = col_character(),
+                   target_end_date = col_date(format = ""),
+                   type = col_character()
+                 )
+  for (i in 1:length(forecast_dates)) {
+    forecast_date = forecast_dates[[i]]
+    tryCatch({
+      filename <- sprintf("%s/%s/%s-%s.csv",
+                        url,
+                        covid_hub_forecaster_name,
+                        as.character(forecast_date),
+                        covid_hub_forecaster_name)
+      cat("Downloading", filename, fill = TRUE)
+      pred <- read_csv(filename,col_types=col_types)
+      cat("Success",fill=TRUE)
+    },error=function(e) {
+      cat("Failure",fill=TRUE)
+      filename <- sprintf("%s/%s/%s-%s.csv",
+                        url,
+                        covid_hub_forecaster_name,
+                        as.character(forecast_date-1),
+                        covid_hub_forecaster_name)
+      cat("Downloading", filename, fill = TRUE)
+      pred <- read_csv(filename,col_types=col_types)
+      cat("Success",fill=TRUE)
+    })
+    
+    pcards[[as.character(forecast_date)]] <- pred %>%
+      rename(probs = quantile, quantiles = value) %>%
+      filter(str_detect(target, "wk ahead inc")) %>%
+      filter(type == "quantile") %>%
+      separate(target,
+               into = c("ahead", NA, NA, NA, "response"),
+               remove = TRUE) %>%
+      select(-type, -target_end_date) %>%
+      mutate(geo_type = case_when(nchar(.data$location) == 2 ~ "state",
+                                  nchar(.data$location) == 5 ~ "county")) %>%
+      mutate(forecast_date = forecast_dates[[i]]) %>%
+      mutate(ahead = as.integer(ahead)) %>%
+      group_by(forecast_date, ahead, response, location, geo_type) %>%
+      group_modify(~ tibble(forecast_distribution = list(.))) %>%
+      ungroup()
+  }
+  return(pcards)
+}
+cmu_preds = get_covidhub_predictions("CMU-TimeSeries", forecast_dates = ymd("2020-07-20") + 7*(0:26))
+pred_df = tibble()
+for (l in cmu_preds) { pred_df = rbind(pred_df,l)}
+target_input_df = pred_df %>%
+  select(forecast_date,ahead,response,geo_type) %>% distinct()
+target_df = tibble()
+for (i in 1:nrow(target_input_df)) {
+  try({
+      tmp_df = get_target_response(target_input_df[["response"]][[i]], target_input_df[["forecast_date"]][[i]], ahead=target_input_df[["ahead"]][[i]], geo_type=target_input_df[["geo_type"]][[i]]) %>%
+    ungroup() %>%
+    select(location, forecast_date,actual) %>%
+    mutate(ahead=target_input_df[["ahead"]][[i]])
+  target_df = rbind(target_df, tmp_df)
+  })
+}
+```
+
+#### Calibration functions
+
+```{r, error=FALSE,warning=FALSE,message=FALSE}
+get_observed_pit = function(distr, actual) {
+  p = c(0,distr[["probs"]],1)
+  q = c(0,distr[["quantiles"]])
+  q = c(q, q[[length(q)]] * 1.5) # Arbitrary cap at 1.5*highest quantile
+  if (any(is.na(q))) {
+    return(NA)
+  }
+  if (!is.na(actual) && actual >= q[[length(q)]]) {
+    return(1)
+  } else if (actual < 0) {
+    return(0)
+  } else {
+    weights = diff(p)
+    low_bins = which(q <= actual)
+    right_idx = which(q > actual)[1]
+    right_wt = weights[right_idx-1]*(q[right_idx]-actual)/(q[right_idx]-q[right_idx-1])
+    return(sum(weights[low_bins]) - right_wt)
+  }
+}
+eval_df = pred_df %>%
+  inner_join(target_df) %>%
+  mutate(pit = purrr::map2_dbl(forecast_distribution,actual,get_observed_pit))
+```
+
+```{r, error=FALSE,warning=FALSE,message=FALSE}
+library(pipeR)
+# Returns qs quantiles from a histogram distribution specified by dist and bins:
+#   dist is series of probabilities
+#   bins is series of values (length of bins is 1 more than dist)
+# Ex: dist = [0.1, 0.2, 0.3, 0.4]
+#     bins = [0, 1, 2, 3, 4]
+#     dquantile(dist, bins, seq(0, 1, by=0.1)) =
+#       [0, 1, 1.5, 2, 2.33, 2.67, 3, 3.25, 3.5, 3.75, 4]     
+dquantile = function(dist, bins, qs) {
+  d = c(0,cumsum(dist))
+  idxs = apply(outer(qs,d,FUN="<"),1,function(x) { which(x)[1]})
+  p = (qs - d[idxs-1]) / dist[idxs-1]
+  result = bins[idxs-1] + p*(bins[idxs]-bins[idxs-1])
+  result[is.na(result)] = bins[length(bins)] # Occurs where qs >= 1
+  return(result)
+}
+
+# Returns histogram distribution from quantiles qs and their values qvals:
+# "Inverse of dquantile"
+# Ex: qvals = [0, 1, 1.5, 2, 2.33, 2.67, 3, 3.25, 3.5, 3.75, 4]
+#     qs = seq(0, 1, by = 0.1)
+#     bins = [0, 1, 2, 3, 4]
+#     qdistribution(qvals, qs, bins) = [0.1, 0.2, 0.3, 0.4]
+qdistribution = function(qvals, qs, bins) {
+  result = (2:length(bins)) %>>%
+    lapply(function(bi) {
+      idxs = which(bins[bi-1] <= qs & qs < bins[bi])
+      if (!(1 %in% idxs)) {
+        left.wt = ((qs[idxs[1]] - bins[bi-1]) / (qs[idxs[1]] - qs[idxs[1]-1])) * (qvals[idxs[1]] - qvals[idxs[1]-1])
+      } else {
+        left.wt = 0
+      }
+      if (!(length(qs) %in% idxs)) {
+        right.wt = (bins[bi] - qs[idxs[length(idxs)]]) / (qs[idxs[length(idxs)]+1] - qs[idxs[length(idxs)]]) * (qvals[idxs[length(idxs)]+1] - qvals[idxs[length(idxs)]])
+      } else {
+        right.wt = 0
+      }
+      if (length(idxs) > 0) {
+        return(left.wt + right.wt + qvals[idxs[length(idxs)]] - qvals[idxs[1]])
+      } else {
+        idx = which(bins[bi-1] < qs)[1]
+        wt = (bins[bi]-bins[bi-1]) / (qs[idx]-qs[idx-1]) * (qvals[idx]-qvals[idx-1])
+        return(wt)
+      }
+    })
+  mode(result) = "numeric"
+  return(result)
+}
+
+# Non-parametric calibrator
+# Inputs:
+#   forecast: histogram distribution
+#   bins: bins of histogram distribution, optional
+#   qqs: historical PIT values for training
+#   alpha: optional smoothing parameter between 0 and 1
+#          0 does no smoothing, 1 makes no calibration correction
+#   type: return type of forecast
+#         "hist" is FluSight-style histogram distribution specified by bins
+#         "quant" is Covid-style list of quantiles specified by forecast
+# Returns calibrated forecast as a 
+#   histogram distribution with boundaries at bins
+calibrate_forecast_np = function(forecast, qqs, bins=NULL, alpha=0, type="quant") {
+  if (is.null(bins)) {
+    bins = 1:(length(forecast)+1)
+  }
+  qqs = c(qqs, seq(0,1,length.out=(alpha/(1-alpha))*length(qqs)))
+  old.quantiles = seq(0,1,length.out=1001)
+  new.quantiles = quantile(qqs,old.quantiles)
+  new.quantiles = pmin(pmax(0,new.quantiles),1)
+  new.quantiles[1] = 0
+  new.quantiles[length(new.quantiles)] = 1
+  forecast.quantiles = dquantile(forecast,bins,new.quantiles)
+  forecast.quantiles[1] = bins[[1]]
+  forecast.quantiles[length(forecast.quantiles)] = bins[[length(bins)]]
+  calibrated.forecast = qdistribution(forecast.quantiles,old.quantiles,bins)
+  if (type == "hist") {
+    return(calibrated.forecast)
+  } else if (type == "quant") {
+    return(as.numeric(quantile(forecast.quantiles, c(0,cumsum(forecast)))))
+  }
+}
+
+# df is a dataframe with a forecast_distribution to calibrate
+#   and (optionally) a logical vector to_use that says which of train_pits to use
+helper_calibrate_one_dist = function(df, train_pits, method="non-parametric", alpha=0) {
+  f  = df[["forecast_distribution"]][[1]]
+  if (any(is.na(f[["quantiles"]])) || length(f[["quantiles"]])==0) {
+    return(f)
+  }
+  p = diff(c(0,f[["probs"]],1))
+  # Provide upper and lower bounds for the bins
+  q = c(0,f[["quantiles"]])
+  # Assume the upper limit is 1.5 * the largest quantile, this is bad assumption
+  q = c(q, q[[length(q)]]*1.5)
+
+  if (! "to_use" %in% names(df)) {
+    # to_use not given, use everything
+    df[["to_use"]] = list(rep_len(TRUE, length(train_pits)))
+  } else if (length(df[["to_use"]][[1]]) == 1) {
+    df[["to_use"]] = list(rep_len(df[["to_use"]][[1]], length(train_pits)))
+  }
+
+  # Empirical PIT distribution used to train calibrator
+  # I don't understand tidyverse at all, but use_func makes the to_use column
+  #  a list of 1 element lists containing a vector? Hence the [[1]]
+  qqs = train_pits[df[["to_use"]][[1]]]
+  qqs = qqs[!is.na(qqs)]
+  if (length(qqs) == 0) { return(f) }
+  if (method == "non-parametric") {
+    qs = calibrate_forecast_np(p,qqs,bins=q,type="quant",alpha=alpha)
+  } else {
+    stop("Only non-parametric method supported for now.")
+  }
+  return(tibble(probs=f[["probs"]],quantiles=qs[2:length(p)])) 
+}
+
+# train_scorecard is the output of evaluate_quantile_forecaster for some
+#   train dates
+# test_scorecard is the output of evaluate_quantile_forecaster for some
+#   test date
+# method is calibration method, non-parametric is current option
+# alpha is smoothing parameter in [0, 1) (see above)
+# use_func is optional function that takes as input a train scorecard and
+#   single line of a test scorecard,
+#   and adds a "to_use" column to the train scorecard for each train datapoint
+#   indicating if it should be used for fitting the calibrator
+# err_measure is same as in evaluate.R
+# Returns new scorecard with calibrated forecast distributions
+calibrate_score_card = function(train_scorecard, test_scorecard,
+                                method="non-parametric",
+                                alpha=0,
+                                use_func = NULL,
+                                err_measure = weighted_interval_score) {
+  # Make sure to NOT use actual, error etc. in the test_scorecard!
+  # I'll trust you for now...
+
+  # Calculate PITs for train scorecard
+  train_scorecard = train_scorecard %>%
+    mutate(pit = as.numeric(map2(forecast_distribution, actual, get_observed_pit)))
+
+  test_scorecard = test_scorecard %>%
+    mutate(to_use = map(1:nrow(.),
+      function(i) {
+        if (is.null(use_func)) {
+          return(TRUE)
+        } else {
+          return(use_func(train_scorecard, test_scorecard[i,])) }
+      }))
+
+  result = test_scorecard
+  result = result %>%
+    mutate(forecast_distribution = map(1:nrow(.),
+      function(i) {
+        one_pred = result[i,]
+        return(helper_calibrate_one_dist(one_pred, train_scorecard$pit, method=method))
+      }))
+  result = result %>%  mutate(err = map2_dbl(forecast_distribution, actual, err_measure))
+    
+  return(result)
+}
+```
+
+### In-sample Recalibration
+Below, we perform in-sample recalibration on the CMU-TimeSeries forecaster, grouping by the forecast's geo type, ahead, and response. Because the recalibration is done in-sample, the resulting PIT distribution is guaranteed to be uniform. We would then expect that the weighted interval score should also decrease.
+
+```{r, error=FALSE,warning=FALSE,message=FALSE}
+make_use_func_in_sample = function(group_vars) {
+  return(function(train_sc, test_sc_row) {
+    result = rep_len(TRUE, nrow(train_sc))
+    for (v in group_vars) {
+      result = result & (train_sc[[v]] == test_sc_row[[v]])
+    }
+    return(result)
+  })
+}
+
+make_use_func_out_sample = function(group_vars, sample_vars) {
+  return(function(train_sc, test_sc_row) {
+    result = rep_len(TRUE, nrow(train_sc))
+    for (v in group_vars) {
+      result = result & (train_sc[[v]] == test_sc_row[[v]])
+    }
+    for (v in sample_vars) {
+      result = result & (train_sc[[v]] != test_sc_row[[v]])
+    }
+    return(result)
+  })
+}
+train_scorecard = pred_df %>%
+  filter(map_int(forecast_distribution, function(x) { nrow(x)}) == 23) %>%
+  inner_join(target_df) %>%
+  mutate(err = map2_dbl(forecast_distribution, actual, weighted_interval_score),
+         pit = map2_dbl(forecast_distribution, actual, get_observed_pit)) %>%
+  group_by(ahead,response,geo_type) %>%
+  ungroup()
+calibrated_scorecard = calibrate_score_card(train_scorecard,train_scorecard,use_func = make_use_func_in_sample(c("ahead","response","geo_type"))) %>%
+  select(-to_use) %>%
+  mutate(pit = map2_dbl(forecast_distribution, actual, get_observed_pit))
+```
+
+```{r, error=FALSE,warning=FALSE,message=FALSE}
+comparison_sc = train_scorecard %>%
+  inner_join(calibrated_scorecard %>%
+               rename(err_cal = err, pit_cal = pit, forecast_distribution_cal = forecast_distribution))
+```
+
+```{r, error=FALSE,warning=FALSE,message=FALSE}
+ggplot(comparison_sc %>%
+         filter(geo_type=="state",response=="death",pit >= 0)) +
+  geom_freqpoly(aes(x=pit,y=..density..,color=as.factor(ahead),group=as.factor(ahead),linetype="Original"),binwidth=0.1,boundary=0) +
+  geom_freqpoly(aes(x=pit_cal,y=..density..,color=as.factor(ahead),group=as.factor(ahead),linetype="Realibrated"),binwidth=0.1,boundary=0) +
+  labs(title="PIT distribution of CMU-TimeSeries forecaster, with and without recalibration",subtitle="State death forecasts, recalibration trained in-sample",color="Ahead",linetype="Forecaster",x="PIT",y="Density") +
+  xlim(c(0,1))
+```
+
+Above, we plot the PIT distribution of the original forecaster and the recalibrated (in-sample) forecaster for state death forecasts. The distribution is similar for different aheads, but for all aheads, the forecaster underestimates the tails (the right tail more so than the left one). Recalibration fixes this issue, and the recalibrated forecaster produces a uniform PIT distribution, as desired. As mentioned above and as shown below, although we would expect the WIS of the recalibrated forecaster to decrease, it does not.
+
+```{r, error=FALSE,warning=FALSE,message=FALSE}
+ggplot(comparison_sc) +
+  geom_density(aes(x=log(err)-log(err_cal),color=as.factor(ahead),group=ahead)) +
+  labs(title="Distribution of Recalibration Log-WIS Improvement",subtitle="State death forecasts, recalibration trained in-sample",x="Original log(WIS) - Recalibrated log(WIS)",y="Density",color="Ahead")
+```
+
+From the plot of improvement of $log(WIS)$, we see that for most forecasts, recalibration makes the WIS higher, or worse. Over all forecast aheads, the median change in $log(WIS)$ is `r median(log(comparison_sc$err) - log(comparison_sc$err_cal),na.rm=T)` and the mean is `r mean(log(comparison_sc$err) - log(comparison_sc$err_cal),na.rm=T)`. The median change in WIS itself is also negative, although the mean change in WIS is `r mean(comparison_sc$err - comparison_sc$err_cal)`. Because the WIS is inspired by and related to mean absolute error, the mean change in WIS metric gives higher weight to observations with larger variance.
+
+### Proper Scores and Calibration
+
+*Note: This section is mostly theoretical and can be skipped if desired.*
+
+This is surprising, even theoretically. [Bröcker 2009](http://www.personal.reading.ac.uk/~pt904209/publications/decomposition_qjrms.pdf) shows that the expectation of every proper score, including WIS, can be decomposed into three components: the uncertainty of the observation itself, the resolution of the forecast, and the reliability of the forecast. The uncertainty term is dependent only on the observation, and thus can be ignored when comparing two different forecasters. The resolution term roughly describes how well a forecaster produces different forecasts when the observation's distribution varies. The reliability term roughly describes how well a forecaster is calibrated. If forecaster A outperforms forecaster B when evaluated by a proper score, then the sum of A's resolution and reliability terms is better than B's. Each of these three components can only be calculated if the true distribution of the observation is known, something that is not true here and is almost never true in practice.
+
+Bröcker shows that if a forecaster A produces forecasts that are a function of the forecasts of B, then the resolution of forecaster B is at least that of A. In our case, the calibrated forecaster is a function of the original forecaster, because the calibrated forecast's CDF is the original forecast's CDF transformed by $G$, the PIT distribution's CDF. Because $G$ is invertible[^1], the original forecaster is *also* a function of the calibrated forecaster. Thus, the resolution of the original forecaster is *equal* to that of the calibrated forecaster.
+
+If the uncertainty and resolution terms of both forecasters are equal, then the difference in scores can only be attributed to the reliability (calibration) term. But why would the calibrated forecast have a worse calibration term? Didn't we see that the calibrated forecaster produces calibrated forecasts and the original forecaster does not? The answer to this question lies in the mathematical definition of the reliability term, which (depending on the score metric) does not have to correlate with the uniformity of the PIT distribution. Indeed, in the case of the WIS, it does not. The WIS is inspired by the CRPS score, which in turn was designed as an extension of mean absolute error to distributional forecasts. Thus, as mentioned above, it gives higher weight to observations with larger variance. The PIT distribution weights each observation equally, and thus the calibrated forecaster may make worse errors on observations with larger variance while improving calibration as a whole.
+
+We can illustrate this with a toy example. Say an observation will be drawn with equal probability either from a standard normal distribution, or from a normal distribution with mean 0 and standard deviation 100. A forecaster $F$ knows exactly which distribution an observation will be drawn from. If the observation is drawn from the first, the forecast is a normal distribution with mean 0 and sd 3, and if the observation is drawn from the second, the forecast is a normal distribution with mean 0 and sd 100. The forecaster outputs a perfect forecast when the observation is drawn from the second distribution, but is very underconfident when drawing from the first distribution. Applying calibration uniformly will improve accuracy on the first distribution but not the second.
+
+```{r, error=FALSE,warning=FALSE,message=FALSE}
+p = c(0.001,0.01,0.025,seq(0.05,0.95,0.05),0.975,0.99,0.999)
+real_sd1 = 1
+fore_sd1 = 3
+real_sd2 = 100
+fore_sd2 = 100
+n = 10000
+f1 = qnorm(p,sd=fore_sd1)
+f2 = qnorm(p,sd=fore_sd2)
+h1 = rnorm(n,sd=real_sd1)
+h2 = rnorm(n,sd=real_sd2)
+pits = c(pnorm(h1,sd=fore_sd1),pnorm(h2,sd=fore_sd2))
+g1 = calibrate_forecast_np(diff(p),pits,bins=f1)
+g2 = calibrate_forecast_np(diff(p),pits,bins=f2)
+wis1 = sapply(h1,function(r) { weighted_interval_score(tibble(probs=p[2:24],quantiles=f1[2:24]),r)})
+wis2 = sapply(h2,function(r) { weighted_interval_score(tibble(probs=p[2:24],quantiles=f2[2:24]),r)})
+wis1_cal = sapply(h1,function(r) { weighted_interval_score(tibble(probs=p[2:24],quantiles=g1[2:24]),r)})
+wis2_cal = sapply(h2,function(r) { weighted_interval_score(tibble(probs=p[2:24],quantiles=g2[2:24]),r)})
+```
+
+If we draw `r n` samples from each distribution, the average WIS for the two distributions is `r mean(wis1)` and `r mean(wis2)` respectively. After calibration, the average WIS for the two distributions is `r mean(wis1_cal)` and `r mean(wis2_cal)` respectively. The average WIS on the second distribution is higher (worse) for the calibrated forecaster and dominates the average of the two distributions. Thus we can see that applying calibration uniformly can hurt the WIS, even when applied in-sample.
+
+[^1]: Strictly speaking, $G$ is not invertible because it is an empirical CDF. However, we can apply the transform using $(1-\alpha)G + \alpha U$, where $U$ is the uniform CDF. This transformation would be invertible for any $\alpha > 0$, even $\alpha = \epsilon$.
+
+### Selective Training
+
+As shown above, our recalibration technique can hurt the mean WIS if the PIT distribution is different for different subsets of observations. We now investigate whether that is true here. For each forecast, we take the median of the forecast and group the forecasts and observations into quintiles based on the median of each forecast. The first quintile contains the fifth of forecasts with the lowest median, and so on.
+
+```{r, error=FALSE,warning=FALSE,message=FALSE}
+comparison_sc = comparison_sc %>%
+  filter(map_int(forecast_distribution, function(x) { nrow(x)}) == 23) %>%
+  mutate(med = map_dbl(forecast_distribution, function(x) { x$quantiles[[12]]})) %>%
+  group_by(ahead,response,geo_type) %>%
+  mutate(medtile = ntile(med,5)) %>%
+  ungroup()
+ggplot(comparison_sc %>%
+         filter(ahead==1,geo_type=="state",response=="death")) +
+  geom_freqpoly(aes(x=pit,y=..density..,color=as.factor(medtile),group=as.factor(medtile)),binwidth=0.1,boundary=0) +
+  labs(title="PIT Distribution of original forecasts, grouped by quintiles of forecast medians",subtitle="State death forecasts, 1 week ahead",x="PIT",y="Density",color="Quintile") +
+  xlim(c(0,1))
+```
+
+Above, we plot the PIT distribution for each quintile separately. We see that the distributions are not the same. Forecasts with smaller medians tend to have larger right tails than forecasts with larger medians, and likewise forecasts with larger medians tend to have larger left tails than forecasts with smaller medians. Below, we plot the PIT distribution of the recalibrated forecasts (keeping the quintiles grouped by median of the original forecasts for consistency). Each PIT distribution can vary significantly from the uniform. Large-median forecasts have larger left tails and small-median forecasts have larger right tails.
+
+```{r, error=FALSE,warning=FALSE,message=FALSE}
+ggplot(comparison_sc %>%
+         filter(ahead==1,geo_type=="state",response=="death")) +
+  geom_freqpoly(aes(x=pit_cal,y=..density..,color=as.factor(medtile),group=as.factor(medtile)),binwidth=0.1,boundary=0) +
+  labs(title="PIT Distribution of recalibrated forecasts, grouped by quintiles of forecast medians",subtitle="State death forecasts, 1 week ahead",x="PIT",y="Density",color="Quintile") +
+  xlim(c(0,1))
+```
+
+We will now try to recalibrate the forecasts by grouping them by forecast median quintile. In our first attempt, we estimated the PIT distribution using all forecasts, but here, we will restrict the training set to just forecasts of the same median quintile.
+
+```{r, error=FALSE,warning=FALSE,message=FALSE}
+train_scorecard2 = pred_df %>%
+  filter(map_int(forecast_distribution, function(x) { nrow(x)}) == 23) %>%
+  inner_join(target_df) %>%
+  mutate(err = map2_dbl(forecast_distribution, actual, weighted_interval_score),
+         pit = map2_dbl(forecast_distribution, actual, get_observed_pit),
+         med = map_dbl(forecast_distribution, function(x) { x$quantiles[[12]]})) %>%
+  group_by(ahead,response,geo_type) %>%
+  mutate(medtile = ntile(med,5)) %>%
+  ungroup()
+
+calibrated_scorecard2 = calibrate_score_card(train_scorecard2,train_scorecard2,use_func = make_use_func_out_sample(c("ahead","response","geo_type","medtile"),"forecast_date")) %>%
+  select(-to_use,-medtile) %>%
+  mutate(pit = map2_dbl(forecast_distribution, actual, get_observed_pit))
+
+comparison_sc2 = train_scorecard2 %>%
+  inner_join(calibrated_scorecard2 %>%
+               rename(err_cal = err, pit_cal = pit, forecast_distribution_cal = forecast_distribution))
+```
+
+As we see below, this selective recalibration produces PIT distributions that are uniform, even when trained out of sample.
+
+```{r, error=FALSE,warning=FALSE,message=FALSE}
+ggplot(comparison_sc2 %>%
+         filter(ahead==1,geo_type=="state",response=="death")) +
+  geom_freqpoly(aes(x=pit_cal,y=..density..,color=as.factor(medtile),group=as.factor(medtile)),binwidth=0.1,boundary=0) +
+  labs(title="PIT Distribution of recalibrated forecasts, grouped by quintiles of forecast medians",subtitle="State death forecasts, 1 week ahead, recalibration trained out-of-sample",x="PIT",y="Density",color="Quintile") +
+  xlim(c(0,1))
+```
+
+### Results
+
+We will now compare the three forecasters discussed here:
+
+* The CMU-TimeSeries forecaster as submitted to the CDC
+* The simple recalibrated forecaster, trained on all forecasts, trained out-of-sample (leave one forecast date out)
+* The selective recalibrated forecaster, trained only on forecasts with medians in the same quintile, out-of-sample (leave one forecast date out)
+
+The out-of-sample training still uses information that would not have been available on a given forecast date, so is not done retrospectively. However, it may still be useful for comparison, and we see that for all aheads, the selective out-of-sample forecaster outperforms the simple recalibrated forecaster.
+
+```{r, error=FALSE,warning=FALSE,message=FALSE}
+calibrated_scorecard3 = calibrate_score_card(train_scorecard2,train_scorecard2,use_func = make_use_func_out_sample(c("ahead","response","geo_type"),"forecast_date")) %>%
+  select(-to_use,-medtile) %>%
+  mutate(pit = map2_dbl(forecast_distribution, actual, get_observed_pit))
+
+comparison_sc3 = comparison_sc2 %>%
+  inner_join(calibrated_scorecard3 %>%
+               rename(err_cal1 = err, pit_cal1 = pit, forecast_distribution_cal1 = forecast_distribution) %>%
+               select(forecast_date, ahead, response, location, geo_type, err_cal1, pit_cal1, forecast_distribution_cal1))
+ggplot(comparison_sc3 %>%
+         filter(response=="death",geo_type=="state") %>%
+         group_by(ahead) %>%
+         summarize(mean_err = mean(err),mean_err_cal = mean(err_cal),mean_err_cal1 = mean(err_cal1)) %>%
+         ungroup()) +
+  geom_point(aes(x=ahead, y=mean_err, color="Original")) +
+  geom_point(aes(x=ahead, y=mean_err_cal, color="Recalibrated (selective)")) +
+  geom_point(aes(x=ahead, y=mean_err_cal1, color="Recalibrated (original)")) +
+  labs(title = "Mean WIS of original and recalibrated forecasters (out-of-sample)", subtitle="State death forecasts",x="Ahead",y="Mean WIS",color="Forecaster")
+```
+
+### Conclusion
+
+We have shown that recalibration improves both the WIS and the calibration of the CMU-TimeSeries forecaster. The original forecaster not only has systematic errors, but these errors are different for forecasts of large and small counts. Recalibration with selective training to estimate the PIT distribution performs well.
+
+There can definitely be improvements in deciding how to selectively train, but recalibration appears to already be a win.
+
+```{r, include=FALSE, eval=FALSE}
+probs23 = c(0,0.01,0.025,seq(0.05,0.95,0.05),0.975,0.99,1)
+crps_low_weight = (probs23[1:24]^2 + probs23[1:24]*probs23[2:25] + probs23[2:25]^2)/3
+crps_high_weight = crps_low_weight - probs23[1:24] - probs23[2:25] + 1
+crps = function(distr, actual) {
+  p = c(0,distr[["probs"]],1)
+  q = c(0,distr[["quantiles"]])
+  q = c(q, q[[length(q)]] * 1.5) # Arbitrary cap at 1.5*highest quantile
+  if (any(is.na(q))) {
+    return(-1)
+  }
+  if (tail(q,1) == 0) {
+    return(actual)
+  }
+  high_penalty = max(0,actual-tail(q,1))
+  actual = min(max(actual,0),q[[length(q)]]-(1e-6))
+  low_bins = which(q <= actual)
+  high_bins = which(q > actual)
+  # Bins below actual
+  low_weight = sum(crps_low_weight[head(low_bins,-1)] * diff(q)[head(low_bins,-1)])
+  # Bins above actual
+  high_weight = sum(crps_high_weight[head(high_bins,-1)] * diff(q)[head(high_bins,-1)])
+  # Bin in which actual falls
+  p1 = p[[tail(low_bins,1)]]
+  p2 = p[[head(high_bins,1)]]
+  q1 = q[[tail(low_bins,1)]]
+  q2 = q[[head(high_bins,1)]]
+  x = actual
+  low_weight = low_weight +
+    ((p1*(x-q2) + p2*(q1-x))^3 + p1^3*(q2-q1)^3) / (3*(p1-p2)*(q2-q1)^2)
+  high_weight = high_weight +
+    ((p1*(q2-x) + p2*(x-q1) - q2 + q1)^3 - (p2-1)^3*(q2-q1)^3) / (3*(p1-p2)*(q2-q1)^2)
+  return(low_weight + high_weight + high_penalty)
+}
+```
