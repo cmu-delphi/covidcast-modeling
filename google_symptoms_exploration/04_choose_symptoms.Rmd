@@ -1,0 +1,506 @@
+---
+title: "Choose set of symptom search terms to use in Google Symptoms indicator construction"
+author: "N DeFries"
+output: html_document
+---
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, cache = TRUE, warning = FALSE)
+```
+
+
+```{r import_statements, echo = FALSE, message = FALSE}
+library(tidyverse)
+library(covidcast)
+library(dplyr)
+library(ggplot2)
+
+# Use quantgen for LAD regression (this package supports quantile regression and
+# more; you can find it on GitHub here: https://github.com/ryantibs/quantgen)
+library(quantgen) 
+library(gurobi)
+```
+
+```{r declare_global_constants}
+POSTAL_TO_STATE = list('AL'='Alabama', 'AK'='Alaska', 'AS'='American Samoa',
+                       'AZ'='Arizona', 'AR'='Arkansas', 'CA'='California',
+                       'CO'='Colorado', 'CT'='Connecticut', 'DE'='Delaware',
+                       'DC'='District of Columbia', 'FL'='Florida',
+                       'GA'='Georgia', 'GU'='Guam', 'HI'='Hawaii',
+                       'ID'='Idaho', 'IL'='Illinois', 'IN'='Indiana',
+                       'IA'='Iowa', 'KS'='Kansas', 'KY'='Kentucky',
+                       'LA'='Louisiana', 'ME'='Maine', 'MD'='Maryland',
+                       'MA'='Massachusetts', 'MI'='Michigan', 'MN'='Minnesota',
+                       'MS'='Mississippi', 'MO'='Missouri', 'MT'='Montana',
+                       'NE'='Nebraska', 'NV'='Nevada', 'NH'='New Hampshire',
+                       'NJ'='New Jersey', 'NM'='New Mexico', 'NY'='New York',
+                       'NC'='North Carolina', 'ND'='North Dakota',
+                       'MP'='Northern Mariana Islands', 'OH'='Ohio',
+                       'OK'='Oklahoma', 'OR'='Oregon', 'PA'='Pennsylvania',
+                       'PR'='Puerto Rico', 'RI'='Rhode Island', 'SC'='South Carolina',
+                       'SD'='South Dakota', 'TN'='Tennessee',
+                       'TX'='Texas', 'UT'='Utah', 'VT'='Vermont', 'VI'='Virgin Islands',
+                       'VA'='Virginia', 'WA'='Washington', 'WV'='West Virginia',
+                       'WI'='Wisconsin', 'WY'='Wyoming')
+
+states = c("al", "ak", "az", "ar", "ca", "co", "ct", "de", "fl", "ga", "hi",
+           "id", "il", "in", "ia", "ks", "ky", "la", "me", "md", "ma", "mi",
+           "mn", "ms", "mo", "mt", "ne", "nv", "nh", "nj", "nm", "ny", "nc",
+           "nd", "oh", "ok", "or", "pa", "ri", "sc", "sd", "tn", "tx", "ut",
+           "vt", "va", "wa", "wv", "wi", "wy")
+
+BASE_DAILY_URL = paste0(
+      'https://raw.githubusercontent.com/google-research/open-covid-19-data/',
+      'master/data/exports/search_trends_symptoms_dataset/',
+      'United%20States%20of%20America/subregions/{state}/',
+      '2020_US_{state_underscore}_daily_symptoms_dataset.csv')
+cache_data_list = list()
+signal_description_df = tribble(
+    ~signal,            ~description,
+    'Podalgia',                         'pain in the foot',
+    'Anosmia',                          'loss of smell',
+    'Purpura',                          "red/purple skin spots; 'blood spots'",
+    'Radiculopathy',                    'pinched nerve',
+    'Ageusia',                          'loss of taste',
+    'Erythema chronicum migrans',       'expanding rash early in lyme disease',
+    'Photodermatitis',                  'allergic rash that reqs light',
+)
+```
+
+```{r declare_helper_functions}
+expand_state_name = function(state) {
+  state_name = POSTAL_TO_STATE[[str_to_upper(state)]]
+  return(state_name)
+}
+
+load_state_data = function(state) {
+  if (state %in% names(cache_data_list)) return (cache_data_list[[state]])
+  # Check whether there is a cached version
+  state_fname = sprintf('cache/%s.csv', state)
+  # if there isn't, then download
+  if (!file.exists(state_fname)) {
+    state_name = expand_state_name(state)
+    message(sprintf('Downloading data for %s...', state_name))
+    state_name_underscore = str_replace_all(state_name, ' ', '_')
+    STATE_DAILY_URL = str_replace_all(BASE_DAILY_URL,
+                                   fixed('{state}'), state_name)
+    STATE_DAILY_URL = str_replace_all(STATE_DAILY_URL,
+                                   fixed('{state_underscore}'),
+                                   state_name_underscore)
+    STATE_DAILY_URL = str_replace_all(STATE_DAILY_URL,
+                                   fixed(' '),
+                                   '%20')
+    download.file(STATE_DAILY_URL, state_fname)
+  }
+  single_state = readr::read_csv(state_fname)
+  cache_data_list[[state]] <<- single_state
+  return (single_state)
+}
+
+
+pull_data_state = function(state, symptom, geo.selector="county") {
+  single_state = load_state_data(state)
+  
+  if (geo.selector == 'state') {
+    single_state_state = single_state[is.na(single_state$sub_region_2_code),]
+    selected_symptom = paste0('symptom:', symptom)
+    single_state_symptom = single_state_state[,c('sub_region_2_code',
+                                                    'date',
+                                                    selected_symptom)]
+    # Shape into what we want
+    colnames(single_state_symptom) = c('geo_value', 'time_value', 'value')
+    
+    # # Remove rows with missing values.
+    # single_state_symptom = single_state_symptom %>% filter (
+    #     !is.na(value),
+    #   )
+    single_state_symptom = single_state_symptom %>% transmute (
+        geo_value = state,
+        signal = symptom,
+        time_value = time_value,
+        direction = NA,
+        issue = lubridate::today(),
+        lag = issue - time_value,
+        value = value,
+        stderr = NA,
+        sample_size = NA,
+        data_source = 'google_symptoms',
+      )
+  } else if (geo.selector == 'county') {
+    single_state_counties = single_state[!is.na(single_state$sub_region_2_code),]
+    selected_symptom = paste0('symptom:', symptom)
+    single_state_symptom = single_state_counties[,c('sub_region_2_code',
+                                                    'date',
+                                                    selected_symptom)]
+    # Shape into what we want
+    colnames(single_state_symptom) = c('geo_value', 'time_value', 'value')
+    single_state_symptom = single_state_symptom %>% filter (
+        !is.na(value),
+      )
+    single_state_symptom = single_state_symptom %>% transmute (
+        geo_value = sprintf('%05d', as.numeric(geo_value)),
+        signal = symptom,
+        time_value = time_value,
+        direction = NA,
+        issue = lubridate::today(),
+        lag = issue - time_value,
+        value = value,
+        stderr = NA,
+        sample_size = NA,
+        data_source = 'google_symptoms',
+      )
+  }
+  
+  return(single_state_symptom)
+}
+```
+
+
+```{r read_google_symptoms_data, message=FALSE, warnings=FALSE, eval=FALSE}
+if (file.exists('symptom_df.RDS')) {
+  symptom_df = readRDS('symptom_df.RDS')
+  symptom_names = unique(symptom_df$signal)
+} else {
+  dir.create('./cache/')
+  
+  # Read in a single state to get the set of symptoms reported.
+  sample.data = load_state_data(states[1])
+  symptom_cols = colnames(sample.data)[
+                    str_detect(colnames(sample.data), 'symptom:')]
+  
+  # List of cleaned symptom names. Most start with a capital letter.
+  symptom_names = str_replace(symptom_cols, fixed('symptom:'), '')
+
+  # Make object to store symptom-by-symptom data.
+  symptom_df_list = vector('list', length(symptom_names))
+  names(symptom_df_list) = symptom_names
+
+  # For every symptom, save all states of data.
+  for (symptom in symptom_names) {
+    print(symptom)
+    cat(symptom, '...\n')
+    states_list = vector('list', length(states))
+    for (idx in 1:length(states)) {
+      state = states[idx]
+      states_list[[idx]] = pull_data_state(state, symptom)
+    }
+    symptom_df_list[[symptom]] = bind_rows(states_list)
+  }
+  
+  # Combine all symptoms into a single dataframe and save to disk.
+  symptom_df = bind_rows(symptom_df_list)
+  saveRDS(symptom_df, 'symptom_df.RDS')
+}
+```
+
+
+```{r read_anosmia_ageusia_google_symptoms_data, message=FALSE, warnings=FALSE}
+if (file.exists('county_anosmia_ageusia_df.RDS')) {
+  symptom_df = readRDS('county_anosmia_ageusia_df.RDS')
+  symptom_names = unique(symptom_df$signal)
+} else {
+  dir.create('./cache/')
+
+  # List of cleaned symptom names we're interested in.
+  symptom_names = c("Anosmia", "Ageusia")
+
+  # Make object to store symptom-by-symptom data.
+  symptom_df_list = vector('list', length(symptom_names))
+  names(symptom_df_list) = symptom_names
+
+  # For every symptom, save all states of data.
+  for (symptom in symptom_names) {
+    print(symptom)
+    cat(symptom, '...\n')
+    states_list = vector('list', length(states))
+    for (idx in 1:length(states)) {
+      state = states[idx]
+      states_list[[idx]] = pull_data_state(state, symptom, "county")
+    }
+    symptom_df_list[[symptom]] = bind_rows(states_list)
+  }
+  
+  # Combine all symptoms into a single dataframe and save to disk.
+  symptom_df = bind_rows(symptom_df_list)
+  saveRDS(symptom_df, 'county_anosmia_ageusia_df.RDS')
+}
+
+rm(POSTAL_TO_STATE, BASE_DAILY_URL, states, signal_description_df, cache_data_list)
+```
+
+```{r merge_ght_symptoms_data}
+sum_NA = function(value) {
+  if (all(is.na(value))) {
+    return (NA)
+  } else {
+    return(sum(value, na.rm = TRUE))
+  }
+} 
+
+# Zero-filled column assumes missing values correspond to 0 (search term not used at all or used very little, such that data was removed due to privacy concerns).
+gs_df = symptom_df %>%
+  group_by(geo_value, time_value) %>%
+  summarise(raw_gs_anosmia_ageusia = sum_NA(value),
+            raw_gs_anosmia_ageusia_0_fill = sum(value, na.rm = TRUE))
+
+rm(sum_NA, expand_state_name, load_state_data, pull_data_state)
+```
+
+
+
+```{r plot_gs_div100_and_ght, message=FALSE, warnings=FALSE}
+county_subset = unique(gs_df$geo_value)[1:9]
+
+plt = (ggplot(gs_df[gs_df$geo_value %in% county_subset, ])
+       + geom_line(aes(x=time_value,
+                       y=raw_gs_anosmia_ageusia),
+                   size=0.2)
+       + ggtitle(paste('Google Symptoms A+A in a subset of counties'))
+       + facet_wrap(.~ geo_value)
+       )
+plt
+```
+
+
+County trends look very similar to state trends.
+
+## Rudimentary prediction problem
+Here we use code liberally borrowed from a
+[blog post](https://github.com/cmu-delphi/delphi-blog/blob/google-survey/content/post/google-fb-forecast-demo/demo.R)
+to perform a prediction task.
+
+```{r prediction_setup}
+# Some useful functions for transformations
+Log = function(x, a = 0.01) log(x + a)
+Exp = function(y, a = 0.01) exp(y) - a
+Logit = function(x, a = 0.01) log((x + a) / (1 - x + a))
+Sigmd = function(y, a = 0.01) (exp(y) * (1 + a) - a) / (1 + exp(y))
+Id = function(x) x
+
+# Function to append shift values (lags or leads) to data frame
+append_shifts = function(df, shifts) {
+  # Make sure that we have a complete record of dates for each geo_value (fill
+  # with NAs as necessary)
+  df_all = df %>% group_by(geo_value) %>%
+    summarize(time_value = seq.Date(as.Date(min(time_value)),
+                                    as.Date(max(time_value)),
+                                    by = "day")) %>% ungroup()
+  df = full_join(df, df_all, by = c("geo_value", "time_value"))
+  
+  # Group by geo value, sort rows by increasing time
+  df = df %>% group_by(geo_value) %>% arrange(time_value) 
+  
+  # Load over shifts, and add lag value or lead value
+  for (shift in shifts) {
+    fun = ifelse(shift < 0, dplyr::lag, dplyr::lead)
+    varname = sprintf("value%+d", shift)
+    df = mutate(df, !!varname := fun(value, n = abs(shift)))
+  }
+  
+  # Ungroup and return
+  return(ungroup(df))
+}
+```
+
+
+```{r prediction over days ahead, include=FALSE}
+# Transforms to consider, in what follows
+trans = Id
+inv_trans = Id
+
+# Rescale factors for our signals: bring them all down to proportions (between
+# 0 and 1)
+rescale_symptom = 1e-2 # Originally b/t 0 and 100
+rescale_case = 1e-5 # Originally a count per 100,000 people
+
+# Signal settings
+geo_type = "county"
+min_case_num = 200
+
+# Timeframe to validate over.
+start_day = "2020-04-11"
+end_day = "2020-09-01"
+
+# Set how far to forecast ahead.
+leads = 5:20
+lags = 1:2 * -7
+
+
+# Consider only states with at least min_case_num cumulative cases by Google's end
+geo_values = covidcast_signal("jhu-csse", "confirmed_cumulative_num",
+                              "2020-09-14", "2020-09-14", 
+                              geo_type = geo_type) %>%
+  filter(value >= min_case_num) %>% pull(geo_value) 
+
+# Fetch state-level GS search term popularity and JHU
+# confirmed case incidence proportion
+if (!'symptom_df' %in% ls()) {
+  symptom_df = readRDS('county_anosmia_ageusia_df.RDS')
+}
+
+anosmia = symptom_df %>% filter(signal == 'Anosmia') %>% 
+  select(geo_value, time_value, value) %>%
+  filter(geo_value %in% geo_values,
+				 time_value >= start_day,
+				 time_value <= end_day) 
+ageusia = symptom_df %>% filter(signal == 'Ageusia') %>% 
+  select(geo_value, time_value, value) %>%
+  filter(geo_value %in% geo_values,
+				 time_value >= start_day,
+				 time_value <= end_day) 
+
+# Number of new daily confirmed COVID cases per 100000 people
+case_raw = covidcast_signal("jhu-csse", "confirmed_7dav_incidence_prop",
+                     start_day, end_day, geo_type = geo_type) %>%
+  select(geo_value, time_value, value) %>%
+  filter(geo_value %in% geo_values) 
+
+# Get geo values that appear in all datasets.
+geo_values_complete = intersect(
+  intersect(
+    anosmia$geo_value, ageusia$geo_value),
+  case_raw$geo_value)
+
+
+
+# Filter to complete geo regions, transform the signals, append 1-2 week lags to 
+# all three, and also 1-2 week leads to case rates
+anosmia = anosmia %>%
+  filter(geo_value %in% geo_values_complete) %>% 
+  mutate(value = trans(value * rescale_symptom)) %>% 
+  append_shifts(shifts = lags) 
+ageusia = ageusia %>%
+  filter(geo_value %in% geo_values_complete) %>% 
+  mutate(value = trans(value * rescale_symptom)) %>% 
+  append_shifts(shifts = lags) 
+case = case_raw %>%
+  filter(geo_value %in% geo_values_complete) %>% 
+  mutate(value = trans(value * rescale_case)) %>% 
+  append_shifts(shifts = c(lags, leads))
+
+# Rename columns
+colnames(anosmia) = sub("^value", "anosmia", colnames(anosmia))
+colnames(ageusia) = sub("^value", "ageusia", colnames(ageusia))
+colnames(case) = sub("^value", "case", colnames(case))
+
+# Make one big matrix by joining these three data frames
+z = full_join(
+  full_join(
+    anosmia, ageusia, by = c("geo_value", "time_value")),
+  case, by = c("geo_value", "time_value"))
+
+##### Analysis #####
+model_names = c("Cases", "Cases + Symptoms")
+
+res_list = vector("list", length = length(leads)) 
+n = 14 # Number of trailing days to use for training set
+verbose = TRUE # Print intermediate progress to console?
+lp_solver = "gurobi" # LP solver to use in quantile_lasso(); "gurobi" or "glpk"
+
+# Loop over lead, forecast dates, build models, and record errors (warning: this
+# computation takes a while)
+for (i in 1:length(leads)) { 
+  lead = leads[i]; if (verbose) cat("***", lead, "***\n")
+  
+  # Create a data frame to store our results. Code below populates its rows in a
+  # way that breaks from typical dplyr operations, done for efficiency
+  res_list[[i]] = z %>% 
+    filter(between(time_value, as.Date(start_day) - min(lags) + lead, 
+                   as.Date(end_day) - lead)) %>%
+    select(geo_value, time_value) %>%
+    mutate(err0 = as.double(NA), err1 = as.double(NA), err2 = as.double(NA), 
+           # err3 = as.double(NA), err4 = as.double(NA),
+           lead = lead) 
+  valid_dates = unique(res_list[[i]]$time_value)
+  
+  for (j in 1:length(valid_dates)) {
+    date = valid_dates[j]; if (verbose) cat(format(date), "... ")
+    
+    # Filter down to training set and test set
+    z_tr = z %>% filter(between(time_value, date - lead - n, date - lead))
+    z_te = z %>% filter(time_value == date)
+    inds = which(res_list[[i]]$time_value == date)
+    
+    # Create training and test responses
+    y_tr = z_tr %>% pull(paste0("case+", lead))
+    y_te = z_te %>% pull(paste0("case+", lead))
+    
+    # Strawman model
+    if (verbose) cat("0")
+    y_hat = z_te %>% pull(case)
+    res_list[[i]][inds,]$err0 = abs(inv_trans(y_hat) - inv_trans(y_te))
+    
+    # Cases only model
+    if (verbose) cat("1")
+    x_tr_case = z_tr %>% select(starts_with("case") & !contains("+"))
+    x_te_case = z_te %>% select(starts_with("case") & !contains("+"))
+    x_tr = x_tr_case; x_te = x_te_case # For symmetry wrt what follows 
+    ok = complete.cases(x_tr, y_tr)
+    if (sum(ok) > 0) {
+      obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
+                           lambda = 0, stand = FALSE, lp_solver = lp_solver)
+      y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
+      res_list[[i]][inds,]$err1 = abs(inv_trans(y_hat) - inv_trans(y_te)) 
+    }
+    
+    # Cases and symptoms model
+    if (verbose) cat("2")
+    x_tr_anosmia = z_tr %>% select(starts_with("anosmia"))
+    x_te_anosmia = z_te %>% select(starts_with("anosmia"))
+    x_tr_ageusia = z_tr %>% select(starts_with("ageusia"))
+    x_te_ageusia = z_te %>% select(starts_with("ageusia"))
+    x_tr = cbind(x_tr_case, x_tr_anosmia, x_tr_ageusia)
+    x_te = cbind(x_te_case, x_te_anosmia, x_te_ageusia)
+    ok = complete.cases(x_tr, y_tr)
+    if (sum(ok) > 0) {
+      obj = quantile_lasso(as.matrix(x_tr[ok,]), y_tr[ok], tau = 0.5,
+                           lambda = 0, stand = FALSE, lp_solver = lp_solver)
+      y_hat = as.numeric(predict(obj, newx = as.matrix(x_te)))
+      err_vec = abs(inv_trans(y_hat) - inv_trans(y_te))
+      res_list[[i]][inds,]$err2 = err_vec
+    }
+    
+  }
+}
+
+# Bind results over different leads into one big data frame
+res = do.call(rbind, res_list)
+
+# saveRDS(res, "county_res_gs_5-20days.RDS")
+
+```
+
+
+
+```{r median error between all models by num days forecast ahead}
+# Red, blue (similar to ggplot defaults), then yellow.
+ggplot_colors = c("#FC4E07", "#00AFBB", "#E7B800")
+
+# Compute and plot median errors as function of number of days ahead.
+err_by_lead = res %>%
+  drop_na() %>%                                       # Restrict to common time
+  mutate(err1 = err1 / err0, err2 = err2 / err0) %>%  # Compute relative error to strawman model
+  ungroup() %>%
+  select(-err0) %>%
+  pivot_longer(names_to = "model", values_to = "err",
+               cols = -c(geo_value, time_value, lead)) %>%
+  mutate(model = factor(model, labels = model_names)) %>%
+  group_by(model, lead) %>%
+  summarize(err = median(err)) %>% 
+  ungroup()
+
+ggplot(err_by_lead, aes(x = lead, y = err)) + 
+  geom_line(aes(color = model)) + 
+  geom_point(aes(color = model)) + 
+  scale_color_manual(values = c("black", ggplot_colors)) +
+  geom_hline(yintercept = err_by_lead %>% 
+               filter(lead %in% 7, model == "Cases") %>% pull(err),
+             linetype = 2, color = "gray") +
+  labs(title = "Forecasting errors by number of days ahead",
+       subtitle = sprintf("Over all counties"),
+       x = "Number of days ahead", y = "Median scaled error") +
+  theme_bw() + theme(legend.pos = "bottom", legend.title = element_blank())
+```
+
+
+We can see that models containing GS outperform cases-only, which agrees with the states results.
