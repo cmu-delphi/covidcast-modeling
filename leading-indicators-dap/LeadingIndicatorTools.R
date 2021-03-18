@@ -81,12 +81,12 @@ get_increase_points <- function(case_list, indicator_list)
     colnames(case_elem)[3] <- c("case_value")
     ind_elem = ind_elem[ -c(1) ] # drop the extra geo_value column
     merged_df= merge(x = case_elem, y = ind_elem, by = "time_value")
-    increasing_points_list_case_signal = calculate_increasing_points(merged_df$case_value, bandwidth=12, 
-                                                               quantile_threshold=0.75, 
-                                                               threshold=0.2, period=0)
-    increasing_points_list_indicator_signal = calculate_increasing_points(merged_df$ind_value, bandwidth=12, 
-                                                                    quantile_threshold=0.75, 
-                                                                    threshold=0.2, period=0)
+    increasing_points_list_case_signal = calculate_increasing_points(merged_df$case_value, bandwidth=10, 
+                                                               quantile_threshold=0.0, 
+                                                               threshold=0.4, period=10)
+    increasing_points_list_indicator_signal = calculate_increasing_points(merged_df$ind_value, bandwidth=10, 
+                                                                    quantile_threshold=0.0, 
+                                                                    threshold=0.4, period=10)
     increase_case_points = rep(0, length(merged_df$case_value))
     increase_case_points[as.vector(unlist(increasing_points_list_case_signal))]=1
     merged_df$case_rise_point = increase_case_points
@@ -254,6 +254,62 @@ get_precision_strict <- function(case_indicator_list) {
 }
 
 
+# Generate strawman guessers, one selects random days as "rise points" one marks every day the indicator derivative > 0
+# as a rise point.
+# INPUT
+# @param case_indicator_list: List of dataframes that include as cols:
+#                             time_value, geo_value, case_value, ind_value, case_rise_point, indicator_rise_point
+# OUTPUT
+# @return list of dataframes with extra columns for the random guesser "rise points" and the first derivative guesser "rise points"
+generate_competitors_get_scores<-function(final_cases_indicator_list)
+{
+  all_guessers=lapply(final_cases_indicator_list, function(x){
+    random_guesser <- rbinom(nrow(x), 1, 0.5)
+    case_first_deriv=get_signal_first_derivative(signal = x$case_value, bandwidth = 14)
+    indicator_first_deriv=get_signal_first_derivative(signal = x$ind_value, bandwidth = 14)
+    x$random_guesser=random_guesser
+    x$case_first_deriv_guesser=ifelse(case_first_deriv > 0, 1, 0)
+    x$indicator_first_deriv=ifelse(indicator_first_deriv > 0, 1, 0)
+    x
+  })
+  return(all_guessers)
+}
+
+
+# Gets recall and precision scores for a given guesser
+# INPUT 
+# @param competitors: List of dataframes that include as cols:
+#                             time_value, case_rise_point, indicator_rise_point, random_guesser, case_first_deriv_guesser
+# @param guesser: Which guesser to get scores for
+# OUTPUT
+# @return List of: guesser name, recall score, precision score
+get_recall_and_precision = function(competitors, guesser) {
+  true_positives = 0
+  false_positives = 0
+  true_negatives = 0
+  false_negatives = 0
+  for (c in (1:length(competitors))) {
+    for (i in (1:length(competitors[[c]]$time_value))) {
+      guesser_points = competitors[[c]][guesser]
+      guesser_point = as.numeric(unlist(guesser_points))[[i]]
+      if (competitors[[c]]$case_rise_point[[i]] == 1 && guesser_point == 1) {
+        true_positives = true_positives + 1
+      }
+      if (competitors[[c]]$case_rise_point[[i]] == 1 && guesser_point == 0) {
+        false_negatives = false_negatives + 1
+      } 
+      if (competitors[[c]]$case_rise_point[[i]] == 0 && guesser_point == 0) {
+        true_negatives = true_negatives + 1
+      } 
+      if (competitors[[c]]$case_rise_point[[i]] == 0 && guesser_point == 1) {
+        false_positives = false_positives + 1
+      } 
+    }
+  }
+  recall = true_positives / (true_positives + false_negatives)
+  precision = true_positives / (true_positives + false_positives)
+  return(c(guesser, recall, precision))
+}
 
 ###############################################################################################
 # HELPER FUNCTIONS
@@ -298,10 +354,8 @@ trans <- function(x, from_range, to_range) {
 # @param period: Min length of increase in days. Default is 5.
 # OUTPUT
 # @return List of points of increase for one location
-calculate_increasing_points <- function(signal, bandwidth=10, quantile_threshold=0.75, threshold=0.2, period=5){
-  smoothed_signal=sm(signal, bandwidth)
-  tt = 1:length(signal)
-  first_deriv = stats::splinefun(tt, smoothed_signal)(tt, 1)
+calculate_increasing_points <- function(signal, bandwidth=10, quantile_threshold=0.0, threshold=0.4, period=10){
+  first_deriv = get_signal_first_derivative(signal, bandwidth)
   increasing_period= which(first_deriv>quantile(first_deriv, quantile_threshold) & first_deriv>0)
   s <- split(increasing_period, cumsum(c(TRUE, diff(increasing_period) != 1)))
   s <- lapply(s, function(x) {
@@ -313,6 +367,56 @@ calculate_increasing_points <- function(signal, bandwidth=10, quantile_threshold
   })
   s[lengths(s)!=0]
   return(s)
+}
+
+
+# Gets the first derivative of a signal at a certain point
+# INPUT
+# @param signal: A numeric vector of values corresponding to indicator/case counts for one location
+# @param bandwidth: Bandwidth for smoothing
+# OUTPUT
+# @return First derivatives for signal's values
+get_signal_first_derivative<-function(signal, bandwidth)
+{
+  smoothed_signal=sm(signal, bandwidth)
+  tt = 1:length(signal)
+  first_deriv = stats::splinefun(tt, smoothed_signal)(tt, 1)
+  return(first_deriv)
+}
+
+
+# Sets the "rise points" to be spread over a time window for the per time point recall and precision analysis
+# INPUT
+# @param competitors_df: List of dataframes that include as cols:
+#                             time_value, case_rise_point, indicator_rise_point
+# @param window: How many days ahead or behind to replicate the "rise points" out from the original rise point
+# OUTPUT
+# @ return A list of dataframes that have rise points marked at original rise points and "window" number of days ahead (for indicators)
+# and behind (for cases)
+use_time_windows = function(competitors_df, window) {
+  for (c in (1:length(competitors_df))) {
+    for (i in (1:length(competitors_df[[c]]$time_value))) {
+      if (competitors_df[[c]]$case_rise_point[[i]] == 1){
+        for(j in (1:(window-1))) {
+          if (i-j > 0) {
+            competitors_df[[c]]$case_rise_point[[i-j]] = 1
+          }
+        }
+      }
+    }
+    i = length(competitors_df[[c]]$time_value)
+    while(i > 0) {
+      if (competitors_df[[c]]$indicator_rise_point[[i]] == 1){
+        for(j in (1:(window-1))) {
+          if (i+j <= length(competitors_df[[c]]$time_value)) {
+            competitors_df[[c]]$indicator_rise_point[[i+j]] = 1
+          }
+        }
+      }
+      i = i-1
+    }
+  }
+  return (competitors_df)
 }
 
 
