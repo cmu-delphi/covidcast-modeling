@@ -57,7 +57,7 @@ get_and_parse_signals <- function(start_day, end_day, indicator_source, indicato
   return (list("cases" = case_list[large_geos], "indicator" = indicator_list[large_geos]))
 }
 
-
+                                                            
 # Get increase points
 # Identify points at which the indicator and the case values begin to rise significantly
 # INPUT
@@ -273,6 +273,73 @@ generate_competitors_get_scores<-function(final_cases_indicator_list)
     x
   })
   return(all_guessers)
+}
+                                   
+                                   
+#Gets the precision and recall for an indicator signal
+#INPUT
+# @param final_cases_indicator_list: A list of dataframes, where each element corresponds to a unique county. 
+#                                     Each dataframe has time_value, geo_value, case_value/death_value, ind_value, case_rise_point, indicator_rise_point as columns.
+# @min_window, max_window: Specify how far to look before a substantial case rise for indicator rise.                                   
+get_county_level_precision_recall <- function(final_cases_indicator_list, min_window=3, max_window=14)
+{
+  #does each case rise date have a preceding indicator rise point within window [3,14] (precision)?
+  get_cases_preceding_indicators<-function(case_increase_dates, indicator_rise_dates)
+  {
+    sapply(case_increase_dates, function(date_case_increase) { 
+      differences=as.integer(date_case_increase-indicator_rise_dates)
+      1*(any(differences >= min_window & differences <= max_window))
+    })
+  }
+  
+  #for each indicator rise point, do cases increase within [3,14 days] (recall)
+  get_indicator_preceding_cases<-function(indicator_rise_dates, case_increase_dates)
+  {
+    sapply(indicator_rise_dates, function(date_indicator_rise) { 
+      differences=as.integer(case_increase_dates-date_indicator_rise)
+      1*(any(differences >= min_window & differences <= max_window))
+    })
+  }
+  
+  #traverse the list of dataframes, where each element corresponds to a unique county
+  precision_recall_list=lapply(final_cases_indicator_list, function(x){
+    #does each case rise date have a preceding indicator rise point within window [3,14] (precision)?
+    cases_preceded_by_indicators=get_cases_preceding_indicators(x$time_value[which(x$case_rise_point==1)], x$time_value[which(x$indicator_rise_point==1)])
+    
+    #for each indicator rise point, do cases increase within [3,14 days] (recall)
+    each_indicator_rise_precedes_case_rise=get_indicator_preceding_cases(x$time_value[which(x$indicator_rise_point==1)], x$time_value[which(x$case_rise_point==1)])
+    
+    #precision=tp/(tp+fp), recall=tp/(tp+fn);
+    #precision = tp/(all predicted positive cases)
+    #true positive: for each substantial case rise, there is a substantial indicator rise before the case increase in the specified window
+    #false positive: indicator rise, when there is not a substantial increase in cases
+    #false negative: for substantial case rise, we predict indicator does not rise
+    df=data.frame(County_Code=x$geo_value[1], 
+                  Num_Case_Rises=length(x$time_value[which(x$case_rise_point==1)]), 
+                  Num_Indicator_Rises=length(x$time_value[which(x$indicator_rise_point==1)]),
+                  Num_Times_Indicator_Rise_Precedes_Case_Rise=ifelse(length(each_indicator_rise_precedes_case_rise)>0,sum(each_indicator_rise_precedes_case_rise),NA),
+                  Num_Times_Case_Rise_Precedes_Indicator_Rise = ifelse(length(cases_preceded_by_indicators) > 0, sum(cases_preceded_by_indicators), NA),
+                  TP_Num_Times_Case_Rise_Preceded_by_Indicator=ifelse(length(cases_preceded_by_indicators) > 0, sum(cases_preceded_by_indicators), NA),
+                  FP_Num_Times_Indicator_Rise_Without_Case_Rise=ifelse(length(each_indicator_rise_precedes_case_rise) > 0, sum(1*(each_indicator_rise_precedes_case_rise == 0)), NA),
+                  FN_Num_Times_Case_Rise_Without_Indicator_Rise = ifelse(length(each_indicator_rise_precedes_case_rise) > 0, sum(1*(cases_preceded_by_indicators == 0)), NA),
+                  Leading_Indicator_Precision=-1,
+                  Leading_Indicator_Recall=-1,
+                  stringsAsFactors = F)
+    df$Leading_Indicator_Precision = df$TP_Num_Times_Case_Rise_Preceded_by_Indicator/(df$TP_Num_Times_Case_Rise_Preceded_by_Indicator + df$FP_Num_Times_Indicator_Rise_Without_Case_Rise)
+    df$Leading_Indicator_Recall = df$TP_Num_Times_Case_Rise_Preceded_by_Indicator/(df$TP_Num_Times_Case_Rise_Preceded_by_Indicator + df$FN_Num_Times_Case_Rise_Without_Indicator_Rise)
+    df
+    
+  })
+  #Combine the dataframes from all counties into precision_recall_df and calculate the F1 score (harmonic mean of precision and recall).
+  precision_recall_df=data.table::rbindlist(precision_recall_list, use.names = T)
+  precision_recall_df$F1_Score = 2*(precision_recall_df$Leading_Indicator_Recall*precision_recall_df$Leading_Indicator_Precision)/(precision_recall_df$Leading_Indicator_Precision + precision_recall_df$Leading_Indicator_Recall)
+  #Calculate overall precision and recall across all counties.
+  global_precision_recall=data.frame(Precision_Leading_Indicator=sum(precision_recall_df$TP_Num_Times_Case_Rise_Preceded_by_Indicator,
+                                                                     na.rm = T)/(sum(precision_recall_df$TP_Num_Times_Case_Rise_Preceded_by_Indicator, na.rm = T) + sum(precision_recall_df$FP_Num_Times_Indicator_Rise_Without_Case_Rise, na.rm = T)),
+                                     Recall_Leading_Indicator=sum(precision_recall_df$TP_Num_Times_Case_Rise_Preceded_by_Indicator,
+                                                                  na.rm = T)/(sum(precision_recall_df$TP_Num_Times_Case_Rise_Preceded_by_Indicator, na.rm = T) + sum(precision_recall_df$FN_Num_Times_Case_Rise_Without_Indicator_Rise, na.rm = T)),
+                                     stringsAsFactors = F)
+  return(list(precision_recall_df,global_precision_recall))
 }
 
 
