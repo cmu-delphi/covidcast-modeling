@@ -117,9 +117,9 @@ plot_signals <- function(case_indicator_list, county_fips, ylab2 = "",
   ggplot_colors = c("#00AFBB", "#FC4E07")
   county_fips_code = unlist(lapply(case_indicator_list, function(x) x$geo_value[1]))
   list_elem = case_indicator_list[[which(county_fips_code %in% county_fips)]]
-  state_name = fips_to_name(paste0(substr(county_fips, 1, 2), "000"))
+  state_name = county_fips_to_name(paste0(substr(county_fips, 1, 2), "000"))
   state_abbr = name_to_abbr(state_name)
-  title = paste0(fips_to_name(county_fips), ", ", state_abbr)
+  title = paste0(county_fips_to_name(county_fips), ", ", state_abbr)
   
   # Compute ranges of the two signals
   range1 = range(list_elem$case_value)
@@ -350,12 +350,13 @@ trans <- function(x, from_range, to_range) {
 # @param signal: A numeric vector of values corresponding to case counts or indicator counts for one location
 # @param bandwidth: Bandwidth for smoothing. Default is 10.
 # @param quantile_threshold: Deriv must be greater than quantile_threshold percent of other derivs. Default is 0.75.
-# @param threshold: Min ratio of magnitude of increase from min point to max point. Default is 0.2.
-# @param period: Min length of increase in days. Default is 5.
+# @param threshold: Min ratio of magnitude of increase from min point to max point. Default is 0.4.
+# @param period: Min length of increase in days. Default is 10.
 # OUTPUT
 # @return List of points of increase for one location
 calculate_increasing_points <- function(signal, bandwidth=10, quantile_threshold=0.0, threshold=0.4, period=10){
   first_deriv = get_signal_first_derivative(signal, bandwidth)
+  smoothed_signal=sm(signal, bandwidth)
   increasing_period= which(first_deriv>quantile(first_deriv, quantile_threshold) & first_deriv>0)
   s <- split(increasing_period, cumsum(c(TRUE, diff(increasing_period) != 1)))
   s <- lapply(s, function(x) {
