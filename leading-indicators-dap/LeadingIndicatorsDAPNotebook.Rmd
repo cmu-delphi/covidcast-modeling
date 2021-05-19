@@ -356,3 +356,6 @@ Recall and precision.
 
 ## Conclusions and Limitations
 
+TODO
+Maybe include:
+interpolation issue where there are certain days that don't have case/signal data. could be solved by just increasing "indicator_threshold" by a lot, allowing very very few days where there is not a signal for the indicator.
