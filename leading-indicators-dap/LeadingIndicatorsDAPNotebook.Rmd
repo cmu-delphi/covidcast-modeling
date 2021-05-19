@@ -1,9 +1,17 @@
 ---
 title: "Leading Indicators DAP"
-output: html_notebook
+author: "Kate Harwood, Vishnu Shankar, Ben Smith, Sangwon Hyun"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: yes
+  html_notebook:
+    toc: yes
+    toc_float: yes
 ---
 
-```{r, results='hide', echo=FALSE}
+```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}	
 source("LeadingIndicatorTools.R")
 library(covidcast)
 library(magrittr)
@@ -15,262 +23,7 @@ library(dplyr)
 library(cowplot)
 library(ggpubr)
 library(patchwork)
-library(ggpubr)
-```
 
-## <span>Section 1: Motivation</span>
-Vishnu's section
-
-## <span>Section 2: Methodology</span>
-
-<details>
-<summary>**Initial exploration: Cross Correlation**</summary>
-
-Our first approach to this DAP looked at the relationship between the indicator and the signal more generally. We first used cross correlation analysis on the time series to identify the relationship between indicators and cases across a time period. We calculated the cross correlation of the two time series for each county, and looked at the max cross correlation values and the lag in days for where that maximum cross correlation occured. An example of this data over all observed counties for the Drs Visits indicator signal: ![cross_correlation_plot](cross_correlation_plot.png)
-
-However, this is a more general analysis than our DAP directive, which is dealing with **periods of increase** specifically, rather then the general relationship between two signals. For this DAP, we don't care if there is a cross correlation or not  between indicators and cases when the signals are flat, decreasing, or even rising slightly. We care about sharp upswings in cases, something significant within a county. We want to analyze the leadingness of a **signficant indicator rise** in relation to a **significant case rise**. To do this, we need to define and find periods of significant rise in these signals.
-</details>
-
-#### Identifying Rises in Signals
-
-We determined that to ascertain leadingness of an indicator, we care about whether the indicator began to rise significantly before cases began to rise significantly. So we need a decision rule for identifying significant rises.
-
-**Starting at the Peak**<br>
-At first we experimented with finding the peak of a signal in a given time period and identifying the closest local minimum that precedes the peak. However this is not always the point at which the signal actually begins to rise (could be caught in a shallow local minimum), and does not gaurantee the rise would be a lengthy or a steep one. This method also only picks one rise period for a signal for every county for the given time period, which isn't always reflective of the signal's actual behavior.
-
-**Best Fit Line**<br>
-One option we tried was calculating a line of best fit for the signal for fixed time periods within a larger time period. For example, calculating a line of best fit for every 21 day window within a 3 month window and choosing the period that has the highest slope as the most significant rise period in that county for that signal.
-
-  - Where this worked well:
-    - This method finds periods of consistent rise, not allowing the signal to vary a lot between the beginning and ending points of the rise period.
-  - Where this had drawbacks: 
-    - Many times this method only selects the larger end of a rise, since the window is a fixed size, and leaves out where the rise starts.
-    - This method also only allows for one rise per time period/county.
-    
-<details>
-<summary>*Example plot*</summary>
-
-![best_fit_plot](best_fit.png)
-</details>
-<br>
-
-**Estimated Derivative**<br>
-We then tried using multiple different derivative estimate methods to identify periods where the estimated derivative at each point is over a certain threshold.
-
-  - Where this worked well:
-    - It can find smaller periods of continuous rise that are flexible in length.
-    - It allows for multiple periods of rise per time period.
-  - Where this had drawbacks: 
-     - Using a large fixed window size (14 or 21 days) in the derivative estimation function means that many identified points are actually within a decreasing period after a rise.
-     - It can label rises too liberally, identifying very small bumps in the signal as rises.
-
-<details>
-<summary>*Example plot*</summary>
-
-Blue is using smoothing spline method, Red is using local linear regression (Purple is where both methods marked the same point)
-![estimated_deriv_plot](estimated_deriv.png)
-</details>
-<br>
-
-##### **Final Method** 
-We saw that smoothing the signal first (on top of the 7 day average smoothing from the API) and using the derivative method produced the best results. Twekaing this method with some other decision rules gave us our best outcome for finding periods of significant rise.
-
-Final criteria for rise periods: A period is a significant rise if
-  
-  1. First derivative at each point is > 0 - *aka signal is in fact rising on every day*
-  
-  2. Period is > a certain number of days (for this analysis we used 5) - *aka it's not just a spurius rise*
-  
-  3. Each first derivative is > a certain % of other derivatives in time period (for this analysis we used 75%) - *aka making sure the rise is a significant one for this county. This ties this decision to the specific time period we are looking at, and the rise point identifications can change based on the time period because of this criteria.*
-  4. Magnitude of increase from start to end of period is > a certain threshold (for this analysis we used 20%) - *aka another way to make sure that the rise is significant, not just a slight uptick in cases*
-  
-
-**Finally**, we take the point at the beginning of each rise period as the best estimation of a point of inflection where a signal begins to rise significantly, so we can answer the question: **Does the beginning of a rise in the indicator come before the beginning of a rise in cases?**
-
-In our analysis, we look at this on a county by county basis, for specific time periods during the pandemic, like the "Summer wave" or the "Fall wave."
-<br>
-<br>
-
-#### County Selection
- In our analysis, we include all counties that have greater than 2000 cases (a little over 20 cases a day for a 3 month window), 80 days of indicator data for a 3 month window, and do not have zero or negative values for either cases or the indicator.
-<br>
-<br>
-
-#### Recall and Precision
-TODO
-
-<br>
-
-
-### Walkthrough
-##### Step 1. Get and prepare county data
-As an example, we'll use our Dr Visits % CLI as our indicator, and the summer as our time period. We use our LeadingIndicatorTools package for all our main functions.
-```{r, results='hide'}
-drs_visits_prepared_summer = get_and_parse_signals("2020-06-01", "2020-8-31", "doctor-visits", "smoothed_adj_cli", 2000, 80)
-```
-<br>
-
-#### Step 2. We can plot the Drs Visits and the case signal together for an example county.
-```{r, results='hide'}
-drs_summer = get_increase_points(drs_visits_prepared_summer$cases, drs_visits_prepared_summer$indicator)
-```
-
-
-```{r}
-plot_signals(drs_summer, "01003", smooth_and_show_increase_point=FALSE, "Drs Visits")
-```
-<br>
-
-#### Step 3. Now we can mark the rise points (the points at the beginning of the rise periods) for the Drs Visits and Cases signal. 
-In the respective rise point columns, the day is marked with a 1 if it is found to be a rise point for that signal. We can see here that there is a rise point for Drs Vists on 6/18 and for cases on 6/26.
-```{r}
-drs_summer[1]
-```
-<br>
-
-#### Step 4. Now we can plot the smoothed signal with the beginning rise points. 
-We can see that Drs Visits begins to rise before cases rise. TODO I think we need to tweak our rise point method a bit so we don't have these "double counting" points on a rise.
-```{r}
-plot_signals(drs_summer, "01003", smooth_and_show_increase_point=TRUE, "Drs Visits")
-```
-
-## Section 3: Analysis {.tabset .tabset-fade .tabset-pills}
-
-### Doctor Visits
-```{r, results='hide'}
-drs_visits_prepared_fall = get_and_parse_signals("2020-09-01", "2020-11-30", "doctor-visits", "smoothed_adj_cli", 2000, 80)
-drs_visits_prepared_summer = get_and_parse_signals("2020-06-01", "2020-8-31", "doctor-visits", "smoothed_adj_cli", 2000, 80)
-```
-```{r, results='hide'}
-drs_fall = get_increase_points(drs_visits_prepared_fall$cases, drs_visits_prepared_fall$indicator)
-drs_summer = get_increase_points(drs_visits_prepared_summer$cases, drs_visits_prepared_summer$indicator)
-
-success_examples_drs_fall = get_success_examples(drs_fall, success_window_max = 14, success_window_min = 3)
-success_examples_drs_summer = get_success_examples(drs_summer, success_window_max = 14, success_window_min = 3)
-```
-
-#### We can plot some of the counties where rises in the doctor visits indicator consistently lead rises in cases. {.tabset .tabset-fade .tabset-pills}
-
-##### Examples from the Summer
-```{r, echo=FALSE}
-plot_example_list(success_examples_drs_summer, drs_summer, "Doctor Visits CLI")
-```
-
-##### Examples from the Fall
-```{r, echo=FALSE}
-plot_example_list(success_examples_drs_fall, drs_fall, "Doctor Visits CLI")
-```
-
-##### Examples of counties that show successes in both Summer and Fall
-```{r, echo=FALSE}
-plot_example_intersects(success_examples_drs_summer, success_examples_drs_fall, drs_summer, drs_fall, "Doctor Visits CLI")
-```
-##### Fall Frequencies
-We can also look at the distribution of the frequency of the number of days by which Doctor Visits' rises lead case rises in successful counties
-```{r echo=FALSE}
-plot_distribution_freq(success_examples_drs_fall, drs_fall)
-```
-
-##### Summer Frequencies
-We can also look at the distribution of the frequency of the number of days by which Doctor Visits' rises lead case rises in successful counties
-```{r echo=FALSE}
-plot_distribution_freq(success_examples_drs_summer, drs_summer)
-```
-
-
-### Change Healthcare
-```{r, results='hide', echo=FALSE}
-change_healthcare_prepared_fall = get_and_parse_signals("2020-09-01", "2020-11-30", "chng", "smoothed_adj_outpatient_cli", 2000, 80)
-change_healthcare_prepared_summer = get_and_parse_signals("2020-06-01", "2020-08-31", "chng", "smoothed_adj_outpatient_cli", 2000, 80)
-```
-```{r results="hide", echo=FALSE}
-chng_fall = get_increase_points(change_healthcare_prepared_fall$cases, change_healthcare_prepared_fall$indicator)
-chng_summer = get_increase_points(change_healthcare_prepared_summer$cases, change_healthcare_prepared_summer$indicator)
-
-success_examples_chng_fall = get_success_examples(chng_fall, success_window_max = 14, success_window_min = 3)
-success_examples_chng_summer = get_success_examples(chng_summer, success_window_max = 14, success_window_min = 3)
-
-chng_success_intersect = intersect(success_examples_chng_fall, success_examples_chng_summer)
-```
-#### We can plot some of the counties where rises in the Change Healthcare indicator consistently lead rises in cases. {.tabset .tabset-fade .tabset-pills}
-##### Examples from the Summer
-```{r echo=FALSE}
-plot_example_list(success_examples_chng_summer, chng_summer, "Change Healthcare CLI")
-```
-
-##### Examples from the Fall
-```{r echo=FALSE}
-plot_example_list(success_examples_chng_fall, chng_fall, "Change Healthcare CLI")
-```
-
-##### Examples of counties that show successes in both Summer and Fall
-```{r, echo=FALSE}
-plot_example_intersects(success_examples_chng_summer, success_examples_chng_fall, chng_summer, chng_fall, "Change Healthcare CLI")
-```
-
-##### Fall Frequencies
-We can also look at the distribution of the frequency of the number of days by which Change Healthcare rises lead case rises in successful counties
-```{r echo=FALSE}
-plot_distribution_freq(success_examples_chng_fall, chng_fall)
-```
-##### Summer Frequencies
-We can also look at the distribution of the frequency of the number of days by which Change Healthcare rises lead case rises in successful counties
-```{r echo=FALSE}
-plot_distribution_freq(success_examples_chng_summer, chng_summer)
-```
-
-### Indicator Combination
-```{r, results='hide', echo=FALSE}
-indicator_comb_prepared_fall = get_and_parse_signals("2020-09-01", "2020-11-30", "indicator-combination", "nmf_day_doc_fbc_fbs_ght", 2000, 80)
-indicator_comb_prepared_summer = get_and_parse_signals("2020-06-01", "2020-08-31", "indicator-combination", "nmf_day_doc_fbc_fbs_ght", 2000, 80)
-```
-```{r results="hide", echo=FALSE}
-comb_fall = get_increase_points(indicator_comb_prepared_fall$cases, indicator_comb_prepared_fall$indicator)
-comb_summer = get_increase_points(indicator_comb_prepared_summer$cases, indicator_comb_prepared_summer$indicator)
-
-success_examples_comb_fall = get_success_examples(comb_fall, success_window_max = 14, success_window_min = 3)
-success_examples_comb_summer = get_success_examples(comb_summer, success_window_max = 14, success_window_min = 3)
-
-comb_success_intersect = intersect(success_examples_comb_fall, success_examples_comb_summer)
-```
-
-#### We can plot some of the counties where rises in the indicator combination consistently lead rises in cases. {.tabset .tabset-fade .tabset-pills}
-
-##### Examples from the Summer
-```{r echo=FALSE}
-plot_example_list(success_examples_comb_summer, comb_summer, "Indicator Combination CLI")
-```
-
-##### Examples from the Fall
-```{r echo=FALSE}
-plot_example_list(success_examples_comb_fall, comb_fall, "Indicator Combination CLI")
-```
-
-##### Examples of counties that show successes in both Summer and Fall
-```{r, echo=FALSE}
-plot_example_intersects(success_examples_comb_summer, success_examples_comb_fall, comb_summer, comb_fall, "Indicator Combination CLI")
-```
-##### Fall Frequencies
-We can also look at the distribution of the frequency of the number of days by which Indicator Combination rises lead case rises in successful counties
-```{r echo=FALSE}
-plot_distribution_freq(success_examples_comb_fall, comb_fall)
-```
-##### Summer Frequencies
-We can also look at the distribution of the frequency of the number of days by which Change Healthcare rises lead case rises in successful counties
-```{r echo=FALSE}
-plot_distribution_freq(success_examples_comb_summer, comb_summer)
-```
-
-##
-Note that the counties shown and counted as "successful" here met the following criteria:
-All indicator rise points were followed by a case rise point within 3 to 14 days (and all case rise points were preceded by an indicator rise point within the same time period). This means that the displayed counties almost always have only one rise point per signal and case (the more rise points the harder it is to meet the criteria).
-
-## <span>Section 4: Performance</span>
-Recall and precision.
-
-## <span>Section 5: Conclusions and Limitations</span>
-
-```{r echo=FALSE}
 # HELPER FUNCTIONS
 plot_example_list = function(success_example_list, signal_data, indicator) {
   plot_list = vector("list", length(success_example_list) )
@@ -333,5 +86,273 @@ plot_distribution_freq = function(examples, signal_data) {
     geom_bar(aes(fill =leadingness), stat = 'identity') +
     scale_x_continuous(breaks = c(2,3,4,5,6,7,8,9,10,11,12,13,14,15))
 }
-
 ```
+
+## Motivation
+TODO
+
+## Methodology
+
+<details>
+<summary>**Initial exploration: Cross Correlation**</summary>
+
+Our first approach to this DAP looked at the relationship between the indicator and the signal more generally. We first used cross correlation analysis on the time series to identify the relationship between indicators and cases across a time period. For two time series $y, x \in \mathbb{R}^T$, cross-correlation is defined as: 
+
+$$\max_{i} Corr(y_{i+1,\cdots, T}, x_{1, \cdots, T-i}),$$
+and measures the maximum Pearson correlation between the two as a result of lagging one by the amount of $i$.
+
+We calculated the cross-correlation and the optimal lag in each county. An example of this data over all observed counties for the Drs Visits indicator signal:
+
+An example of this data over all observed counties for the Drs Visits indicator signal: ![cross_correlation_plot](cross_correlation_plot.png)
+
+This exploratory analysis hints at a predictive relationship; that indicators, observed in advance, can have high correlation with case counts. However, this is a more general analysis than our project's goal, which is dealing with **periods of increase** specifically, rather then the general relationship between two signals. The main analysis in the project aims for a more specific focus on
+sharp upswings in cases, something significant within a county, and of particular public health importance, as well as of practical importance for modeling and forecasting. We want to analyze the leading-ness of a **signficant indicator rise** in relation to a **significant case rise**. To do this, we need to define and find periods of significant rise in these signals.
+</details>
+
+#### Identifying Rises in Signals
+In order to ascertain leading-ness of an indicator, we want to determine whether the indicator began to rise significantly before cases began to rise significantly.
+
+As a core component of this analysis, we need methodology to accurately identify significant rises, given a single time series of an indicator. This is non-trivial, since the data is quite noisy at the county level, and clean rise/drops are rare.
+
+**Starting at the Peak**<br>
+At first we experimented with finding the peak of a signal in a given time period and identifying the closest local minimum that precedes the peak. However this is not always the point at which the signal actually begins to rise (could be caught in a shallow local minimum), and does not gaurantee the rise would be a lengthy or a steep one. This method also only picks one rise period for a signal for every county for the given time period, which isn't always reflective of the signal's actual behavior.
+
+**Best Fit Line**<br>
+One option we tried was calculating a line of best fit for the signal for fixed time periods within a larger time period. For example, calculating a line of best fit for every 21 day window within a 3 month window and choosing the period that has the highest slope as the most significant rise period in that county for that signal.
+
+  - Where this worked well:
+    - This method finds periods of consistent rise, not allowing the signal to vary a lot between the beginning and ending points of the rise period.
+  - Where this had drawbacks: 
+    - Many times this method only selects the larger end of a rise, since the window is a fixed size, and leaves out where the rise starts.
+    - This method also only allows for one rise per time period/county.
+    
+<details>
+<summary>*Example plot*</summary>
+
+![best_fit_plot](best_fit.png)
+</details>
+<br>
+
+**Estimated Derivative**<br>
+We then tried using multiple different derivative estimate methods to identify periods where the estimated derivative at each point is over a certain threshold.
+
+  - Where this worked well:
+    - It can find smaller periods of continuous rise that are flexible in length.
+    - It allows for multiple periods of rise per time period.
+  - Where this had drawbacks: 
+     - Using a large fixed window size (14 or 21 days) in the derivative estimation function means that many identified points are actually within a decreasing period after a rise.
+     - It can label rises too liberally, identifying very small bumps in the signal as rises.
+
+<details>
+<summary>*Example plot*</summary>
+
+Blue is using smoothing spline method, Red is using local linear regression (Purple is where both methods marked the same point)
+![estimated_deriv_plot](estimated_deriv.png)
+</details>
+<br>
+
+##### **Final Method** 
+We saw that smoothing the signal first using smoothing splines (in addition to the 7-day average smoothing already applied to the data, e.g. 7-day average CLI) and using the derivative method produced the best results. Twekaing this method with some other decision rules gave us our best outcome for finding periods of significant rise.
+
+Final criteria for rise periods: A period is a significant rise in a smoothed signal if
+  
+  1. First derivative at each point is > 0 - *this means the signal is in fact rising on every day*
+  
+  2. Period is > a certain number of days (for this analysis we used TODO) - *this means the rise is not spurious*
+  
+  3. Each first derivative is > a certain % of other derivatives in time period (Note, for this analysis we set this to 0%, effectively not using this parameter) - *if not set to 0, it can mean the rise is a significant one for this county but also ties this decision to the specific time period we are looking at. The rise point identifications can change based on the time period if this is set greater than 0.*
+
+  4. Magnitude of increase from start to end of period is > a certain threshold (for this analysis we used TODO) - *this is another way to make sure that the rise is significant, not just a slight uptick in cases*
+  
+
+**Finally**, we take the point at the beginning of each rise period as the best estimation of a point of inflection where a signal begins to rise significantly, so we can address the question: **Does the beginning of a rise in the indicator come before the beginning of a rise in cases?**
+
+In our analysis, we look at this on a county by county basis, for specific time periods during the pandemic, like the "Summer wave" or the "Fall wave." TODO is this still true?
+
+<br>
+<br>
+
+#### County Selection
+ In our analysis, we include all counties that have greater than 2000 cases (a little over 20 cases a day for a 3 month window), 80 days of indicator data for a 3 month window, and do not have zero or negative values for either cases or the indicator. TODO is this still true?
+<br>
+<br>
+
+#### Recall and Precision
+TODO
+
+<br>
+
+
+### Walkthrough
+
+In this section, we describe our pipeline for processing, plotting and analyzing
+the data using the methodology described above.
+
+##### Step 1. Get and prepare county data
+As an example, we'll use our Dr Visits % CLI as our indicator, and the summer as our time period. We use our LeadingIndicatorTools package for all our main functions.
+```{r, results='hide', message=FALSE}
+drs_visits_prepared_summer = get_and_parse_signals("2020-06-01", "2020-8-31", "doctor-visits", "smoothed_adj_cli", 2000, 80)
+```
+<br>
+
+#### Step 2. Plot the Drs Visits and the case signal together for an example county.
+```{r, results='hide'}
+drs_summer = get_increase_points(drs_visits_prepared_summer$cases, drs_visits_prepared_summer$indicator)
+```
+
+
+```{r}
+plot_signals(drs_summer, "01003", smooth_and_show_increase_point=FALSE, "Drs Visits")
+```
+<br>
+
+#### Step 3. Mark the rise points (the points at the beginning of the rise periods) for the Drs Visits and Cases signal. 
+In the respective rise point columns, the day is marked with a 1 if it is found to be a rise point for that signal. We can see here that there is a rise point for Drs Vists on 6/18 and for cases on 6/26.
+```{r}
+drs_summer[1]
+```
+<br>
+
+#### Step 4. Plot the smoothed signal with the beginning rise points. 
+We can see that Drs Visits begins to rise before cases rise. TODO I think we need to tweak our rise point method a bit so we don't have these "double counting" points on a rise.
+```{r}
+plot_signals(drs_summer, "01003", smooth_and_show_increase_point=TRUE, "Drs Visits")
+```
+
+## Analysis {.tabset .tabset-fade .tabset-pills}
+TODO on this whole section. Need to rework and add in Vishnu's analysis.
+
+### Doctor Visits
+```{r, results='hide', message=FALSE, echo=FALSE}
+drs_visits_prepared_fall = get_and_parse_signals("2020-09-01", "2020-11-30", "doctor-visits", "smoothed_adj_cli", 2000, 80)
+drs_visits_prepared_summer = get_and_parse_signals("2020-06-01", "2020-8-31", "doctor-visits", "smoothed_adj_cli", 2000, 80)
+```
+```{r, results='hide', echo=FALSE}
+drs_fall = get_increase_points(drs_visits_prepared_fall$cases, drs_visits_prepared_fall$indicator)
+drs_summer = get_increase_points(drs_visits_prepared_summer$cases, drs_visits_prepared_summer$indicator)
+
+success_examples_drs_fall = get_success_examples(drs_fall, success_window_max = 14, success_window_min = 3)
+success_examples_drs_summer = get_success_examples(drs_summer, success_window_max = 14, success_window_min = 3)
+```
+
+#### We can plot some of the counties where rises in the doctor visits indicator consistently lead rises in cases. {.tabset .tabset-fade .tabset-pills}
+
+##### Examples from the Summer
+```{r, echo=FALSE}
+plot_example_list(success_examples_drs_summer, drs_summer, "Doctor Visits CLI")
+```
+
+##### Examples from the Fall
+```{r, echo=FALSE}
+plot_example_list(success_examples_drs_fall, drs_fall, "Doctor Visits CLI")
+```
+
+##### Examples of counties that show successes in both Summer and Fall
+```{r, echo=FALSE}
+plot_example_intersects(success_examples_drs_summer, success_examples_drs_fall, drs_summer, drs_fall, "Doctor Visits CLI")
+```
+##### Fall Frequencies
+We can also look at the distribution of the frequency of the number of days by which Doctor Visits' rises lead case rises in successful counties
+```{r echo=FALSE}
+plot_distribution_freq(success_examples_drs_fall, drs_fall)
+```
+
+##### Summer Frequencies
+We can also look at the distribution of the frequency of the number of days by which Doctor Visits' rises lead case rises in successful counties
+```{r echo=FALSE}
+plot_distribution_freq(success_examples_drs_summer, drs_summer)
+```
+
+
+### Change Healthcare
+```{r, results='hide', echo=FALSE, message=FALSE}
+change_healthcare_prepared_fall = get_and_parse_signals("2020-09-01", "2020-11-30", "chng", "smoothed_adj_outpatient_cli", 2000, 80)
+change_healthcare_prepared_summer = get_and_parse_signals("2020-06-01", "2020-08-31", "chng", "smoothed_adj_outpatient_cli", 2000, 80)
+```
+```{r results="hide", echo=FALSE}
+chng_fall = get_increase_points(change_healthcare_prepared_fall$cases, change_healthcare_prepared_fall$indicator)
+chng_summer = get_increase_points(change_healthcare_prepared_summer$cases, change_healthcare_prepared_summer$indicator)
+
+success_examples_chng_fall = get_success_examples(chng_fall, success_window_max = 14, success_window_min = 3)
+success_examples_chng_summer = get_success_examples(chng_summer, success_window_max = 14, success_window_min = 3)
+
+chng_success_intersect = intersect(success_examples_chng_fall, success_examples_chng_summer)
+```
+#### We can plot some of the counties where rises in the Change Healthcare indicator consistently lead rises in cases. {.tabset .tabset-fade .tabset-pills}
+##### Examples from the Summer
+```{r echo=FALSE}
+plot_example_list(success_examples_chng_summer, chng_summer, "Change Healthcare CLI")
+```
+
+##### Examples from the Fall
+```{r echo=FALSE}
+plot_example_list(success_examples_chng_fall, chng_fall, "Change Healthcare CLI")
+```
+
+##### Examples of counties that show successes in both Summer and Fall
+```{r, echo=FALSE}
+plot_example_intersects(success_examples_chng_summer, success_examples_chng_fall, chng_summer, chng_fall, "Change Healthcare CLI")
+```
+
+##### Fall Frequencies
+We can also look at the distribution of the frequency of the number of days by which Change Healthcare rises lead case rises in successful counties
+```{r echo=FALSE}
+plot_distribution_freq(success_examples_chng_fall, chng_fall)
+```
+##### Summer Frequencies
+We can also look at the distribution of the frequency of the number of days by which Change Healthcare rises lead case rises in successful counties
+```{r echo=FALSE}
+plot_distribution_freq(success_examples_chng_summer, chng_summer)
+```
+
+### Indicator Combination
+```{r, results='hide', echo=FALSE, message=FALSE}
+indicator_comb_prepared_fall = get_and_parse_signals("2020-09-01", "2020-11-30", "indicator-combination", "nmf_day_doc_fbc_fbs_ght", 2000, 80)
+indicator_comb_prepared_summer = get_and_parse_signals("2020-06-01", "2020-08-31", "indicator-combination", "nmf_day_doc_fbc_fbs_ght", 2000, 80)
+```
+```{r results="hide", echo=FALSE}
+comb_fall = get_increase_points(indicator_comb_prepared_fall$cases, indicator_comb_prepared_fall$indicator)
+comb_summer = get_increase_points(indicator_comb_prepared_summer$cases, indicator_comb_prepared_summer$indicator)
+
+success_examples_comb_fall = get_success_examples(comb_fall, success_window_max = 14, success_window_min = 3)
+success_examples_comb_summer = get_success_examples(comb_summer, success_window_max = 14, success_window_min = 3)
+
+comb_success_intersect = intersect(success_examples_comb_fall, success_examples_comb_summer)
+```
+
+#### We can plot some of the counties where rises in the indicator combination consistently lead rises in cases. {.tabset .tabset-fade .tabset-pills}
+
+##### Examples from the Summer
+```{r echo=FALSE}
+plot_example_list(success_examples_comb_summer, comb_summer, "Indicator Combination CLI")
+```
+
+##### Examples from the Fall
+```{r echo=FALSE}
+plot_example_list(success_examples_comb_fall, comb_fall, "Indicator Combination CLI")
+```
+
+##### Examples of counties that show successes in both Summer and Fall
+```{r, echo=FALSE}
+plot_example_intersects(success_examples_comb_summer, success_examples_comb_fall, comb_summer, comb_fall, "Indicator Combination CLI")
+```
+##### Fall Frequencies
+We can also look at the distribution of the frequency of the number of days by which Indicator Combination rises lead case rises in successful counties
+```{r echo=FALSE}
+plot_distribution_freq(success_examples_comb_fall, comb_fall)
+```
+##### Summer Frequencies
+We can also look at the distribution of the frequency of the number of days by which Change Healthcare rises lead case rises in successful counties
+```{r echo=FALSE}
+plot_distribution_freq(success_examples_comb_summer, comb_summer)
+```
+
+##
+Note that the counties shown and counted as "successful" here met the following criteria:
+All indicator rise points were followed by a case rise point within 3 to 14 days (and all case rise points were preceded by an indicator rise point within the same time period). This means that the displayed counties almost always have only one rise point per signal and case (the more rise points the harder it is to meet the criteria).
+
+## Performance
+Recall and precision.
+
+## Conclusions and Limitations
+
