@@ -1,0 +1,6086 @@
+\PassOptionsToPackage{unicode=true}{hyperref} % options for packages loaded elsewhere
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[]{article}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\usepackage{fixltx2e} % provides \textsubscript
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provides euro and other symbols
+\else % if luatex or xelatex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}
+\fi
+% use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+% use microtype if available
+\IfFileExists{microtype.sty}{%
+\usepackage[]{microtype}
+\UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\IfFileExists{parskip.sty}{%
+\usepackage{parskip}
+}{% else
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+}
+\usepackage{hyperref}
+\hypersetup{
+            pdftitle={Leading Indicators DAP},
+            pdfauthor={Kate Harwood, Vishnu Shankar, Ben Smith, Sangwon Hyun},
+            pdfborder={0 0 0},
+            breaklinks=true}
+\urlstyle{same}  % don't use monospace font for urls
+\usepackage[margin=1in]{geometry}
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.77,0.63,0.00}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\usepackage{graphicx,grffile}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\setlength{\emergencystretch}{3em}  % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{0}
+% Redefines (sub)paragraphs to behave more like sections
+\ifx\paragraph\undefined\else
+\let\oldparagraph\paragraph
+\renewcommand{\paragraph}[1]{\oldparagraph{#1}\mbox{}}
+\fi
+\ifx\subparagraph\undefined\else
+\let\oldsubparagraph\subparagraph
+\renewcommand{\subparagraph}[1]{\oldsubparagraph{#1}\mbox{}}
+\fi
+
+% set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+
+
+\title{Leading Indicators DAP}
+\author{Kate Harwood, Vishnu Shankar, Ben Smith, Sangwon Hyun}
+\date{}
+
+\begin{document}
+\maketitle
+
+{
+\setcounter{tocdepth}{2}
+\tableofcontents
+}
+\begin{verbatim}
+## We encourage COVIDcast API users to register on our mailing list:
+## https://lists.andrew.cmu.edu/mailman/listinfo/delphi-covidcast-api
+## We'll send announcements about new data sources, package updates,
+## server maintenance, and new features.
+\end{verbatim}
+
+\begin{verbatim}
+## -- Attaching packages --------------------------------------- tidyverse 1.3.1 --
+\end{verbatim}
+
+\begin{verbatim}
+## v ggplot2 3.3.3     v purrr   0.3.4
+## v tibble  3.1.1     v dplyr   1.0.5
+## v tidyr   1.1.3     v stringr 1.4.0
+## v readr   1.4.0     v forcats 0.5.1
+\end{verbatim}
+
+\begin{verbatim}
+## -- Conflicts ------------------------------------------ tidyverse_conflicts() --
+## x tidyr::extract()   masks magrittr::extract()
+## x dplyr::filter()    masks stats::filter()
+## x dplyr::lag()       masks stats::lag()
+## x purrr::set_names() masks magrittr::set_names()
+\end{verbatim}
+
+\begin{verbatim}
+## 
+## Attaching package: 'assertthat'
+\end{verbatim}
+
+\begin{verbatim}
+## The following object is masked from 'package:tibble':
+## 
+##     has_name
+\end{verbatim}
+
+\begin{verbatim}
+## 
+## Attaching package: 'lubridate'
+\end{verbatim}
+
+\begin{verbatim}
+## The following objects are masked from 'package:base':
+## 
+##     date, intersect, setdiff, union
+\end{verbatim}
+
+\begin{verbatim}
+## 
+## Attaching package: 'gridExtra'
+\end{verbatim}
+
+\begin{verbatim}
+## The following object is masked from 'package:dplyr':
+## 
+##     combine
+\end{verbatim}
+
+\begin{verbatim}
+## 
+## Attaching package: 'cowplot'
+\end{verbatim}
+
+\begin{verbatim}
+## The following object is masked from 'package:lubridate':
+## 
+##     stamp
+\end{verbatim}
+
+\begin{verbatim}
+## 
+## Attaching package: 'ggpubr'
+\end{verbatim}
+
+\begin{verbatim}
+## The following object is masked from 'package:cowplot':
+## 
+##     get_legend
+\end{verbatim}
+
+\begin{verbatim}
+## 
+## Attaching package: 'patchwork'
+\end{verbatim}
+
+\begin{verbatim}
+## The following object is masked from 'package:cowplot':
+## 
+##     align_plots
+\end{verbatim}
+
+\hypertarget{motivation}{%
+\subsection{Motivation}\label{motivation}}
+
+TODO
+
+\hypertarget{methodology}{%
+\subsection{Methodology}\label{methodology}}
+
+\textbf{Initial exploration: Cross Correlation}
+
+Our first approach to this DAP looked at the relationship between the
+indicator and the signal more generally. We first used cross correlation
+analysis on the time series to identify the relationship between
+indicators and cases across a time period. For two time series
+\(y, x \in \mathbb{R}^T\), cross-correlation is defined as:
+
+\[\max_{i} Corr(y_{i+1,\cdots, T}, x_{1, \cdots, T-i}),\] and measures
+the maximum Pearson correlation between the two as a result of lagging
+one by the amount of \(i\).
+
+We calculated the cross-correlation and the optimal lag in each county.
+An example of this data over all observed counties for the Drs Visits
+indicator signal:
+
+An example of this data over all observed counties for the Drs Visits
+indicator signal: \includegraphics{cross_correlation_plot.png}
+
+This exploratory analysis hints at a predictive relationship; that
+indicators, observed in advance, can have high correlation with case
+counts. However, this is a more general analysis than our project's
+goal, which is dealing with \textbf{periods of increase} specifically,
+rather then the general relationship between two signals. The main
+analysis in the project aims for a more specific focus on sharp upswings
+in cases, something significant within a county, and of particular
+public health importance, as well as of practical importance for
+modeling and forecasting. We want to analyze the leading-ness of a
+\textbf{signficant indicator rise} in relation to a \textbf{significant
+case rise}. To do this, we need to define and find periods of
+significant rise in these signals.
+
+\hypertarget{identifying-rises-in-signals}{%
+\paragraph{Identifying Rises in
+Signals}\label{identifying-rises-in-signals}}
+
+In order to ascertain leading-ness of an indicator, we want to determine
+whether the indicator began to rise significantly before cases began to
+rise significantly.
+
+As a core component of this analysis, we need methodology to accurately
+identify significant rises, given a single time series of an indicator.
+This is non-trivial, since the data is quite noisy at the county level,
+and clean rise/drops are rare.
+
+\textbf{Starting at the Peak} At first we experimented with finding the
+peak of a signal in a given time period and identifying the closest
+local minimum that precedes the peak. However this is not always the
+point at which the signal actually begins to rise (could be caught in a
+shallow local minimum), and does not gaurantee the rise would be a
+lengthy or a steep one. This method also only picks one rise period for
+a signal for every county for the given time period, which isn't always
+reflective of the signal's actual behavior.
+
+\textbf{Best Fit Line} One option we tried was calculating a line of
+best fit for the signal for fixed time periods within a larger time
+period. For example, calculating a line of best fit for every 21 day
+window within a 3 month window and choosing the period that has the
+highest slope as the most significant rise period in that county for
+that signal.
+
+\begin{itemize}
+\tightlist
+\item
+  Where this worked well:
+
+  \begin{itemize}
+  \tightlist
+  \item
+    This method finds periods of consistent rise, not allowing the
+    signal to vary a lot between the beginning and ending points of the
+    rise period.
+  \end{itemize}
+\item
+  Where this had drawbacks:
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Many times this method only selects the larger end of a rise, since
+    the window is a fixed size, and leaves out where the rise starts.
+  \item
+    This method also only allows for one rise per time period/county.
+  \end{itemize}
+\end{itemize}
+
+\emph{Example plot}
+
+\includegraphics{best_fit.png}
+
+\textbf{Estimated Derivative} We then tried using multiple different
+derivative estimate methods to identify periods where the estimated
+derivative at each point is over a certain threshold.
+
+\begin{itemize}
+\tightlist
+\item
+  Where this worked well:
+
+  \begin{itemize}
+  \tightlist
+  \item
+    It can find smaller periods of continuous rise that are flexible in
+    length.
+  \item
+    It allows for multiple periods of rise per time period.
+  \end{itemize}
+\item
+  Where this had drawbacks:
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Using a large fixed window size (14 or 21 days) in the derivative
+    estimation function means that many identified points are actually
+    within a decreasing period after a rise.
+  \item
+    It can label rises too liberally, identifying very small bumps in
+    the signal as rises.
+  \end{itemize}
+\end{itemize}
+
+\emph{Example plot}
+
+Blue is using smoothing spline method, Red is using local linear
+regression (Purple is where both methods marked the same point)
+\includegraphics{estimated_deriv.png}
+
+\hypertarget{final-method}{%
+\subparagraph{\texorpdfstring{\textbf{Final
+Method}}{Final Method}}\label{final-method}}
+
+We saw that smoothing the signal first using smoothing splines (in
+addition to the 7-day average smoothing already applied to the data,
+e.g.~7-day average CLI) and using the derivative method produced the
+best results. Twekaing this method with some other decision rules gave
+us our best outcome for finding periods of significant rise.
+
+Final criteria for rise periods: A period is a significant rise in a
+smoothed signal if
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  First derivative at each point is \textgreater{} 0 - \emph{this means
+  the signal is in fact rising on every day}
+\item
+  Period is \textgreater{} a certain number of days (for this analysis
+  we used TODO) - \emph{this means the rise is not spurious}
+\item
+  Each first derivative is \textgreater{} a certain \% of other
+  derivatives in time period (Note, for this analysis we set this to
+  0\%, effectively not using this parameter) - \emph{if not set to 0, it
+  can mean the rise is a significant one for this county but also ties
+  this decision to the specific time period we are looking at. The rise
+  point identifications can change based on the time period if this is
+  set greater than 0.}
+\item
+  Magnitude of increase from start to end of period is \textgreater{} a
+  certain threshold (for this analysis we used TODO) - \emph{this is
+  another way to make sure that the rise is significant, not just a
+  slight uptick in cases}
+\end{enumerate}
+
+\textbf{Finally}, we take the point at the beginning of each rise period
+as the best estimation of a point of inflection where a signal begins to
+rise significantly, so we can address the question: \textbf{Does the
+beginning of a rise in the indicator come before the beginning of a rise
+in cases?}
+
+In our analysis, we look at this on a county by county basis, for
+specific time periods during the pandemic, like the ``Summer wave'' or
+the ``Fall wave.'' TODO is this still true?
+
+\hypertarget{county-selection}{%
+\paragraph{County Selection}\label{county-selection}}
+
+In our analysis, we include all counties that have greater than 2000
+cases (a little over 20 cases a day for a 3 month window), 80 days of
+indicator data for a 3 month window, and do not have zero or negative
+values for either cases or the indicator. TODO is this still true?
+
+\hypertarget{recall-and-precision}{%
+\paragraph{Recall and Precision}\label{recall-and-precision}}
+
+TODO
+
+\hypertarget{walkthrough}{%
+\subsubsection{Walkthrough}\label{walkthrough}}
+
+In this section, we describe our pipeline for processing, plotting and
+analyzing the data using the methodology described above.
+
+\hypertarget{step-1.-get-and-prepare-county-data}{%
+\subparagraph{Step 1. Get and prepare county
+data}\label{step-1.-get-and-prepare-county-data}}
+
+As an example, we'll use our Dr Visits \% CLI as our indicator, and the
+summer as our time period. We use our LeadingIndicatorTools package for
+all our main functions.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{drs_visits_prepared_summer =}\StringTok{ }\KeywordTok{get_and_parse_signals}\NormalTok{(}\StringTok{"2020-06-01"}\NormalTok{, }\StringTok{"2020-8-31"}\NormalTok{, }\StringTok{"doctor-visits"}\NormalTok{, }\StringTok{"smoothed_adj_cli"}\NormalTok{, }\DecValTok{2000}\NormalTok{, }\DecValTok{80}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Fetched day 2020-06-01 to 2020-06-01: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-02 to 2020-06-02: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-03 to 2020-06-03: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-04 to 2020-06-04: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-05 to 2020-06-05: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-06 to 2020-06-06: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-07 to 2020-06-07: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-08 to 2020-06-08: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-09 to 2020-06-09: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-10 to 2020-06-10: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-11 to 2020-06-11: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-12 to 2020-06-12: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-13 to 2020-06-13: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-14 to 2020-06-14: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-15 to 2020-06-15: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-16 to 2020-06-16: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-17 to 2020-06-17: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-18 to 2020-06-18: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-19 to 2020-06-19: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-20 to 2020-06-20: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-21 to 2020-06-21: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-22 to 2020-06-22: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-23 to 2020-06-23: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-24 to 2020-06-24: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-25 to 2020-06-25: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-26 to 2020-06-26: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-27 to 2020-06-27: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-28 to 2020-06-28: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-29 to 2020-06-29: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-30 to 2020-06-30: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-01 to 2020-07-01: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-02 to 2020-07-02: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-03 to 2020-07-03: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-04 to 2020-07-04: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-05 to 2020-07-05: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-06 to 2020-07-06: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-07 to 2020-07-07: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-08 to 2020-07-08: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-09 to 2020-07-09: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-10 to 2020-07-10: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-11 to 2020-07-11: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-12 to 2020-07-12: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-13 to 2020-07-13: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-14 to 2020-07-14: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-15 to 2020-07-15: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-16 to 2020-07-16: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-17 to 2020-07-17: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-18 to 2020-07-18: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-19 to 2020-07-19: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-20 to 2020-07-20: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-21 to 2020-07-21: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-22 to 2020-07-22: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-23 to 2020-07-23: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-24 to 2020-07-24: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-25 to 2020-07-25: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-26 to 2020-07-26: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-27 to 2020-07-27: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-28 to 2020-07-28: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-29 to 2020-07-29: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-30 to 2020-07-30: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-31 to 2020-07-31: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-01 to 2020-08-01: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-02 to 2020-08-02: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-03 to 2020-08-03: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-04 to 2020-08-04: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-05 to 2020-08-05: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-06 to 2020-08-06: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-07 to 2020-08-07: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-08 to 2020-08-08: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-09 to 2020-08-09: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-10 to 2020-08-10: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-11 to 2020-08-11: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-12 to 2020-08-12: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-13 to 2020-08-13: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-14 to 2020-08-14: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-15 to 2020-08-15: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-16 to 2020-08-16: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-17 to 2020-08-17: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-18 to 2020-08-18: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-19 to 2020-08-19: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-20 to 2020-08-20: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-21 to 2020-08-21: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-22 to 2020-08-22: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-23 to 2020-08-23: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-24 to 2020-08-24: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-25 to 2020-08-25: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-26 to 2020-08-26: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-27 to 2020-08-27: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-28 to 2020-08-28: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-29 to 2020-08-29: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-30 to 2020-08-30: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-31 to 2020-08-31: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-01 to 2020-06-01: num_entries = 2211
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-02 to 2020-06-02: num_entries = 2287
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-03 to 2020-06-03: num_entries = 2326
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-04 to 2020-06-04: num_entries = 2250
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-05 to 2020-06-05: num_entries = 2181
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-06 to 2020-06-06: num_entries = 2121
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-07 to 2020-06-07: num_entries = 2017
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-08 to 2020-06-08: num_entries = 2007
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-09 to 2020-06-09: num_entries = 2082
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-10 to 2020-06-10: num_entries = 2064
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-11 to 2020-06-11: num_entries = 2063
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-12 to 2020-06-12: num_entries = 2063
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-13 to 2020-06-13: num_entries = 2046
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-14 to 2020-06-14: num_entries = 2000
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-15 to 2020-06-15: num_entries = 1998
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-16 to 2020-06-16: num_entries = 2081
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-17 to 2020-06-17: num_entries = 2079
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-18 to 2020-06-18: num_entries = 2073
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-19 to 2020-06-19: num_entries = 2074
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-20 to 2020-06-20: num_entries = 2064
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-21 to 2020-06-21: num_entries = 2010
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-22 to 2020-06-22: num_entries = 2006
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-23 to 2020-06-23: num_entries = 2076
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-24 to 2020-06-24: num_entries = 2074
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-25 to 2020-06-25: num_entries = 2070
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-26 to 2020-06-26: num_entries = 2072
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-27 to 2020-06-27: num_entries = 2060
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-28 to 2020-06-28: num_entries = 2000
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-29 to 2020-06-29: num_entries = 1999
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-30 to 2020-06-30: num_entries = 2078
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-01 to 2020-07-01: num_entries = 2078
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-02 to 2020-07-02: num_entries = 2088
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-03 to 2020-07-03: num_entries = 2080
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-04 to 2020-07-04: num_entries = 2039
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-05 to 2020-07-05: num_entries = 1963
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-06 to 2020-07-06: num_entries = 1959
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-07 to 2020-07-07: num_entries = 2044
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-08 to 2020-07-08: num_entries = 2037
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-09 to 2020-07-09: num_entries = 2033
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-10 to 2020-07-10: num_entries = 2028
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-11 to 2020-07-11: num_entries = 2013
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-12 to 2020-07-12: num_entries = 2005
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-13 to 2020-07-13: num_entries = 2008
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-14 to 2020-07-14: num_entries = 2075
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-15 to 2020-07-15: num_entries = 2075
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-16 to 2020-07-16: num_entries = 2077
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-17 to 2020-07-17: num_entries = 2071
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-18 to 2020-07-18: num_entries = 2061
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-19 to 2020-07-19: num_entries = 2018
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-20 to 2020-07-20: num_entries = 2018
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-21 to 2020-07-21: num_entries = 2081
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-22 to 2020-07-22: num_entries = 2080
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-23 to 2020-07-23: num_entries = 2076
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-24 to 2020-07-24: num_entries = 2074
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-25 to 2020-07-25: num_entries = 2060
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-26 to 2020-07-26: num_entries = 2006
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-27 to 2020-07-27: num_entries = 2002
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-28 to 2020-07-28: num_entries = 2076
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-29 to 2020-07-29: num_entries = 2072
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-30 to 2020-07-30: num_entries = 2065
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-31 to 2020-07-31: num_entries = 2054
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-01 to 2020-08-01: num_entries = 2044
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-02 to 2020-08-02: num_entries = 1991
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-03 to 2020-08-03: num_entries = 1986
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-04 to 2020-08-04: num_entries = 2065
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-05 to 2020-08-05: num_entries = 2059
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-06 to 2020-08-06: num_entries = 2061
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-07 to 2020-08-07: num_entries = 2055
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-08 to 2020-08-08: num_entries = 2049
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-09 to 2020-08-09: num_entries = 1993
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-10 to 2020-08-10: num_entries = 1986
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-11 to 2020-08-11: num_entries = 2072
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-12 to 2020-08-12: num_entries = 2082
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-13 to 2020-08-13: num_entries = 2076
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-14 to 2020-08-14: num_entries = 2071
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-15 to 2020-08-15: num_entries = 2062
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-16 to 2020-08-16: num_entries = 2016
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-17 to 2020-08-17: num_entries = 2011
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-18 to 2020-08-18: num_entries = 2081
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-19 to 2020-08-19: num_entries = 2083
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-20 to 2020-08-20: num_entries = 2079
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-21 to 2020-08-21: num_entries = 2075
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-22 to 2020-08-22: num_entries = 2056
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-23 to 2020-08-23: num_entries = 2001
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-24 to 2020-08-24: num_entries = 2002
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-25 to 2020-08-25: num_entries = 2090
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-26 to 2020-08-26: num_entries = 2079
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-27 to 2020-08-27: num_entries = 2071
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-28 to 2020-08-28: num_entries = 2079
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-29 to 2020-08-29: num_entries = 2060
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-30 to 2020-08-30: num_entries = 2003
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-31 to 2020-08-31: num_entries = 1996
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: The `...` argument of `group_keys()` is deprecated as of dplyr 1.0.0.
+## Please `group_by()` first
+\end{verbatim}
+
+\hypertarget{step-2.-plot-the-drs-visits-and-the-case-signal-together-for-an-example-county.}{%
+\paragraph{Step 2. Plot the Drs Visits and the case signal together for
+an example
+county.}\label{step-2.-plot-the-drs-visits-and-the-case-signal-together-for-an-example-county.}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{drs_summer =}\StringTok{ }\KeywordTok{get_increase_points}\NormalTok{(drs_visits_prepared_summer}\OperatorTok{$}\NormalTok{cases, drs_visits_prepared_summer}\OperatorTok{$}\NormalTok{indicator)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\KeywordTok{plot_signals}\NormalTok{(drs_summer, }\StringTok{"01003"}\NormalTok{, }\DataTypeTok{smooth_and_show_increase_point=}\OtherTok{FALSE}\NormalTok{, }\StringTok{"Drs Visits"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-4-1.pdf}
+
+\hypertarget{step-3.-mark-the-rise-points-the-points-at-the-beginning-of-the-rise-periods-for-the-drs-visits-and-cases-signal.}{%
+\paragraph{Step 3. Mark the rise points (the points at the beginning of
+the rise periods) for the Drs Visits and Cases
+signal.}\label{step-3.-mark-the-rise-points-the-points-at-the-beginning-of-the-rise-periods-for-the-drs-visits-and-cases-signal.}}
+
+In the respective rise point columns, the day is marked with a 1 if it
+is found to be a rise point for that signal. We can see here that there
+is a rise point for Drs Vists on 6/18 and for cases on 6/26.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{drs_summer[}\DecValTok{1}\NormalTok{]}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [[1]]
+##    time_value geo_value case_value ind_value case_rise_point
+## 1  2020-06-01     01003   2.285714  2.591397               1
+## 2  2020-06-02     01003   2.142857  2.057542               0
+## 3  2020-06-03     01003   1.571429  1.621858               0
+## 4  2020-06-04     01003   1.714286  1.472914               0
+## 5  2020-06-05     01003   2.000000  1.672025               0
+## 6  2020-06-06     01003   3.000000  1.778825               0
+## 7  2020-06-07     01003   3.571429  1.885602               0
+## 8  2020-06-08     01003   4.000000  2.008342               0
+## 9  2020-06-09     01003   4.714286  2.300228               0
+## 10 2020-06-10     01003   5.571429  2.182529               0
+## 11 2020-06-11     01003   7.142857  1.955341               0
+## 12 2020-06-12     01003   8.142857  1.869405               0
+## 13 2020-06-13     01003   8.142857  1.710156               0
+## 14 2020-06-14     01003   7.285714  1.601059               0
+## 15 2020-06-15     01003   9.000000  1.517344               0
+## 16 2020-06-16     01003   9.142857  1.332368               0
+## 17 2020-06-17     01003   8.714286  1.107573               0
+## 18 2020-06-18     01003   8.285714  1.351734               0
+## 19 2020-06-19     01003   8.571429  1.745868               0
+## 20 2020-06-20     01003   8.428571  2.264708               0
+## 21 2020-06-21     01003   9.428571  2.834244               0
+## 22 2020-06-22     01003   7.714286  3.241748               0
+## 23 2020-06-23     01003   8.714286  3.510611               0
+## 24 2020-06-24     01003  10.285714  3.674556               0
+## 25 2020-06-25     01003  10.857143  3.581878               0
+## 26 2020-06-26     01003  14.571429  3.290597               0
+## 27 2020-06-27     01003  19.285714  3.585068               0
+## 28 2020-06-28     01003  20.714286  3.962742               0
+## 29 2020-06-29     01003  29.428571  4.295182               0
+## 30 2020-06-30     01003  32.857143  4.992063               0
+## 31 2020-07-01     01003  34.142857  5.485732               0
+## 32 2020-07-02     01003  39.142857  5.911132               0
+## 33 2020-07-03     01003  47.142857  6.084344               0
+## 34 2020-07-04     01003  44.000000  6.427596               0
+## 35 2020-07-05     01003  43.714286  6.822692               0
+## 36 2020-07-06     01003  38.285714  7.248379               0
+## 37 2020-07-07     01003  45.285714  8.381805               0
+## 38 2020-07-08     01003  50.428571  8.751762               0
+## 39 2020-07-09     01003  54.285714  8.718551               0
+## 40 2020-07-10     01003  48.857143  8.918230               0
+## 41 2020-07-11     01003  51.571429  9.440457               0
+## 42 2020-07-12     01003  59.000000  9.903577               0
+## 43 2020-07-13     01003  64.000000 10.334842               0
+## 44 2020-07-14     01003  59.571429  8.921196               0
+## 45 2020-07-15     01003  66.000000  7.922708               0
+## 46 2020-07-16     01003  66.857143  7.748389               0
+## 47 2020-07-17     01003  71.714286  7.546518               0
+## 48 2020-07-18     01003  85.000000  7.418840               0
+## 49 2020-07-19     01003  91.857143  7.416810               0
+## 50 2020-07-20     01003  93.428571  7.473701               0
+## 51 2020-07-21     01003  98.285714  7.966899               0
+## 52 2020-07-22     01003  96.857143  7.355723               0
+## 53 2020-07-23     01003 123.142857  6.977930               0
+## 54 2020-07-24     01003 117.714286  6.833789               0
+## 55 2020-07-25     01003 120.428571  7.083536               0
+## 56 2020-07-26     01003 110.142857  7.285879               0
+## 57 2020-07-27     01003 117.571429  7.476056               0
+## 58 2020-07-28     01003 104.714286  7.393050               0
+## 59 2020-07-29     01003  91.285714  6.987763               0
+## 60 2020-07-30     01003  81.000000  6.626541               0
+## 61 2020-07-31     01003  84.000000  6.682756               0
+## 62 2020-08-01     01003  68.571429  6.462142               0
+## 63 2020-08-02     01003  73.571429  6.311417               0
+## 64 2020-08-03     01003  61.285714  6.214892               0
+## 65 2020-08-04     01003  69.285714  6.607147               0
+## 66 2020-08-05     01003  77.857143  6.786898               0
+## 67 2020-08-06     01003  58.571429  6.640317               0
+## 68 2020-08-07     01003  57.571429  6.277139               0
+## 69 2020-08-08     01003  66.285714  5.670363               0
+## 70 2020-08-09     01003  54.714286  5.093669               0
+## 71 2020-08-10     01003  64.142857  4.641709               0
+## 72 2020-08-11     01003  59.428571  4.583945               0
+## 73 2020-08-12     01003  56.571429  4.629656               0
+## 74 2020-08-13     01003  53.571429  4.489354               0
+## 75 2020-08-14     01003  50.857143  4.255767               0
+## 76 2020-08-15     01003  43.285714  4.266932               0
+## 77 2020-08-16     01003  48.857143  4.282707               0
+## 78 2020-08-17     01003  35.142857  4.287946               0
+## 79 2020-08-18     01003  34.428571  3.873270               0
+## 80 2020-08-19     01003  32.285714  3.521795               0
+## 81 2020-08-20     01003  31.714286  3.491025               0
+## 82 2020-08-21     01003  27.714286  3.445380               0
+## 83 2020-08-22     01003  29.428571  3.262581               0
+## 84 2020-08-23     01003  28.428571  3.155857               0
+## 85 2020-08-24     01003  29.571429  3.075220               0
+## 86 2020-08-25     01003  30.428571  3.269225               0
+## 87 2020-08-26     01003  37.571429  3.194299               0
+## 88 2020-08-27     01003  39.428571  2.938526               0
+## 89 2020-08-28     01003  41.857143  2.783125               0
+## 90 2020-08-29     01003  44.142857  3.147181               0
+## 91 2020-08-30     01003  54.000000  3.435437               0
+## 92 2020-08-31     01003  54.000000  3.613825               0
+##    indicator_rise_point
+## 1                     0
+## 2                     0
+## 3                     0
+## 4                     0
+## 5                     0
+## 6                     0
+## 7                     0
+## 8                     0
+## 9                     0
+## 10                    0
+## 11                    0
+## 12                    0
+## 13                    0
+## 14                    0
+## 15                    1
+## 16                    0
+## 17                    0
+## 18                    0
+## 19                    0
+## 20                    0
+## 21                    0
+## 22                    0
+## 23                    0
+## 24                    0
+## 25                    0
+## 26                    0
+## 27                    0
+## 28                    0
+## 29                    0
+## 30                    0
+## 31                    0
+## 32                    0
+## 33                    0
+## 34                    0
+## 35                    0
+## 36                    0
+## 37                    0
+## 38                    0
+## 39                    0
+## 40                    0
+## 41                    0
+## 42                    0
+## 43                    0
+## 44                    0
+## 45                    0
+## 46                    0
+## 47                    0
+## 48                    0
+## 49                    0
+## 50                    0
+## 51                    0
+## 52                    0
+## 53                    0
+## 54                    0
+## 55                    0
+## 56                    0
+## 57                    0
+## 58                    0
+## 59                    0
+## 60                    0
+## 61                    0
+## 62                    0
+## 63                    0
+## 64                    0
+## 65                    0
+## 66                    0
+## 67                    0
+## 68                    0
+## 69                    0
+## 70                    0
+## 71                    0
+## 72                    0
+## 73                    0
+## 74                    0
+## 75                    0
+## 76                    0
+## 77                    0
+## 78                    0
+## 79                    0
+## 80                    0
+## 81                    0
+## 82                    0
+## 83                    0
+## 84                    0
+## 85                    0
+## 86                    0
+## 87                    0
+## 88                    0
+## 89                    0
+## 90                    0
+## 91                    0
+## 92                    0
+\end{verbatim}
+
+\hypertarget{step-4.-plot-the-smoothed-signal-with-the-beginning-rise-points.}{%
+\paragraph{Step 4. Plot the smoothed signal with the beginning rise
+points.}\label{step-4.-plot-the-smoothed-signal-with-the-beginning-rise-points.}}
+
+We can see that Drs Visits begins to rise before cases rise. TODO I
+think we need to tweak our rise point method a bit so we don't have
+these ``double counting'' points on a rise.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\KeywordTok{plot_signals}\NormalTok{(drs_summer, }\StringTok{"01003"}\NormalTok{, }\DataTypeTok{smooth_and_show_increase_point=}\OtherTok{TRUE}\NormalTok{, }\StringTok{"Drs Visits"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-6-1.pdf}
+
+\hypertarget{analysis}{%
+\subsection{Analysis}\label{analysis}}
+
+TODO on this whole section. Need to rework and add in Vishnu's analysis.
+
+\hypertarget{doctor-visits}{%
+\subsubsection{Doctor Visits}\label{doctor-visits}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{drs_visits_prepared_fall =}\StringTok{ }\KeywordTok{get_and_parse_signals}\NormalTok{(}\StringTok{"2020-09-01"}\NormalTok{, }\StringTok{"2020-11-30"}\NormalTok{, }\StringTok{"doctor-visits"}\NormalTok{, }\StringTok{"smoothed_adj_cli"}\NormalTok{, }\DecValTok{2000}\NormalTok{, }\DecValTok{80}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Fetched day 2020-09-01 to 2020-09-01: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-02 to 2020-09-02: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-03 to 2020-09-03: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-04 to 2020-09-04: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-05 to 2020-09-05: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-06 to 2020-09-06: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-07 to 2020-09-07: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-08 to 2020-09-08: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-09 to 2020-09-09: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-10 to 2020-09-10: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-11 to 2020-09-11: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-12 to 2020-09-12: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-13 to 2020-09-13: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-14 to 2020-09-14: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-15 to 2020-09-15: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-16 to 2020-09-16: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-17 to 2020-09-17: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-18 to 2020-09-18: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-19 to 2020-09-19: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-20 to 2020-09-20: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-21 to 2020-09-21: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-22 to 2020-09-22: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-23 to 2020-09-23: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-24 to 2020-09-24: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-25 to 2020-09-25: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-26 to 2020-09-26: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-27 to 2020-09-27: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-28 to 2020-09-28: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-29 to 2020-09-29: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-30 to 2020-09-30: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-01 to 2020-10-01: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-02 to 2020-10-02: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-03 to 2020-10-03: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-04 to 2020-10-04: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-05 to 2020-10-05: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-06 to 2020-10-06: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-07 to 2020-10-07: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-08 to 2020-10-08: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-09 to 2020-10-09: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-10 to 2020-10-10: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-11 to 2020-10-11: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-12 to 2020-10-12: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-13 to 2020-10-13: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-14 to 2020-10-14: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-15 to 2020-10-15: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-16 to 2020-10-16: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-17 to 2020-10-17: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-18 to 2020-10-18: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-19 to 2020-10-19: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-20 to 2020-10-20: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-21 to 2020-10-21: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-22 to 2020-10-22: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-23 to 2020-10-23: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-24 to 2020-10-24: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-25 to 2020-10-25: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-26 to 2020-10-26: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-27 to 2020-10-27: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-28 to 2020-10-28: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-29 to 2020-10-29: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-30 to 2020-10-30: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-31 to 2020-10-31: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-01 to 2020-11-01: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-02 to 2020-11-02: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-03 to 2020-11-03: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-04 to 2020-11-04: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-05 to 2020-11-05: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-06 to 2020-11-06: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-07 to 2020-11-07: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-08 to 2020-11-08: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-09 to 2020-11-09: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-10 to 2020-11-10: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-11 to 2020-11-11: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-12 to 2020-11-12: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-13 to 2020-11-13: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-14 to 2020-11-14: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-15 to 2020-11-15: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-16 to 2020-11-16: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-17 to 2020-11-17: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-18 to 2020-11-18: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-19 to 2020-11-19: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-20 to 2020-11-20: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-21 to 2020-11-21: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-22 to 2020-11-22: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-23 to 2020-11-23: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-24 to 2020-11-24: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-25 to 2020-11-25: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-26 to 2020-11-26: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-27 to 2020-11-27: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-28 to 2020-11-28: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-29 to 2020-11-29: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-30 to 2020-11-30: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-01 to 2020-09-01: num_entries = 2069
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-02 to 2020-09-02: num_entries = 2064
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-03 to 2020-09-03: num_entries = 2056
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-04 to 2020-09-04: num_entries = 2062
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-05 to 2020-09-05: num_entries = 2053
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-06 to 2020-09-06: num_entries = 1992
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-07 to 2020-09-07: num_entries = 1989
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-08 to 2020-09-08: num_entries = 1989
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-09 to 2020-09-09: num_entries = 1994
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-10 to 2020-09-10: num_entries = 1983
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-11 to 2020-09-11: num_entries = 1994
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-12 to 2020-09-12: num_entries = 1999
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-13 to 2020-09-13: num_entries = 1925
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-14 to 2020-09-14: num_entries = 1914
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-15 to 2020-09-15: num_entries = 2035
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-16 to 2020-09-16: num_entries = 2095
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-17 to 2020-09-17: num_entries = 2097
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-18 to 2020-09-18: num_entries = 2101
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-19 to 2020-09-19: num_entries = 2092
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-20 to 2020-09-20: num_entries = 2040
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-21 to 2020-09-21: num_entries = 2032
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-22 to 2020-09-22: num_entries = 2113
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-23 to 2020-09-23: num_entries = 2100
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-24 to 2020-09-24: num_entries = 2109
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-25 to 2020-09-25: num_entries = 2113
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-26 to 2020-09-26: num_entries = 2108
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-27 to 2020-09-27: num_entries = 2039
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-28 to 2020-09-28: num_entries = 2038
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-29 to 2020-09-29: num_entries = 2134
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-30 to 2020-09-30: num_entries = 2130
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-01 to 2020-10-01: num_entries = 2142
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-02 to 2020-10-02: num_entries = 2147
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-03 to 2020-10-03: num_entries = 2142
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-04 to 2020-10-04: num_entries = 2091
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-05 to 2020-10-05: num_entries = 2078
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-06 to 2020-10-06: num_entries = 2167
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-07 to 2020-10-07: num_entries = 2165
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-08 to 2020-10-08: num_entries = 2164
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-09 to 2020-10-09: num_entries = 2167
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-10 to 2020-10-10: num_entries = 2149
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-11 to 2020-10-11: num_entries = 2093
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-12 to 2020-10-12: num_entries = 2094
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-13 to 2020-10-13: num_entries = 2168
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-14 to 2020-10-14: num_entries = 2163
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-15 to 2020-10-15: num_entries = 2164
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-16 to 2020-10-16: num_entries = 2155
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-17 to 2020-10-17: num_entries = 2144
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-18 to 2020-10-18: num_entries = 2087
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-19 to 2020-10-19: num_entries = 2082
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-20 to 2020-10-20: num_entries = 2154
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-21 to 2020-10-21: num_entries = 2161
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-22 to 2020-10-22: num_entries = 2155
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-23 to 2020-10-23: num_entries = 2156
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-24 to 2020-10-24: num_entries = 2140
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-25 to 2020-10-25: num_entries = 2076
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-26 to 2020-10-26: num_entries = 2073
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-27 to 2020-10-27: num_entries = 2152
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-28 to 2020-10-28: num_entries = 2155
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-29 to 2020-10-29: num_entries = 2145
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-30 to 2020-10-30: num_entries = 2138
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-31 to 2020-10-31: num_entries = 2124
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-01 to 2020-11-01: num_entries = 2067
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-02 to 2020-11-02: num_entries = 2067
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-03 to 2020-11-03: num_entries = 2148
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-04 to 2020-11-04: num_entries = 2137
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-05 to 2020-11-05: num_entries = 2139
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-06 to 2020-11-06: num_entries = 2145
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-07 to 2020-11-07: num_entries = 2138
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-08 to 2020-11-08: num_entries = 2079
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-09 to 2020-11-09: num_entries = 2075
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-10 to 2020-11-10: num_entries = 2151
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-11 to 2020-11-11: num_entries = 2149
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-12 to 2020-11-12: num_entries = 2150
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-13 to 2020-11-13: num_entries = 2141
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-14 to 2020-11-14: num_entries = 2129
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-15 to 2020-11-15: num_entries = 2083
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-16 to 2020-11-16: num_entries = 2078
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-17 to 2020-11-17: num_entries = 2158
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-18 to 2020-11-18: num_entries = 2161
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-19 to 2020-11-19: num_entries = 2159
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-20 to 2020-11-20: num_entries = 2154
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-21 to 2020-11-21: num_entries = 2134
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-22 to 2020-11-22: num_entries = 2082
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-23 to 2020-11-23: num_entries = 2081
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-24 to 2020-11-24: num_entries = 2148
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-25 to 2020-11-25: num_entries = 2140
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-26 to 2020-11-26: num_entries = 2123
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-27 to 2020-11-27: num_entries = 2057
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-28 to 2020-11-28: num_entries = 1973
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-29 to 2020-11-29: num_entries = 1877
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-30 to 2020-11-30: num_entries = 1870
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{drs_visits_prepared_summer =}\StringTok{ }\KeywordTok{get_and_parse_signals}\NormalTok{(}\StringTok{"2020-06-01"}\NormalTok{, }\StringTok{"2020-8-31"}\NormalTok{, }\StringTok{"doctor-visits"}\NormalTok{, }\StringTok{"smoothed_adj_cli"}\NormalTok{, }\DecValTok{2000}\NormalTok{, }\DecValTok{80}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Fetched day 2020-06-01 to 2020-06-01: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-02 to 2020-06-02: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-03 to 2020-06-03: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-04 to 2020-06-04: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-05 to 2020-06-05: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-06 to 2020-06-06: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-07 to 2020-06-07: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-08 to 2020-06-08: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-09 to 2020-06-09: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-10 to 2020-06-10: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-11 to 2020-06-11: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-12 to 2020-06-12: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-13 to 2020-06-13: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-14 to 2020-06-14: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-15 to 2020-06-15: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-16 to 2020-06-16: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-17 to 2020-06-17: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-18 to 2020-06-18: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-19 to 2020-06-19: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-20 to 2020-06-20: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-21 to 2020-06-21: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-22 to 2020-06-22: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-23 to 2020-06-23: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-24 to 2020-06-24: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-25 to 2020-06-25: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-26 to 2020-06-26: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-27 to 2020-06-27: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-28 to 2020-06-28: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-29 to 2020-06-29: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-30 to 2020-06-30: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-01 to 2020-07-01: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-02 to 2020-07-02: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-03 to 2020-07-03: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-04 to 2020-07-04: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-05 to 2020-07-05: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-06 to 2020-07-06: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-07 to 2020-07-07: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-08 to 2020-07-08: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-09 to 2020-07-09: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-10 to 2020-07-10: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-11 to 2020-07-11: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-12 to 2020-07-12: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-13 to 2020-07-13: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-14 to 2020-07-14: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-15 to 2020-07-15: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-16 to 2020-07-16: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-17 to 2020-07-17: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-18 to 2020-07-18: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-19 to 2020-07-19: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-20 to 2020-07-20: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-21 to 2020-07-21: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-22 to 2020-07-22: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-23 to 2020-07-23: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-24 to 2020-07-24: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-25 to 2020-07-25: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-26 to 2020-07-26: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-27 to 2020-07-27: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-28 to 2020-07-28: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-29 to 2020-07-29: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-30 to 2020-07-30: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-31 to 2020-07-31: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-01 to 2020-08-01: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-02 to 2020-08-02: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-03 to 2020-08-03: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-04 to 2020-08-04: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-05 to 2020-08-05: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-06 to 2020-08-06: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-07 to 2020-08-07: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-08 to 2020-08-08: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-09 to 2020-08-09: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-10 to 2020-08-10: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-11 to 2020-08-11: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-12 to 2020-08-12: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-13 to 2020-08-13: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-14 to 2020-08-14: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-15 to 2020-08-15: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-16 to 2020-08-16: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-17 to 2020-08-17: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-18 to 2020-08-18: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-19 to 2020-08-19: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-20 to 2020-08-20: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-21 to 2020-08-21: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-22 to 2020-08-22: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-23 to 2020-08-23: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-24 to 2020-08-24: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-25 to 2020-08-25: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-26 to 2020-08-26: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-27 to 2020-08-27: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-28 to 2020-08-28: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-29 to 2020-08-29: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-30 to 2020-08-30: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-31 to 2020-08-31: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-01 to 2020-06-01: num_entries = 2211
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-02 to 2020-06-02: num_entries = 2287
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-03 to 2020-06-03: num_entries = 2326
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-04 to 2020-06-04: num_entries = 2250
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-05 to 2020-06-05: num_entries = 2181
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-06 to 2020-06-06: num_entries = 2121
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-07 to 2020-06-07: num_entries = 2017
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-08 to 2020-06-08: num_entries = 2007
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-09 to 2020-06-09: num_entries = 2082
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-10 to 2020-06-10: num_entries = 2064
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-11 to 2020-06-11: num_entries = 2063
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-12 to 2020-06-12: num_entries = 2063
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-13 to 2020-06-13: num_entries = 2046
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-14 to 2020-06-14: num_entries = 2000
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-15 to 2020-06-15: num_entries = 1998
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-16 to 2020-06-16: num_entries = 2081
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-17 to 2020-06-17: num_entries = 2079
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-18 to 2020-06-18: num_entries = 2073
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-19 to 2020-06-19: num_entries = 2074
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-20 to 2020-06-20: num_entries = 2064
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-21 to 2020-06-21: num_entries = 2010
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-22 to 2020-06-22: num_entries = 2006
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-23 to 2020-06-23: num_entries = 2076
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-24 to 2020-06-24: num_entries = 2074
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-25 to 2020-06-25: num_entries = 2070
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-26 to 2020-06-26: num_entries = 2072
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-27 to 2020-06-27: num_entries = 2060
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-28 to 2020-06-28: num_entries = 2000
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-29 to 2020-06-29: num_entries = 1999
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-30 to 2020-06-30: num_entries = 2078
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-01 to 2020-07-01: num_entries = 2078
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-02 to 2020-07-02: num_entries = 2088
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-03 to 2020-07-03: num_entries = 2080
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-04 to 2020-07-04: num_entries = 2039
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-05 to 2020-07-05: num_entries = 1963
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-06 to 2020-07-06: num_entries = 1959
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-07 to 2020-07-07: num_entries = 2044
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-08 to 2020-07-08: num_entries = 2037
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-09 to 2020-07-09: num_entries = 2033
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-10 to 2020-07-10: num_entries = 2028
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-11 to 2020-07-11: num_entries = 2013
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-12 to 2020-07-12: num_entries = 2005
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-13 to 2020-07-13: num_entries = 2008
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-14 to 2020-07-14: num_entries = 2075
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-15 to 2020-07-15: num_entries = 2075
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-16 to 2020-07-16: num_entries = 2077
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-17 to 2020-07-17: num_entries = 2071
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-18 to 2020-07-18: num_entries = 2061
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-19 to 2020-07-19: num_entries = 2018
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-20 to 2020-07-20: num_entries = 2018
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-21 to 2020-07-21: num_entries = 2081
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-22 to 2020-07-22: num_entries = 2080
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-23 to 2020-07-23: num_entries = 2076
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-24 to 2020-07-24: num_entries = 2074
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-25 to 2020-07-25: num_entries = 2060
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-26 to 2020-07-26: num_entries = 2006
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-27 to 2020-07-27: num_entries = 2002
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-28 to 2020-07-28: num_entries = 2076
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-29 to 2020-07-29: num_entries = 2072
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-30 to 2020-07-30: num_entries = 2065
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-31 to 2020-07-31: num_entries = 2054
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-01 to 2020-08-01: num_entries = 2044
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-02 to 2020-08-02: num_entries = 1991
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-03 to 2020-08-03: num_entries = 1986
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-04 to 2020-08-04: num_entries = 2065
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-05 to 2020-08-05: num_entries = 2059
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-06 to 2020-08-06: num_entries = 2061
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-07 to 2020-08-07: num_entries = 2055
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-08 to 2020-08-08: num_entries = 2049
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-09 to 2020-08-09: num_entries = 1993
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-10 to 2020-08-10: num_entries = 1986
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-11 to 2020-08-11: num_entries = 2072
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-12 to 2020-08-12: num_entries = 2082
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-13 to 2020-08-13: num_entries = 2076
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-14 to 2020-08-14: num_entries = 2071
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-15 to 2020-08-15: num_entries = 2062
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-16 to 2020-08-16: num_entries = 2016
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-17 to 2020-08-17: num_entries = 2011
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-18 to 2020-08-18: num_entries = 2081
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-19 to 2020-08-19: num_entries = 2083
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-20 to 2020-08-20: num_entries = 2079
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-21 to 2020-08-21: num_entries = 2075
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-22 to 2020-08-22: num_entries = 2056
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-23 to 2020-08-23: num_entries = 2001
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-24 to 2020-08-24: num_entries = 2002
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-25 to 2020-08-25: num_entries = 2090
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-26 to 2020-08-26: num_entries = 2079
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-27 to 2020-08-27: num_entries = 2071
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-28 to 2020-08-28: num_entries = 2079
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-29 to 2020-08-29: num_entries = 2060
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-30 to 2020-08-30: num_entries = 2003
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-31 to 2020-08-31: num_entries = 1996
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{drs_fall =}\StringTok{ }\KeywordTok{get_increase_points}\NormalTok{(drs_visits_prepared_fall}\OperatorTok{$}\NormalTok{cases, drs_visits_prepared_fall}\OperatorTok{$}\NormalTok{indicator)}
+\NormalTok{drs_summer =}\StringTok{ }\KeywordTok{get_increase_points}\NormalTok{(drs_visits_prepared_summer}\OperatorTok{$}\NormalTok{cases, drs_visits_prepared_summer}\OperatorTok{$}\NormalTok{indicator)}
+
+\NormalTok{success_examples_drs_fall =}\StringTok{ }\KeywordTok{get_success_examples}\NormalTok{(drs_fall, }\DataTypeTok{success_window_max =} \DecValTok{14}\NormalTok{, }\DataTypeTok{success_window_min =} \DecValTok{3}\NormalTok{)}
+\NormalTok{success_examples_drs_summer =}\StringTok{ }\KeywordTok{get_success_examples}\NormalTok{(drs_summer, }\DataTypeTok{success_window_max =} \DecValTok{14}\NormalTok{, }\DataTypeTok{success_window_min =} \DecValTok{3}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{we-can-plot-some-of-the-counties-where-rises-in-the-doctor-visits-indicator-consistently-lead-rises-in-cases.}{%
+\paragraph{We can plot some of the counties where rises in the doctor
+visits indicator consistently lead rises in
+cases.}\label{we-can-plot-some-of-the-counties-where-rises-in-the-doctor-visits-indicator-consistently-lead-rises-in-cases.}}
+
+\hypertarget{examples-from-the-summer}{%
+\subparagraph{Examples from the Summer}\label{examples-from-the-summer}}
+
+\begin{verbatim}
+## Warning: Some inputs were not uniquely matched; returning only the first match
+## in each case.
+\end{verbatim}
+
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-9-1.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-9-2.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-9-3.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-9-4.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-9-5.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-9-6.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-9-7.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-9-8.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-9-9.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-9-10.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-9-11.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-9-12.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-9-13.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-9-14.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-9-15.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-9-16.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-9-17.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-9-18.pdf}
+
+\hypertarget{examples-from-the-fall}{%
+\subparagraph{Examples from the Fall}\label{examples-from-the-fall}}
+
+\begin{verbatim}
+## Warning: Some inputs were not uniquely matched; returning only the first match
+## in each case.
+\end{verbatim}
+
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-10-1.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-10-2.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-10-3.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-10-4.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-10-5.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-10-6.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-10-7.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-10-8.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-10-9.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-10-10.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-10-11.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-10-12.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-10-13.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-10-14.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-10-15.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-10-16.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-10-17.pdf}
+
+\hypertarget{examples-of-counties-that-show-successes-in-both-summer-and-fall}{%
+\subparagraph{Examples of counties that show successes in both Summer
+and
+Fall}\label{examples-of-counties-that-show-successes-in-both-summer-and-fall}}
+
+\begin{verbatim}
+## Warning: Some inputs were not uniquely matched; returning only the first match
+## in each case.
+
+## Warning: Some inputs were not uniquely matched; returning only the first match
+## in each case.
+\end{verbatim}
+
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-11-1.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-11-2.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-11-3.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-11-4.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-11-5.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-11-6.pdf}
+\#\#\#\#\# Fall Frequencies We can also look at the distribution of the
+frequency of the number of days by which Doctor Visits' rises lead case
+rises in successful counties
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-12-1.pdf}
+
+\hypertarget{summer-frequencies}{%
+\subparagraph{Summer Frequencies}\label{summer-frequencies}}
+
+We can also look at the distribution of the frequency of the number of
+days by which Doctor Visits' rises lead case rises in successful
+counties
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-13-1.pdf}
+
+\hypertarget{change-healthcare}{%
+\subsubsection{Change Healthcare}\label{change-healthcare}}
+
+\begin{verbatim}
+## Fetched day 2020-09-01 to 2020-09-01: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-02 to 2020-09-02: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-03 to 2020-09-03: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-04 to 2020-09-04: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-05 to 2020-09-05: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-06 to 2020-09-06: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-07 to 2020-09-07: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-08 to 2020-09-08: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-09 to 2020-09-09: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-10 to 2020-09-10: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-11 to 2020-09-11: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-12 to 2020-09-12: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-13 to 2020-09-13: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-14 to 2020-09-14: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-15 to 2020-09-15: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-16 to 2020-09-16: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-17 to 2020-09-17: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-18 to 2020-09-18: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-19 to 2020-09-19: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-20 to 2020-09-20: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-21 to 2020-09-21: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-22 to 2020-09-22: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-23 to 2020-09-23: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-24 to 2020-09-24: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-25 to 2020-09-25: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-26 to 2020-09-26: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-27 to 2020-09-27: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-28 to 2020-09-28: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-29 to 2020-09-29: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-30 to 2020-09-30: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-01 to 2020-10-01: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-02 to 2020-10-02: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-03 to 2020-10-03: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-04 to 2020-10-04: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-05 to 2020-10-05: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-06 to 2020-10-06: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-07 to 2020-10-07: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-08 to 2020-10-08: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-09 to 2020-10-09: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-10 to 2020-10-10: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-11 to 2020-10-11: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-12 to 2020-10-12: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-13 to 2020-10-13: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-14 to 2020-10-14: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-15 to 2020-10-15: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-16 to 2020-10-16: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-17 to 2020-10-17: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-18 to 2020-10-18: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-19 to 2020-10-19: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-20 to 2020-10-20: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-21 to 2020-10-21: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-22 to 2020-10-22: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-23 to 2020-10-23: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-24 to 2020-10-24: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-25 to 2020-10-25: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-26 to 2020-10-26: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-27 to 2020-10-27: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-28 to 2020-10-28: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-29 to 2020-10-29: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-30 to 2020-10-30: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-31 to 2020-10-31: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-01 to 2020-11-01: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-02 to 2020-11-02: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-03 to 2020-11-03: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-04 to 2020-11-04: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-05 to 2020-11-05: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-06 to 2020-11-06: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-07 to 2020-11-07: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-08 to 2020-11-08: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-09 to 2020-11-09: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-10 to 2020-11-10: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-11 to 2020-11-11: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-12 to 2020-11-12: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-13 to 2020-11-13: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-14 to 2020-11-14: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-15 to 2020-11-15: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-16 to 2020-11-16: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-17 to 2020-11-17: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-18 to 2020-11-18: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-19 to 2020-11-19: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-20 to 2020-11-20: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-21 to 2020-11-21: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-22 to 2020-11-22: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-23 to 2020-11-23: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-24 to 2020-11-24: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-25 to 2020-11-25: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-26 to 2020-11-26: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-27 to 2020-11-27: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-28 to 2020-11-28: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-29 to 2020-11-29: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-30 to 2020-11-30: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-01 to 2020-09-01: num_entries = 3026
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-02 to 2020-09-02: num_entries = 3026
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-03 to 2020-09-03: num_entries = 3027
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-04 to 2020-09-04: num_entries = 3027
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-05 to 2020-09-05: num_entries = 3026
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-06 to 2020-09-06: num_entries = 3020
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-07 to 2020-09-07: num_entries = 3021
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-08 to 2020-09-08: num_entries = 3023
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-09 to 2020-09-09: num_entries = 2997
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-10 to 2020-09-10: num_entries = 2990
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-11 to 2020-09-11: num_entries = 2989
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-12 to 2020-09-12: num_entries = 2987
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-13 to 2020-09-13: num_entries = 2981
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-14 to 2020-09-14: num_entries = 2980
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-15 to 2020-09-15: num_entries = 2987
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-16 to 2020-09-16: num_entries = 2998
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-17 to 2020-09-17: num_entries = 3006
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-18 to 2020-09-18: num_entries = 3014
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-19 to 2020-09-19: num_entries = 3026
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-20 to 2020-09-20: num_entries = 3027
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-21 to 2020-09-21: num_entries = 3027
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-22 to 2020-09-22: num_entries = 3031
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-23 to 2020-09-23: num_entries = 3030
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-24 to 2020-09-24: num_entries = 3031
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-25 to 2020-09-25: num_entries = 3031
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-26 to 2020-09-26: num_entries = 3030
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-27 to 2020-09-27: num_entries = 3028
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-28 to 2020-09-28: num_entries = 3027
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-29 to 2020-09-29: num_entries = 3034
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-30 to 2020-09-30: num_entries = 3037
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-01 to 2020-10-01: num_entries = 3040
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-02 to 2020-10-02: num_entries = 3039
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-03 to 2020-10-03: num_entries = 3042
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-04 to 2020-10-04: num_entries = 3040
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-05 to 2020-10-05: num_entries = 3040
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-06 to 2020-10-06: num_entries = 3043
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-07 to 2020-10-07: num_entries = 3044
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-08 to 2020-10-08: num_entries = 3045
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-09 to 2020-10-09: num_entries = 3043
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-10 to 2020-10-10: num_entries = 3045
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-11 to 2020-10-11: num_entries = 3041
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-12 to 2020-10-12: num_entries = 3043
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-13 to 2020-10-13: num_entries = 3046
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-14 to 2020-10-14: num_entries = 3048
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-15 to 2020-10-15: num_entries = 3049
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-16 to 2020-10-16: num_entries = 3044
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-17 to 2020-10-17: num_entries = 3044
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-18 to 2020-10-18: num_entries = 3038
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-19 to 2020-10-19: num_entries = 3036
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-20 to 2020-10-20: num_entries = 3041
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-21 to 2020-10-21: num_entries = 3042
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-22 to 2020-10-22: num_entries = 3040
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-23 to 2020-10-23: num_entries = 3037
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-24 to 2020-10-24: num_entries = 3033
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-25 to 2020-10-25: num_entries = 3032
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-26 to 2020-10-26: num_entries = 3032
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-27 to 2020-10-27: num_entries = 3038
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-28 to 2020-10-28: num_entries = 3034
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-29 to 2020-10-29: num_entries = 3029
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-30 to 2020-10-30: num_entries = 3024
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-31 to 2020-10-31: num_entries = 3024
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-01 to 2020-11-01: num_entries = 3015
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-02 to 2020-11-02: num_entries = 3017
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-03 to 2020-11-03: num_entries = 3023
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-04 to 2020-11-04: num_entries = 3023
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-05 to 2020-11-05: num_entries = 3024
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-06 to 2020-11-06: num_entries = 3027
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-07 to 2020-11-07: num_entries = 3027
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-08 to 2020-11-08: num_entries = 3021
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-09 to 2020-11-09: num_entries = 3021
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-10 to 2020-11-10: num_entries = 3024
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-11 to 2020-11-11: num_entries = 3024
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-12 to 2020-11-12: num_entries = 3024
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-13 to 2020-11-13: num_entries = 3026
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-14 to 2020-11-14: num_entries = 3024
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-15 to 2020-11-15: num_entries = 3023
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-16 to 2020-11-16: num_entries = 3023
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-17 to 2020-11-17: num_entries = 3025
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-18 to 2020-11-18: num_entries = 3028
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-19 to 2020-11-19: num_entries = 3028
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-20 to 2020-11-20: num_entries = 3032
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-21 to 2020-11-21: num_entries = 3031
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-22 to 2020-11-22: num_entries = 3026
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-23 to 2020-11-23: num_entries = 3023
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-24 to 2020-11-24: num_entries = 3030
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-25 to 2020-11-25: num_entries = 3027
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-26 to 2020-11-26: num_entries = 3027
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-27 to 2020-11-27: num_entries = 3021
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-28 to 2020-11-28: num_entries = 2980
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-29 to 2020-11-29: num_entries = 2949
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-30 to 2020-11-30: num_entries = 2940
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-01 to 2020-06-01: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-02 to 2020-06-02: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-03 to 2020-06-03: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-04 to 2020-06-04: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-05 to 2020-06-05: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-06 to 2020-06-06: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-07 to 2020-06-07: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-08 to 2020-06-08: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-09 to 2020-06-09: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-10 to 2020-06-10: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-11 to 2020-06-11: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-12 to 2020-06-12: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-13 to 2020-06-13: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-14 to 2020-06-14: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-15 to 2020-06-15: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-16 to 2020-06-16: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-17 to 2020-06-17: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-18 to 2020-06-18: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-19 to 2020-06-19: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-20 to 2020-06-20: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-21 to 2020-06-21: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-22 to 2020-06-22: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-23 to 2020-06-23: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-24 to 2020-06-24: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-25 to 2020-06-25: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-26 to 2020-06-26: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-27 to 2020-06-27: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-28 to 2020-06-28: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-29 to 2020-06-29: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-30 to 2020-06-30: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-01 to 2020-07-01: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-02 to 2020-07-02: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-03 to 2020-07-03: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-04 to 2020-07-04: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-05 to 2020-07-05: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-06 to 2020-07-06: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-07 to 2020-07-07: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-08 to 2020-07-08: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-09 to 2020-07-09: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-10 to 2020-07-10: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-11 to 2020-07-11: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-12 to 2020-07-12: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-13 to 2020-07-13: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-14 to 2020-07-14: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-15 to 2020-07-15: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-16 to 2020-07-16: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-17 to 2020-07-17: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-18 to 2020-07-18: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-19 to 2020-07-19: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-20 to 2020-07-20: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-21 to 2020-07-21: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-22 to 2020-07-22: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-23 to 2020-07-23: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-24 to 2020-07-24: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-25 to 2020-07-25: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-26 to 2020-07-26: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-27 to 2020-07-27: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-28 to 2020-07-28: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-29 to 2020-07-29: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-30 to 2020-07-30: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-31 to 2020-07-31: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-01 to 2020-08-01: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-02 to 2020-08-02: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-03 to 2020-08-03: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-04 to 2020-08-04: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-05 to 2020-08-05: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-06 to 2020-08-06: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-07 to 2020-08-07: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-08 to 2020-08-08: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-09 to 2020-08-09: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-10 to 2020-08-10: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-11 to 2020-08-11: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-12 to 2020-08-12: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-13 to 2020-08-13: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-14 to 2020-08-14: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-15 to 2020-08-15: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-16 to 2020-08-16: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-17 to 2020-08-17: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-18 to 2020-08-18: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-19 to 2020-08-19: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-20 to 2020-08-20: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-21 to 2020-08-21: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-22 to 2020-08-22: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-23 to 2020-08-23: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-24 to 2020-08-24: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-25 to 2020-08-25: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-26 to 2020-08-26: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-27 to 2020-08-27: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-28 to 2020-08-28: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-29 to 2020-08-29: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-30 to 2020-08-30: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-31 to 2020-08-31: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-01 to 2020-06-01: num_entries = 2284
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-02 to 2020-06-02: num_entries = 2287
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-03 to 2020-06-03: num_entries = 2291
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-04 to 2020-06-04: num_entries = 2303
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-05 to 2020-06-05: num_entries = 2305
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-06 to 2020-06-06: num_entries = 2315
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-07 to 2020-06-07: num_entries = 2321
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-08 to 2020-06-08: num_entries = 2338
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-09 to 2020-06-09: num_entries = 2356
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-10 to 2020-06-10: num_entries = 2359
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-11 to 2020-06-11: num_entries = 2364
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-12 to 2020-06-12: num_entries = 2368
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-13 to 2020-06-13: num_entries = 2370
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-14 to 2020-06-14: num_entries = 2367
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-15 to 2020-06-15: num_entries = 2369
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-16 to 2020-06-16: num_entries = 2369
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-17 to 2020-06-17: num_entries = 2372
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-18 to 2020-06-18: num_entries = 2372
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-19 to 2020-06-19: num_entries = 2369
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-20 to 2020-06-20: num_entries = 2370
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-21 to 2020-06-21: num_entries = 2370
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-22 to 2020-06-22: num_entries = 2371
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-23 to 2020-06-23: num_entries = 2372
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-24 to 2020-06-24: num_entries = 2373
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-25 to 2020-06-25: num_entries = 2373
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-26 to 2020-06-26: num_entries = 2377
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-27 to 2020-06-27: num_entries = 2375
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-28 to 2020-06-28: num_entries = 2377
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-29 to 2020-06-29: num_entries = 2375
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-30 to 2020-06-30: num_entries = 2378
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-01 to 2020-07-01: num_entries = 2378
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-02 to 2020-07-02: num_entries = 2383
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-03 to 2020-07-03: num_entries = 2387
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-04 to 2020-07-04: num_entries = 2386
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-05 to 2020-07-05: num_entries = 2382
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-06 to 2020-07-06: num_entries = 2384
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-07 to 2020-07-07: num_entries = 2380
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-08 to 2020-07-08: num_entries = 2380
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-09 to 2020-07-09: num_entries = 2368
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-10 to 2020-07-10: num_entries = 2364
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-11 to 2020-07-11: num_entries = 2358
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-12 to 2020-07-12: num_entries = 2356
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-13 to 2020-07-13: num_entries = 2354
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-14 to 2020-07-14: num_entries = 2359
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-15 to 2020-07-15: num_entries = 2363
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-16 to 2020-07-16: num_entries = 2369
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-17 to 2020-07-17: num_entries = 2380
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-18 to 2020-07-18: num_entries = 2385
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-19 to 2020-07-19: num_entries = 2393
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-20 to 2020-07-20: num_entries = 2396
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-21 to 2020-07-21: num_entries = 2398
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-22 to 2020-07-22: num_entries = 2398
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-23 to 2020-07-23: num_entries = 2403
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-24 to 2020-07-24: num_entries = 2403
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-25 to 2020-07-25: num_entries = 2401
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-26 to 2020-07-26: num_entries = 2401
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-27 to 2020-07-27: num_entries = 2397
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-28 to 2020-07-28: num_entries = 2395
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-29 to 2020-07-29: num_entries = 2399
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-30 to 2020-07-30: num_entries = 2398
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-31 to 2020-07-31: num_entries = 2393
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-01 to 2020-08-01: num_entries = 2394
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-02 to 2020-08-02: num_entries = 2394
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-03 to 2020-08-03: num_entries = 2390
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-04 to 2020-08-04: num_entries = 2391
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-05 to 2020-08-05: num_entries = 2385
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-06 to 2020-08-06: num_entries = 2385
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-07 to 2020-08-07: num_entries = 2385
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-08 to 2020-08-08: num_entries = 2386
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-09 to 2020-08-09: num_entries = 2383
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-10 to 2020-08-10: num_entries = 2386
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-11 to 2020-08-11: num_entries = 2394
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-12 to 2020-08-12: num_entries = 2396
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-13 to 2020-08-13: num_entries = 2403
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-14 to 2020-08-14: num_entries = 2401
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-15 to 2020-08-15: num_entries = 2402
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-16 to 2020-08-16: num_entries = 2403
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-17 to 2020-08-17: num_entries = 2403
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-18 to 2020-08-18: num_entries = 3017
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-19 to 2020-08-19: num_entries = 3017
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-20 to 2020-08-20: num_entries = 3016
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-21 to 2020-08-21: num_entries = 3020
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-22 to 2020-08-22: num_entries = 3023
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-23 to 2020-08-23: num_entries = 3023
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-24 to 2020-08-24: num_entries = 3021
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-25 to 2020-08-25: num_entries = 3030
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-26 to 2020-08-26: num_entries = 3032
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-27 to 2020-08-27: num_entries = 3031
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-28 to 2020-08-28: num_entries = 3031
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-29 to 2020-08-29: num_entries = 3030
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-30 to 2020-08-30: num_entries = 3023
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-31 to 2020-08-31: num_entries = 3023
+\end{verbatim}
+
+\hypertarget{we-can-plot-some-of-the-counties-where-rises-in-the-change-healthcare-indicator-consistently-lead-rises-in-cases.}{%
+\paragraph{We can plot some of the counties where rises in the Change
+Healthcare indicator consistently lead rises in
+cases.}\label{we-can-plot-some-of-the-counties-where-rises-in-the-change-healthcare-indicator-consistently-lead-rises-in-cases.}}
+
+\hypertarget{examples-from-the-summer-1}{%
+\subparagraph{Examples from the
+Summer}\label{examples-from-the-summer-1}}
+
+\begin{verbatim}
+## Warning: Some inputs were not uniquely matched; returning only the first match
+## in each case.
+\end{verbatim}
+
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-1.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-2.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-3.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-4.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-5.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-6.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-7.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-8.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-9.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-10.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-11.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-12.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-13.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-14.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-15.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-16.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-17.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-18.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-19.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-20.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-21.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-16-22.pdf}
+
+\hypertarget{examples-from-the-fall-1}{%
+\subparagraph{Examples from the Fall}\label{examples-from-the-fall-1}}
+
+\begin{verbatim}
+## Warning: Some inputs were not uniquely matched; returning only the first match
+## in each case.
+\end{verbatim}
+
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-1.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-2.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-3.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-4.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-5.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-6.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-7.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-8.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-9.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-10.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-11.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-12.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-13.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-14.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-15.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-16.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-17.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-18.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-19.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-20.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-21.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-17-22.pdf}
+
+\hypertarget{examples-of-counties-that-show-successes-in-both-summer-and-fall-1}{%
+\subparagraph{Examples of counties that show successes in both Summer
+and
+Fall}\label{examples-of-counties-that-show-successes-in-both-summer-and-fall-1}}
+
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-18-1.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-18-2.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-18-3.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-18-4.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-18-5.pdf}
+
+\hypertarget{fall-frequencies}{%
+\subparagraph{Fall Frequencies}\label{fall-frequencies}}
+
+We can also look at the distribution of the frequency of the number of
+days by which Change Healthcare rises lead case rises in successful
+counties
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-19-1.pdf}
+\#\#\#\#\# Summer Frequencies We can also look at the distribution of
+the frequency of the number of days by which Change Healthcare rises
+lead case rises in successful counties
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-20-1.pdf}
+
+\hypertarget{indicator-combination}{%
+\subsubsection{Indicator Combination}\label{indicator-combination}}
+
+\begin{verbatim}
+## Fetched day 2020-09-01 to 2020-09-01: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-02 to 2020-09-02: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-03 to 2020-09-03: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-04 to 2020-09-04: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-05 to 2020-09-05: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-06 to 2020-09-06: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-07 to 2020-09-07: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-08 to 2020-09-08: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-09 to 2020-09-09: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-10 to 2020-09-10: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-11 to 2020-09-11: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-12 to 2020-09-12: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-13 to 2020-09-13: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-14 to 2020-09-14: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-15 to 2020-09-15: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-16 to 2020-09-16: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-17 to 2020-09-17: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-18 to 2020-09-18: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-19 to 2020-09-19: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-20 to 2020-09-20: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-21 to 2020-09-21: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-22 to 2020-09-22: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-23 to 2020-09-23: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-24 to 2020-09-24: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-25 to 2020-09-25: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-26 to 2020-09-26: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-27 to 2020-09-27: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-28 to 2020-09-28: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-29 to 2020-09-29: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-30 to 2020-09-30: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-01 to 2020-10-01: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-02 to 2020-10-02: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-03 to 2020-10-03: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-04 to 2020-10-04: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-05 to 2020-10-05: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-06 to 2020-10-06: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-07 to 2020-10-07: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-08 to 2020-10-08: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-09 to 2020-10-09: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-10 to 2020-10-10: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-11 to 2020-10-11: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-12 to 2020-10-12: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-13 to 2020-10-13: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-14 to 2020-10-14: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-15 to 2020-10-15: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-16 to 2020-10-16: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-17 to 2020-10-17: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-18 to 2020-10-18: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-19 to 2020-10-19: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-20 to 2020-10-20: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-21 to 2020-10-21: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-22 to 2020-10-22: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-23 to 2020-10-23: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-24 to 2020-10-24: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-25 to 2020-10-25: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-26 to 2020-10-26: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-27 to 2020-10-27: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-28 to 2020-10-28: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-29 to 2020-10-29: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-30 to 2020-10-30: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-31 to 2020-10-31: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-01 to 2020-11-01: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-02 to 2020-11-02: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-03 to 2020-11-03: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-04 to 2020-11-04: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-05 to 2020-11-05: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-06 to 2020-11-06: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-07 to 2020-11-07: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-08 to 2020-11-08: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-09 to 2020-11-09: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-10 to 2020-11-10: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-11 to 2020-11-11: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-12 to 2020-11-12: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-13 to 2020-11-13: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-14 to 2020-11-14: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-15 to 2020-11-15: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-16 to 2020-11-16: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-17 to 2020-11-17: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-18 to 2020-11-18: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-19 to 2020-11-19: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-20 to 2020-11-20: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-21 to 2020-11-21: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-22 to 2020-11-22: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-23 to 2020-11-23: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-24 to 2020-11-24: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-25 to 2020-11-25: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-26 to 2020-11-26: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-27 to 2020-11-27: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-28 to 2020-11-28: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-29 to 2020-11-29: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-30 to 2020-11-30: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-01 to 2020-09-01: num_entries = 2073
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-02 to 2020-09-02: num_entries = 2065
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-03 to 2020-09-03: num_entries = 2060
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-04 to 2020-09-04: num_entries = 2062
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-05 to 2020-09-05: num_entries = 2050
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-06 to 2020-09-06: num_entries = 1988
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-07 to 2020-09-07: num_entries = 1992
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-08 to 2020-09-08: num_entries = 1990
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-09 to 2020-09-09: num_entries = 1996
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-10 to 2020-09-10: num_entries = 1989
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-11 to 2020-09-11: num_entries = 1997
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-12 to 2020-09-12: num_entries = 2000
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-13 to 2020-09-13: num_entries = 1930
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-14 to 2020-09-14: num_entries = 1923
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-15 to 2020-09-15: num_entries = 2046
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-16 to 2020-09-16: num_entries = 2101
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-17 to 2020-09-17: num_entries = 2106
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-18 to 2020-09-18: num_entries = 2106
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-19 to 2020-09-19: num_entries = 2098
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-20 to 2020-09-20: num_entries = 2048
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-21 to 2020-09-21: num_entries = 2042
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-22 to 2020-09-22: num_entries = 2115
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-23 to 2020-09-23: num_entries = 2106
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-24 to 2020-09-24: num_entries = 2105
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-25 to 2020-09-25: num_entries = 2110
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-26 to 2020-09-26: num_entries = 2108
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-27 to 2020-09-27: num_entries = 2035
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-28 to 2020-09-28: num_entries = 2032
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-29 to 2020-09-29: num_entries = 2134
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-09-30 to 2020-09-30: num_entries = 2122
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-01 to 2020-10-01: num_entries = 2131
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-02 to 2020-10-02: num_entries = 2137
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-03 to 2020-10-03: num_entries = 2132
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-04 to 2020-10-04: num_entries = 2102
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-05 to 2020-10-05: num_entries = 2090
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-06 to 2020-10-06: num_entries = 2177
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-07 to 2020-10-07: num_entries = 2176
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-08 to 2020-10-08: num_entries = 2175
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-09 to 2020-10-09: num_entries = 2177
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-10 to 2020-10-10: num_entries = 2160
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-11 to 2020-10-11: num_entries = 2105
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-12 to 2020-10-12: num_entries = 2103
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-13 to 2020-10-13: num_entries = 2174
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-14 to 2020-10-14: num_entries = 2170
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-15 to 2020-10-15: num_entries = 2170
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-16 to 2020-10-16: num_entries = 2161
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-17 to 2020-10-17: num_entries = 2150
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-18 to 2020-10-18: num_entries = 2095
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-19 to 2020-10-19: num_entries = 2090
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-20 to 2020-10-20: num_entries = 2160
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-21 to 2020-10-21: num_entries = 2166
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-22 to 2020-10-22: num_entries = 2160
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-23 to 2020-10-23: num_entries = 2161
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-24 to 2020-10-24: num_entries = 2147
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-25 to 2020-10-25: num_entries = 2084
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-26 to 2020-10-26: num_entries = 2080
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-27 to 2020-10-27: num_entries = 2160
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-28 to 2020-10-28: num_entries = 2163
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-29 to 2020-10-29: num_entries = 2152
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-30 to 2020-10-30: num_entries = 2146
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-10-31 to 2020-10-31: num_entries = 2131
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-01 to 2020-11-01: num_entries = 2076
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-02 to 2020-11-02: num_entries = 2073
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-03 to 2020-11-03: num_entries = 2153
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-04 to 2020-11-04: num_entries = 2143
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-05 to 2020-11-05: num_entries = 2145
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-06 to 2020-11-06: num_entries = 2151
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-07 to 2020-11-07: num_entries = 2145
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-08 to 2020-11-08: num_entries = 2088
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-09 to 2020-11-09: num_entries = 2083
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-10 to 2020-11-10: num_entries = 2159
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-11 to 2020-11-11: num_entries = 2157
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-12 to 2020-11-12: num_entries = 2157
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-13 to 2020-11-13: num_entries = 2149
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-14 to 2020-11-14: num_entries = 2138
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-15 to 2020-11-15: num_entries = 2095
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-16 to 2020-11-16: num_entries = 2093
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-17 to 2020-11-17: num_entries = 2166
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-18 to 2020-11-18: num_entries = 2171
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-19 to 2020-11-19: num_entries = 2169
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-20 to 2020-11-20: num_entries = 2165
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-21 to 2020-11-21: num_entries = 2146
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-22 to 2020-11-22: num_entries = 2094
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-23 to 2020-11-23: num_entries = 2092
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-24 to 2020-11-24: num_entries = 2158
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-25 to 2020-11-25: num_entries = 2150
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-26 to 2020-11-26: num_entries = 2133
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-27 to 2020-11-27: num_entries = 2071
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-28 to 2020-11-28: num_entries = 1987
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-29 to 2020-11-29: num_entries = 1900
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-11-30 to 2020-11-30: num_entries = 1891
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-01 to 2020-06-01: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-02 to 2020-06-02: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-03 to 2020-06-03: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-04 to 2020-06-04: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-05 to 2020-06-05: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-06 to 2020-06-06: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-07 to 2020-06-07: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-08 to 2020-06-08: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-09 to 2020-06-09: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-10 to 2020-06-10: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-11 to 2020-06-11: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-12 to 2020-06-12: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-13 to 2020-06-13: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-14 to 2020-06-14: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-15 to 2020-06-15: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-16 to 2020-06-16: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-17 to 2020-06-17: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-18 to 2020-06-18: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-19 to 2020-06-19: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-20 to 2020-06-20: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-21 to 2020-06-21: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-22 to 2020-06-22: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-23 to 2020-06-23: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-24 to 2020-06-24: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-25 to 2020-06-25: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-26 to 2020-06-26: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-27 to 2020-06-27: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-28 to 2020-06-28: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-29 to 2020-06-29: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-30 to 2020-06-30: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-01 to 2020-07-01: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-02 to 2020-07-02: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-03 to 2020-07-03: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-04 to 2020-07-04: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-05 to 2020-07-05: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-06 to 2020-07-06: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-07 to 2020-07-07: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-08 to 2020-07-08: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-09 to 2020-07-09: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-10 to 2020-07-10: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-11 to 2020-07-11: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-12 to 2020-07-12: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-13 to 2020-07-13: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-14 to 2020-07-14: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-15 to 2020-07-15: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-16 to 2020-07-16: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-17 to 2020-07-17: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-18 to 2020-07-18: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-19 to 2020-07-19: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-20 to 2020-07-20: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-21 to 2020-07-21: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-22 to 2020-07-22: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-23 to 2020-07-23: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-24 to 2020-07-24: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-25 to 2020-07-25: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-26 to 2020-07-26: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-27 to 2020-07-27: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-28 to 2020-07-28: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-29 to 2020-07-29: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-30 to 2020-07-30: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-31 to 2020-07-31: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-01 to 2020-08-01: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-02 to 2020-08-02: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-03 to 2020-08-03: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-04 to 2020-08-04: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-05 to 2020-08-05: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-06 to 2020-08-06: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-07 to 2020-08-07: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-08 to 2020-08-08: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-09 to 2020-08-09: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-10 to 2020-08-10: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-11 to 2020-08-11: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-12 to 2020-08-12: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-13 to 2020-08-13: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-14 to 2020-08-14: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-15 to 2020-08-15: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-16 to 2020-08-16: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-17 to 2020-08-17: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-18 to 2020-08-18: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-19 to 2020-08-19: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-20 to 2020-08-20: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-21 to 2020-08-21: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-22 to 2020-08-22: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-23 to 2020-08-23: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-24 to 2020-08-24: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-25 to 2020-08-25: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-26 to 2020-08-26: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-27 to 2020-08-27: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-28 to 2020-08-28: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-29 to 2020-08-29: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-30 to 2020-08-30: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-31 to 2020-08-31: num_entries = 3193
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-01 to 2020-06-01: num_entries = 2262
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-02 to 2020-06-02: num_entries = 2330
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-03 to 2020-06-03: num_entries = 2360
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-04 to 2020-06-04: num_entries = 2301
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-05 to 2020-06-05: num_entries = 2273
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-06 to 2020-06-06: num_entries = 2257
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-07 to 2020-06-07: num_entries = 2152
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-08 to 2020-06-08: num_entries = 2090
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-09 to 2020-06-09: num_entries = 2131
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-10 to 2020-06-10: num_entries = 2108
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-11 to 2020-06-11: num_entries = 2108
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-12 to 2020-06-12: num_entries = 2110
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-13 to 2020-06-13: num_entries = 2095
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-14 to 2020-06-14: num_entries = 2056
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-15 to 2020-06-15: num_entries = 2051
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-16 to 2020-06-16: num_entries = 2128
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-17 to 2020-06-17: num_entries = 2122
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-18 to 2020-06-18: num_entries = 2119
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-19 to 2020-06-19: num_entries = 2111
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-20 to 2020-06-20: num_entries = 2100
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-21 to 2020-06-21: num_entries = 2048
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-22 to 2020-06-22: num_entries = 2041
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-23 to 2020-06-23: num_entries = 2104
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-24 to 2020-06-24: num_entries = 2100
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-25 to 2020-06-25: num_entries = 2096
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-26 to 2020-06-26: num_entries = 2101
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-27 to 2020-06-27: num_entries = 2092
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-28 to 2020-06-28: num_entries = 2037
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-29 to 2020-06-29: num_entries = 2036
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-06-30 to 2020-06-30: num_entries = 2117
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-01 to 2020-07-01: num_entries = 2115
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-02 to 2020-07-02: num_entries = 2125
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-03 to 2020-07-03: num_entries = 2113
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-04 to 2020-07-04: num_entries = 2077
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-05 to 2020-07-05: num_entries = 2005
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-06 to 2020-07-06: num_entries = 2003
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-07 to 2020-07-07: num_entries = 2087
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-08 to 2020-07-08: num_entries = 2083
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-09 to 2020-07-09: num_entries = 2079
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-10 to 2020-07-10: num_entries = 2078
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-11 to 2020-07-11: num_entries = 2069
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-12 to 2020-07-12: num_entries = 2064
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-13 to 2020-07-13: num_entries = 2074
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-14 to 2020-07-14: num_entries = 2130
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-15 to 2020-07-15: num_entries = 2126
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-16 to 2020-07-16: num_entries = 2124
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-17 to 2020-07-17: num_entries = 2118
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-18 to 2020-07-18: num_entries = 2110
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-19 to 2020-07-19: num_entries = 2076
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-20 to 2020-07-20: num_entries = 2073
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-21 to 2020-07-21: num_entries = 2130
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-22 to 2020-07-22: num_entries = 2126
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-23 to 2020-07-23: num_entries = 2122
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-24 to 2020-07-24: num_entries = 2116
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-25 to 2020-07-25: num_entries = 2102
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-26 to 2020-07-26: num_entries = 2043
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-27 to 2020-07-27: num_entries = 2037
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-28 to 2020-07-28: num_entries = 2104
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-29 to 2020-07-29: num_entries = 2101
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-30 to 2020-07-30: num_entries = 2097
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-07-31 to 2020-07-31: num_entries = 2083
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-01 to 2020-08-01: num_entries = 2074
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-02 to 2020-08-02: num_entries = 2021
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-03 to 2020-08-03: num_entries = 2017
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-04 to 2020-08-04: num_entries = 2092
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-05 to 2020-08-05: num_entries = 2088
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-06 to 2020-08-06: num_entries = 2091
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-07 to 2020-08-07: num_entries = 2085
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-08 to 2020-08-08: num_entries = 2078
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-09 to 2020-08-09: num_entries = 2025
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-10 to 2020-08-10: num_entries = 2016
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-11 to 2020-08-11: num_entries = 2095
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-12 to 2020-08-12: num_entries = 2101
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-13 to 2020-08-13: num_entries = 2095
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-14 to 2020-08-14: num_entries = 2090
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-15 to 2020-08-15: num_entries = 2080
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-16 to 2020-08-16: num_entries = 2037
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-17 to 2020-08-17: num_entries = 2030
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-18 to 2020-08-18: num_entries = 2097
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-19 to 2020-08-19: num_entries = 2095
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-20 to 2020-08-20: num_entries = 2094
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-21 to 2020-08-21: num_entries = 2090
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-22 to 2020-08-22: num_entries = 2073
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-23 to 2020-08-23: num_entries = 2017
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-24 to 2020-08-24: num_entries = 2016
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-25 to 2020-08-25: num_entries = 2105
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-26 to 2020-08-26: num_entries = 2092
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-27 to 2020-08-27: num_entries = 2085
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-28 to 2020-08-28: num_entries = 2091
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-29 to 2020-08-29: num_entries = 2068
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-30 to 2020-08-30: num_entries = 2007
+\end{verbatim}
+
+\begin{verbatim}
+## Fetched day 2020-08-31 to 2020-08-31: num_entries = 2003
+\end{verbatim}
+
+\hypertarget{we-can-plot-some-of-the-counties-where-rises-in-the-indicator-combination-consistently-lead-rises-in-cases.}{%
+\paragraph{We can plot some of the counties where rises in the indicator
+combination consistently lead rises in
+cases.}\label{we-can-plot-some-of-the-counties-where-rises-in-the-indicator-combination-consistently-lead-rises-in-cases.}}
+
+\hypertarget{examples-from-the-summer-2}{%
+\subparagraph{Examples from the
+Summer}\label{examples-from-the-summer-2}}
+
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-23-1.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-23-2.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-23-3.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-23-4.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-23-5.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-23-6.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-23-7.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-23-8.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-23-9.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-23-10.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-23-11.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-23-12.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-23-13.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-23-14.pdf}
+
+\hypertarget{examples-from-the-fall-2}{%
+\subparagraph{Examples from the Fall}\label{examples-from-the-fall-2}}
+
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-24-1.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-24-2.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-24-3.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-24-4.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-24-5.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-24-6.pdf}
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-24-7.pdf}
+
+\hypertarget{examples-of-counties-that-show-successes-in-both-summer-and-fall-2}{%
+\subparagraph{Examples of counties that show successes in both Summer
+and
+Fall}\label{examples-of-counties-that-show-successes-in-both-summer-and-fall-2}}
+
+\hypertarget{fall-frequencies-1}{%
+\subparagraph{Fall Frequencies}\label{fall-frequencies-1}}
+
+We can also look at the distribution of the frequency of the number of
+days by which Indicator Combination rises lead case rises in successful
+counties
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-26-1.pdf}
+\#\#\#\#\# Summer Frequencies We can also look at the distribution of
+the frequency of the number of days by which Change Healthcare rises
+lead case rises in successful counties
+\includegraphics{LeadingIndicatorsDAPNotebook_files/figure-latex/unnamed-chunk-27-1.pdf}
+
+\hypertarget{section}{%
+\subsection{}\label{section}}
+
+Note that the counties shown and counted as ``successful'' here met the
+following criteria: All indicator rise points were followed by a case
+rise point within 3 to 14 days (and all case rise points were preceded
+by an indicator rise point within the same time period). This means that
+the displayed counties almost always have only one rise point per signal
+and case (the more rise points the harder it is to meet the criteria).
+
+\hypertarget{performance}{%
+\subsection{Performance}\label{performance}}
+
+Recall and precision.
+
+\hypertarget{conclusions-and-limitations}{%
+\subsection{Conclusions and
+Limitations}\label{conclusions-and-limitations}}
+
+\end{document}

@@ -1,0 +1,333 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+source("LeadingIndicatorTools.R")
+library(covidcast)
+library(magrittr)
+library(tidyverse)
+library(assertthat)
+library(lubridate)
+library(gridExtra)
+library(dplyr)
+library(cowplot)
+library(ggpubr)
+library(patchwork)
+library(ggpubr)
+
+drs_visits_prepared_fall = get_and_parse_signals("2020-09-01", "2020-11-30", "doctor-visits", "smoothed_adj_cli", 2000, 80)
+drs_visits_prepared_summer = get_and_parse_signals("2020-06-01", "2020-8-31", "doctor-visits", "smoothed_adj_cli", 2000, 80)
+drs_fall = get_increase_points(drs_visits_prepared_fall$cases, drs_visits_prepared_fall$indicator)
+drs_summer = get_increase_points(drs_visits_prepared_summer$cases, drs_visits_prepared_summer$indicator)
+
+change_healthcare_prepared_fall = get_and_parse_signals("2020-09-01", "2020-11-30", "chng", "smoothed_adj_outpatient_cli", 2000, 80)
+change_healthcare_prepared_summer = get_and_parse_signals("2020-06-01", "2020-08-31", "chng", "smoothed_adj_outpatient_cli", 2000, 80)
+chng_fall = get_increase_points(change_healthcare_prepared_fall$cases, change_healthcare_prepared_fall$indicator)
+chng_summer = get_increase_points(change_healthcare_prepared_summer$cases, change_healthcare_prepared_summer$indicator)
+
+
+fb_cli_prepared_fall = get_and_parse_signals("2020-09-01", "2020-11-30", "fb-survey", "smoothed_wcli", 2000, 80)
+fb_cli_prepared_summer = get_and_parse_signals("2020-06-01", "2020-08-31", "fb-survey", "smoothed_wcli", 2000, 80)
+fb_fall = get_increase_points(fb_cli_prepared_fall$cases, fb_cli_prepared_fall$indicator)
+fb_summer = get_increase_points(fb_cli_prepared_summer$cases, fb_cli_prepared_summer$indicator)
+
+```
+
+```{r}
+generate_competitors_get_scores<-function(final_cases_indicator_list)
+{
+  all_guessers=lapply(final_cases_indicator_list, function(x){
+    random_guesser <- rbinom(nrow(x), 1, 0.5)
+    case_first_deriv=get_signal_first_derivative(signal = x$case_value, bandwidth = 14)
+    indicator_first_deriv=get_signal_first_derivative(signal = x$ind_value, bandwidth = 14)
+    x$random_guesser=random_guesser
+    x$case_first_deriv_guesser=ifelse(case_first_deriv > 0, 1, 0)
+    x$indicator_first_deriv=ifelse(indicator_first_deriv > 0, 1, 0)
+    x
+  })
+  return(all_guessers)
+}
+
+get_signal_first_derivative<-function(signal, bandwidth)
+{
+  smoothed_signal=sm(signal, bandwidth)
+  tt = 1:length(signal)
+  first_deriv = stats::splinefun(tt, smoothed_signal)(tt, 1)
+  return(first_deriv)
+}
+```
+
+
+```{r}
+
+use_time_windows = function(competitors_df, window) {
+  for (c in (1:length(competitors_df))) {
+    for (i in (1:length(competitors_df[[c]]$time_value))) {
+      if (competitors_df[[c]]$case_rise_point[[i]] == 1){
+        for(j in (1:(window-1))) {
+         if (i-j > 0) {
+           competitors_df[[c]]$case_rise_point[[i-j]] = 1
+         }
+        }
+      }
+    }
+    i = length(competitors_df[[c]]$time_value)
+    while(i > 0) {
+      if (competitors_df[[c]]$indicator_rise_point[[i]] == 1){
+          for(j in (1:(window-1))) {
+            if (i+j <= length(competitors_df[[c]]$time_value)) {
+              competitors_df[[c]]$indicator_rise_point[[i+j]] = 1
+            }
+          }
+      }
+      i = i-1
+    }
+  }
+  return (competitors_df)
+}
+```
+
+```{r}
+# PER TIME POINT
+# get_recall_and_precision = function(competitors, guesser) {
+#   true_positives = 0
+#   false_positives = 0
+#   true_negatives = 0
+#   false_negatives = 0
+#   for (c in (1:length(competitors))) {
+#     for (i in (1:length(competitors[[c]]$time_value))) {
+#       guesser_points = competitors[[c]][guesser]
+#       guesser_point = as.numeric(unlist(guesser_points))[[i]]
+#       if (competitors[[c]]$case_rise_point[[i]] == 1 && guesser_point == 1) {
+#         true_positives = true_positives + 1
+#       }
+#       if (competitors[[c]]$case_rise_point[[i]] == 1 && guesser_point == 0) {
+#         false_negatives = false_negatives + 1
+#       } 
+#       if (competitors[[c]]$case_rise_point[[i]] == 0 && guesser_point == 0) {
+#         true_negatives = true_negatives + 1
+#       } 
+#       if (competitors[[c]]$case_rise_point[[i]] == 0 && guesser_point == 1) {
+#         false_positives = false_positives + 1
+#       } 
+#     }
+#   }
+#   # print(guesser)
+#   # print("Recall: ")
+#   # print(true_positives / (true_positives + false_negatives))
+#   # print("Precision ") 
+#   # print(true_positives / (true_positives + false_positives))
+#   recall = true_positives / (true_positives + false_negatives)
+#   precision = true_positives / (true_positives + false_positives)
+#   return(c(guesser, recall, precision))
+# }
+```
+
+
+```{r}
+# PER RISE POINT - this is not a per time point analysis and cannot be compared to the strawman guessers in the same way
+get_recall_and_precision_per_rise_point = function(competitors, guesser, window) {
+  num_case_rise_points = 0
+  num_guesser_rise_points = 0
+  num_success = 0
+  for(c in (1:length(competitors))) {
+    for (i in (1:length(competitors[[c]]$time_value))) {
+      if (competitors[[c]]$case_rise_point[[i]] == 1) {
+        num_case_rise_points = num_case_rise_points + 1
+      }
+      guesser_points = competitors[[c]][guesser]
+      guesser_point = as.numeric(unlist(guesser_points))[[i]]
+      if (guesser_point == 1) {
+        num_guesser_rise_points = num_guesser_rise_points + 1
+      }
+    }
+    case_points_exist = TRUE %in% competitors[[c]]$case_rise_point
+    guesser_points_exist = TRUE %in% as.numeric(unlist(guesser_points))
+    if (case_points_exist && guesser_points_exist) {
+       case_dates = na.omit(competitors[[c]]$time_value[competitors[[c]]$case_rise_point==TRUE])
+       guesser_dates = na.omit(competitors[[c]]$time_value[competitors[[c]][guesser]==TRUE])
+       for (j in (1:length(guesser_dates))) {
+          for (k in (1:length(case_dates))) {
+              if(case_dates[k] - guesser_dates[j] <= window && case_dates[k] - guesser_dates[j] > 0) {
+                num_success = num_success + 1
+              }
+          }
+        }
+    }
+  }
+  # print("Num successes: ")
+  # print(num_success)
+  # print("Num case rise points: ")
+  # print(num_case_rise_points)
+  # print("Num indicator rise points: ")
+  # print(num_guesser_rise_points)
+  # print("Precision (num success/num guesser rise points)")
+  # print(num_success/num_guesser_rise_points)
+  # print("Recall (num success/num case rise points)")
+  # print(num_success/num_case_rise_points)
+  recall = num_success/num_case_rise_points
+  precision = num_success/num_guesser_rise_points
+  return(c(recall, precision))
+}
+```
+
+
+```{r}
+# RECALL AND PRECISION PER RISE POINT
+competitors_drs_summer = generate_competitors_get_scores(drs_summer)
+competitors_drs_fall = generate_competitors_get_scores(drs_fall)
+competitors_chng_summer = generate_competitors_get_scores(chng_summer)
+competitors_chng_fall = generate_competitors_get_scores(chng_fall)
+competitors_fb_summer = generate_competitors_get_scores(fb_summer)
+competitors_fb_fall = generate_competitors_get_scores(fb_fall)
+
+
+
+scores_per_rise = data.frame(matrix(ncol = 3))
+colnames(scores_per_rise) = c("indicator_name", "recall", "precision")
+
+drs_summer_per_rise = get_recall_and_precision_per_rise_point(competitors_drs_summer, "indicator_rise_point", 7)
+drs_summer_per_rise = append("drs visits summer", drs_summer_per_rise)
+scores_per_rise[1,] = drs_summer_per_rise
+drs_fall_per_rise = get_recall_and_precision_per_rise_point(competitors_drs_fall, "indicator_rise_point", 7)
+drs_fall_per_rise = append("drs visits fall", drs_fall_per_rise)
+scores_per_rise[2,] = drs_fall_per_rise
+
+chng_summer_per_rise = get_recall_and_precision_per_rise_point(competitors_chng_summer, "indicator_rise_point", 7)
+chng_summer_per_rise = append("chng healthcare summer", chng_summer_per_rise)
+scores_per_rise[3,] = chng_summer_per_rise
+chng_fall_per_rise = get_recall_and_precision_per_rise_point(competitors_chng_fall, "indicator_rise_point", 7)
+chng_fall_per_rise = append("chng healthcare fall", chng_fall_per_rise)
+scores_per_rise[4,] = chng_fall_per_rise
+
+
+fb_summer_per_rise = get_recall_and_precision_per_rise_point(competitors_fb_summer, "indicator_rise_point", 7)
+fb_summer_per_rise = append("fb cli summer", fb_summer_per_rise)
+scores_per_rise[5,] = fb_summer_per_rise
+fb_fall_per_rise = get_recall_and_precision_per_rise_point(competitors_fb_fall, "indicator_rise_point", 7)
+fb_fall_per_rise = append("fb cli fall", fb_fall_per_rise)
+scores_per_rise[6,] = fb_fall_per_rise
+
+scores_per_rise
+
+
+
+# get_recall_and_precision_per_rise_point(competitors_fb_fall, "random_guesser", 7)
+
+```
+
+
+```{r}
+
+#RECALL AND PRECISION PER TIME POINT
+competitors_drs_summer_windows = use_time_windows(competitors_drs_summer, window = 14)
+drs_scores = data.frame(matrix(ncol = 4))
+colnames(drs_scores) = c("indicator_name", "guesser_name", "recall", "precision")
+
+drs_summer_r_p = get_per_time_point_recall_and_precision(competitors_drs_summer_windows, "indicator_rise_point")
+drs_summer_r_p = append("drs visits summer", drs_summer_r_p)
+drs_scores[1,] = drs_summer_r_p
+
+drs_summer_r_p = get_per_time_point_recall_and_precision(competitors_drs_summer_windows, 'random_guesser')
+drs_summer_r_p = append("drs visits summer", drs_summer_r_p)
+drs_scores[2,] = drs_summer_r_p
+
+drs_summer_r_p = get_per_time_point_recall_and_precision(competitors_drs_summer_windows, 'case_first_deriv_guesser')
+drs_summer_r_p = append("drs visits summer", drs_summer_r_p)
+drs_scores[3,] = drs_summer_r_p
+
+
+competitors_drs_fall_windows = use_time_windows(competitors_drs_fall, window = 14)
+drs_fall_r_p = get_per_time_point_recall_and_precision(competitors_drs_fall_windows, "indicator_rise_point")
+drs_fall_r_p = append("drs visits fall", drs_fall_r_p)
+drs_scores[4,] = drs_fall_r_p
+
+drs_fall_r_p = get_per_time_point_recall_and_precision(competitors_drs_fall_windows, 'random_guesser')
+drs_fall_r_p = append("drs visits fall", drs_fall_r_p)
+drs_scores[5,] = drs_fall_r_p
+
+drs_fall_r_p = get_per_time_point_recall_and_precision(competitors_drs_fall_windows, 'case_first_deriv_guesser')
+drs_fall_r_p = append("drs visits fall", drs_fall_r_p)
+drs_scores[6,] = drs_fall_r_p
+drs_scores
+
+
+
+competitors_chng_summer_windows = use_time_windows(competitors_chng_summer, window = 14)
+chng_scores = data.frame(matrix(ncol = 4))
+colnames(chng_scores) = c("indicator_name", "guesser_name", "recall", "precision")
+
+chng_summer_r_p = get_recall_and_precision(competitors_chng_summer_windows, "indicator_rise_point")
+chng_summer_r_p = append("chng healthcare summer", chng_summer_r_p)
+chng_scores[1,] = chng_summer_r_p
+
+chng_summer_r_p = get_recall_and_precision(competitors_chng_summer_windows, 'random_guesser')
+chng_summer_r_p = append("chng healthcare summer", chng_summer_r_p)
+chng_scores[2,] = chng_summer_r_p
+
+chng_summer_r_p = get_recall_and_precision(competitors_chng_summer_windows, 'case_first_deriv_guesser')
+chng_summer_r_p = append("chng healthcare summer", chng_summer_r_p)
+chng_scores[3,] = chng_summer_r_p
+
+
+competitors_chng_fall_windows = use_time_windows(competitors_chng_fall, window = 14)
+chng_fall_r_p = get_recall_and_precision(competitors_chng_fall_windows, "indicator_rise_point")
+chng_fall_r_p = append("chng healthcare fall", chng_fall_r_p)
+chng_scores[4,] = chng_fall_r_p
+
+chng_fall_r_p = get_recall_and_precision(competitors_chng_fall_windows, 'random_guesser')
+chng_fall_r_p = append("chng healthcare fall", chng_fall_r_p)
+chng_scores[5,] = chng_fall_r_p
+
+chng_fall_r_p = get_recall_and_precision(competitors_chng_fall_windows, 'case_first_deriv_guesser')
+chng_fall_r_p = append("chng healthcare fall", chng_fall_r_p)
+chng_scores[6,] = chng_fall_r_p
+chng_scores
+
+
+
+
+competitors_fb_summer_windows = use_time_windows(competitors_fb_summer, window = 14)
+fb_scores = data.frame(matrix(ncol = 4))
+colnames(fb_scores) = c("indicator_name", "guesser_name", "recall", "precision")
+
+fb_summer_r_p = get_recall_and_precision(competitors_fb_summer_windows, "indicator_rise_point")
+fb_summer_r_p = append("fb cli summer", fb_summer_r_p)
+fb_scores[1,] = fb_summer_r_p
+
+fb_summer_r_p = get_recall_and_precision(competitors_fb_summer_windows, 'random_guesser')
+fb_summer_r_p = append("fb cli summer", fb_summer_r_p)
+fb_scores[2,] = fb_summer_r_p
+
+fb_summer_r_p = get_recall_and_precision(competitors_fb_summer_windows, 'case_first_deriv_guesser')
+fb_summer_r_p = append("fb cli summer", fb_summer_r_p)
+fb_scores[3,] = fb_summer_r_p
+
+
+competitors_fb_fall_windows = use_time_windows(competitors_fb_fall, window = 14)
+fb_fall_r_p = get_recall_and_precision(competitors_fb_fall_windows, "indicator_rise_point")
+fb_fall_r_p = append("fb cli fall", fb_fall_r_p)
+fb_scores[4,] = fb_fall_r_p
+
+fb_fall_r_p = get_recall_and_precision(competitors_fb_fall_windows, 'random_guesser')
+fb_fall_r_p = append("fb cli fall", fb_fall_r_p)
+fb_scores[5,] = fb_fall_r_p
+
+fb_fall_r_p = get_recall_and_precision(competitors_fb_fall_windows, 'case_first_deriv_guesser')
+fb_fall_r_p = append("fb cli fall", fb_fall_r_p)
+fb_scores[6,] = fb_fall_r_p
+fb_scores
+
+
+```
+
+
+```{r}
+# PER RISE POINT R AND P
+source("LeadingIndicatorTools.R")
+
+my_list = get_per_rise_point_precision_recall(drs_summer)
+my_list
+```

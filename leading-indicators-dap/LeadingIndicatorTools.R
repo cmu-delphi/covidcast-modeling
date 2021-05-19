@@ -57,7 +57,6 @@ get_and_parse_signals <- function(start_day, end_day, indicator_source, indicato
   return (list("cases" = case_list[large_geos], "indicator" = indicator_list[large_geos]))
 }
 
-                                                            
 # Get increase points
 # Identify points at which the indicator and the case values begin to rise significantly
 # INPUT
@@ -276,23 +275,14 @@ generate_competitors_get_scores<-function(final_cases_indicator_list)
 }
                                    
                                    
-#Gets the precision and recall for an indicator signal
+#Gets the per-rise-point precision and recall for an indicator signal
 #INPUT
 # @param final_cases_indicator_list: A list of dataframes, where each element corresponds to a unique county. 
 #                                     Each dataframe has time_value, geo_value, case_value/death_value, ind_value, case_rise_point, indicator_rise_point as columns.
 # @min_window, max_window: Specify how far to look before a substantial case rise for indicator rise.                                   
-get_county_level_precision_recall <- function(final_cases_indicator_list, min_window=3, max_window=14)
+get_per_rise_point_precision_recall <- function(final_cases_indicator_list, min_window=3, max_window=14)
 {
-  #does each case rise date have a preceding indicator rise point within window [3,14] (precision)?
-  get_cases_preceding_indicators<-function(case_increase_dates, indicator_rise_dates)
-  {
-    sapply(case_increase_dates, function(date_case_increase) { 
-      differences=as.integer(date_case_increase-indicator_rise_dates)
-      1*(any(differences >= min_window & differences <= max_window))
-    })
-  }
-  
-  #for each indicator rise point, do cases increase within [3,14 days] (recall)
+  #for each indicator rise point, do cases increase within the window
   get_indicator_preceding_cases<-function(indicator_rise_dates, case_increase_dates)
   {
     sapply(indicator_rise_dates, function(date_indicator_rise) { 
@@ -303,54 +293,47 @@ get_county_level_precision_recall <- function(final_cases_indicator_list, min_wi
   
   #traverse the list of dataframes, where each element corresponds to a unique county
   precision_recall_list=lapply(final_cases_indicator_list, function(x){
-    #does each case rise date have a preceding indicator rise point within window [3,14] (precision)?
-    cases_preceded_by_indicators=get_cases_preceding_indicators(x$time_value[which(x$case_rise_point==1)], x$time_value[which(x$indicator_rise_point==1)])
-    
     #for each indicator rise point, do cases increase within [3,14 days] (recall)
-    each_indicator_rise_precedes_case_rise=get_indicator_preceding_cases(x$time_value[which(x$indicator_rise_point==1)], x$time_value[which(x$case_rise_point==1)])
+    indicator_rises_preceding_case_rises=get_indicator_preceding_cases(x$time_value[which(x$indicator_rise_point==1)], x$time_value[which(x$case_rise_point==1)])
     
     #precision=tp/(tp+fp), recall=tp/(tp+fn);
     #precision = tp/(all predicted positive cases)
-    #true positive: for each substantial case rise, there is a substantial indicator rise before the case increase in the specified window
-    #false positive: indicator rise, when there is not a substantial increase in cases
-    #false negative: for substantial case rise, we predict indicator does not rise
+    #true positive: for a substantial case rise, there is a substantial indicator rise before the case rise in the specified window
+    #false positive: indicator rises when there is not a substantial increase in cases
+    #false negative: indicator does not rise when there is a substantial case rise
     df=data.frame(County_Code=x$geo_value[1], 
                   Num_Case_Rises=length(x$time_value[which(x$case_rise_point==1)]), 
                   Num_Indicator_Rises=length(x$time_value[which(x$indicator_rise_point==1)]),
-                  Num_Times_Indicator_Rise_Precedes_Case_Rise=ifelse(length(each_indicator_rise_precedes_case_rise)>0,sum(each_indicator_rise_precedes_case_rise),NA),
-                  Num_Times_Case_Rise_Precedes_Indicator_Rise = ifelse(length(cases_preceded_by_indicators) > 0, sum(cases_preceded_by_indicators), NA),
-                  TP_Num_Times_Case_Rise_Preceded_by_Indicator=ifelse(length(cases_preceded_by_indicators) > 0, sum(cases_preceded_by_indicators), NA),
-                  FP_Num_Times_Indicator_Rise_Without_Case_Rise=ifelse(length(each_indicator_rise_precedes_case_rise) > 0, sum(1*(each_indicator_rise_precedes_case_rise == 0)), NA),
-                  FN_Num_Times_Case_Rise_Without_Indicator_Rise = ifelse(length(each_indicator_rise_precedes_case_rise) > 0, sum(1*(cases_preceded_by_indicators == 0)), NA),
-                  Leading_Indicator_Precision=-1,
-                  Leading_Indicator_Recall=-1,
+                  TP_Num_Times_Indicator_Rise_Precedes_Case_Rise=ifelse(length(indicator_rises_preceding_case_rises)>0,sum(indicator_rises_preceding_case_rises),NA),
+                  # Leading_Indicator_Precision=-1,
+                  # Leading_Indicator_Recall=-1,
                   stringsAsFactors = F)
-    df$Leading_Indicator_Precision = df$TP_Num_Times_Case_Rise_Preceded_by_Indicator/(df$TP_Num_Times_Case_Rise_Preceded_by_Indicator + df$FP_Num_Times_Indicator_Rise_Without_Case_Rise)
-    df$Leading_Indicator_Recall = df$TP_Num_Times_Case_Rise_Preceded_by_Indicator/(df$TP_Num_Times_Case_Rise_Preceded_by_Indicator + df$FN_Num_Times_Case_Rise_Without_Indicator_Rise)
+    df$Leading_Indicator_Precision = df$TP_Num_Times_Indicator_Rise_Precedes_Case_Rise/df$Num_Indicator_Rises
+    df$Leading_Indicator_Recall = df$TP_Num_Times_Indicator_Rise_Precedes_Case_Rise/df$Num_Case_Rises
     df
-    
+
   })
   #Combine the dataframes from all counties into precision_recall_df and calculate the F1 score (harmonic mean of precision and recall).
   precision_recall_df=data.table::rbindlist(precision_recall_list, use.names = T)
   precision_recall_df$F1_Score = 2*(precision_recall_df$Leading_Indicator_Recall*precision_recall_df$Leading_Indicator_Precision)/(precision_recall_df$Leading_Indicator_Precision + precision_recall_df$Leading_Indicator_Recall)
   #Calculate overall precision and recall across all counties.
-  global_precision_recall=data.frame(Precision_Leading_Indicator=sum(precision_recall_df$TP_Num_Times_Case_Rise_Preceded_by_Indicator,
-                                                                     na.rm = T)/(sum(precision_recall_df$TP_Num_Times_Case_Rise_Preceded_by_Indicator, na.rm = T) + sum(precision_recall_df$FP_Num_Times_Indicator_Rise_Without_Case_Rise, na.rm = T)),
-                                     Recall_Leading_Indicator=sum(precision_recall_df$TP_Num_Times_Case_Rise_Preceded_by_Indicator,
-                                                                  na.rm = T)/(sum(precision_recall_df$TP_Num_Times_Case_Rise_Preceded_by_Indicator, na.rm = T) + sum(precision_recall_df$FN_Num_Times_Case_Rise_Without_Indicator_Rise, na.rm = T)),
+  global_precision_recall=data.frame(Precision_Leading_Indicator=sum(precision_recall_df$TP_Num_Times_Indicator_Rise_Precedes_Case_Rise,
+                                                                     na.rm = T)/(sum(precision_recall_df$Num_Indicator_Rises, na.rm = T)),
+                                     Recall_Leading_Indicator=sum(precision_recall_df$TP_Num_Times_Indicator_Rise_Precedes_Case_Rise,
+                                                                  na.rm = T)/(sum(precision_recall_df$Num_Case_Rises, na.rm = T)),
                                      stringsAsFactors = F)
   return(list(precision_recall_df,global_precision_recall))
 }
 
 
-# Gets recall and precision scores for a given guesser
+# Gets per-time-point recall and precision scores for a given guesser
 # INPUT 
 # @param competitors: List of dataframes that include as cols:
-#                             time_value, case_rise_point, indicator_rise_point, random_guesser, case_first_deriv_guesser
+#                             time_value, case_rise_point, indicator_rise_point, <names of guessers>...
 # @param guesser: Which guesser to get scores for
 # OUTPUT
 # @return List of: guesser name, recall score, precision score
-get_recall_and_precision = function(competitors, guesser) {
+get_per_time_point_recall_and_precision = function(competitors, guesser) {
   true_positives = 0
   false_positives = 0
   true_negatives = 0
@@ -423,6 +406,8 @@ trans <- function(x, from_range, to_range) {
 # @return List of points of increase for one location
 calculate_increasing_points <- function(signal, bandwidth=10, quantile_threshold=0.0, threshold=0.4, period=10){
   first_deriv = get_signal_first_derivative(signal, bandwidth)
+  smoothed_signal=sm(signal, bandwidth)
+  
   increasing_period= which(first_deriv>quantile(first_deriv, quantile_threshold) & first_deriv>0)
   s <- split(increasing_period, cumsum(c(TRUE, diff(increasing_period) != 1)))
   s <- lapply(s, function(x) {
