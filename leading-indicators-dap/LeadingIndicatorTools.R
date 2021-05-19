@@ -1,6 +1,7 @@
 # Tools for leading indicators DAP
 # Includes exportable functions used in generating leading indicator notebooks
 
+######### PRE PROCESS AND FORMAT DATA ###################
 
 # Get and prepare signals function
 # Prepares two signals (cases and a given indicator) for leading indicator analysis.
@@ -57,6 +58,10 @@ get_and_parse_signals <- function(start_day, end_day, indicator_source, indicato
   return (list("cases" = case_list[large_geos], "indicator" = indicator_list[large_geos]))
 }
 
+
+
+######### PROCESS DATA (SMOOTHING AND RISE POINTS) ###################
+
 # Get increase points
 # Identify points at which the indicator and the case values begin to rise significantly
 # INPUT
@@ -97,6 +102,9 @@ get_increase_points <- function(case_list, indicator_list)
   return(list_with_leading_indicator[lengths(list_with_leading_indicator)!=0])
 }
 
+
+
+######### PLOT AND EXAMINE DATA ###################
 
 # Plot signals
 # INPUT
@@ -226,55 +234,9 @@ get_success_examples <- function(case_indicator_list, success_window_max = 14, s
 }
 
 
-# Get recall strict
-# INPUT
-# @param case_indicator_list: List of dataframes that include as cols:
-#                             time_value, geo_value, case_value, ind_value, case_rise_point, indicator_rise_point
-# OUTPUT
-# @return number of successful counties divided by number of total counties with at least one case rise point
-get_recall_strict <- function(case_indicator_list) {
-  success_examples = get_success_examples(case_indicator_list, 14, 3)
-  cases_with_rise = unlist(lapply(case_indicator_list, function(x){ any(x$case_rise_point == 1)}))
-  cases_with_rise = cases_with_rise[which(cases_with_rise == TRUE)]
-  return (length(success_examples) / length(cases_with_rise))
-}
 
-# Get precision strict
-# INPUT
-# @param case_indicator_list: List of dataframes that include as cols:
-#                             time_value, geo_value, case_value, ind_value, case_rise_point, indicator_rise_point
-# OUTPUT
-# @return number of successful counties divided by number of total counties with at least one indicator rise point
-get_precision_strict <- function(case_indicator_list) {
-  success_examples = get_success_examples(case_indicator_list, 14, 3)
-  indicator_with_rise = unlist(lapply(case_indicator_list, function(x){ any(x$indicator_rise_point == 1)}))
-  indicator_with_rise = indicator_with_rise[which(indicator_with_rise == TRUE)]
-  return (length(success_examples) / length(indicator_with_rise))
-}
+######### ANALYZE DATA (RECALL AND PRECISION) ###################
 
-
-# Generate strawman guessers, one selects random days as "rise points" one marks every day the indicator derivative > 0
-# as a rise point.
-# INPUT
-# @param case_indicator_list: List of dataframes that include as cols:
-#                             time_value, geo_value, case_value, ind_value, case_rise_point, indicator_rise_point
-# OUTPUT
-# @return list of dataframes with extra columns for the random guesser "rise points" and the first derivative guesser "rise points"
-generate_competitors_get_scores<-function(final_cases_indicator_list)
-{
-  all_guessers=lapply(final_cases_indicator_list, function(x){
-    random_guesser <- rbinom(nrow(x), 1, 0.5)
-    case_first_deriv=get_signal_first_derivative(signal = x$case_value, bandwidth = 14)
-    indicator_first_deriv=get_signal_first_derivative(signal = x$ind_value, bandwidth = 14)
-    x$random_guesser=random_guesser
-    x$case_first_deriv_guesser=ifelse(case_first_deriv > 0, 1, 0)
-    x$indicator_first_deriv=ifelse(indicator_first_deriv > 0, 1, 0)
-    x
-  })
-  return(all_guessers)
-}
-                                   
-                                   
 #Gets the per-rise-point precision and recall for an indicator signal
 #INPUT
 # @param final_cases_indicator_list: A list of dataframes, where each element corresponds to a unique county. 
@@ -327,12 +289,21 @@ get_per_rise_point_precision_recall <- function(final_cases_indicator_list, min_
 
 
 # Gets per-time-point recall and precision scores for a given guesser
+# 
+# Example of use (need to complete Steps 1 and 2 before getting recall and precision):
+# Step 1, Generate competitors: 
+#         competitors_drs_summer = generate_competitors_get_scores(drs_summer)
+# Step 2, Spread rise points over give time window: 
+#         competitors_drs_summer_windows = set_time_window_rise_points(competitors_drs_summer, window = 14)
+# Step 3, Get per time point recall and precision for a given guesser: 
+#         drs_summer_r_p = get_per_time_point_recall_and_precision(competitors_drs_summer_windows, "indicator_rise_point")
+#
 # INPUT 
 # @param competitors: List of dataframes that include as cols:
 #                             time_value, case_rise_point, indicator_rise_point, <names of guessers>...
 # @param guesser: Which guesser to get scores for
 # OUTPUT
-# @return List of: guesser name, recall score, precision score
+# @return List of: guesser name, global recall score, global precision score
 get_per_time_point_recall_and_precision = function(competitors, guesser) {
   true_positives = 0
   false_positives = 0
@@ -361,8 +332,64 @@ get_per_time_point_recall_and_precision = function(competitors, guesser) {
   return(c(guesser, recall, precision))
 }
 
-###############################################################################################
-# HELPER FUNCTIONS
+# Generate strawman guessers, one selects random days as "rise points" one marks every day the indicator derivative > 0
+# as a rise point.
+# INPUT
+# @param case_indicator_list: List of dataframes that include as cols:
+#                             time_value, geo_value, case_value, ind_value, case_rise_point, indicator_rise_point
+# OUTPUT
+# @return list of dataframes with extra columns for the random guesser "rise points" and the first derivative guesser "rise points"
+generate_competitors_get_scores<-function(final_cases_indicator_list)
+{
+  all_guessers=lapply(final_cases_indicator_list, function(x){
+    random_guesser <- rbinom(nrow(x), 1, 0.5)
+    case_first_deriv=get_signal_first_derivative(signal = x$case_value, bandwidth = 14)
+    indicator_first_deriv=get_signal_first_derivative(signal = x$ind_value, bandwidth = 14)
+    x$random_guesser=random_guesser
+    x$case_first_deriv_guesser=ifelse(case_first_deriv > 0, 1, 0)
+    x$indicator_first_deriv=ifelse(indicator_first_deriv > 0, 1, 0)
+    x
+  })
+  return(all_guessers)
+}
+
+# Sets the "rise points" to be spread over a time window for the per time point recall and precision analysis
+# INPUT
+# @param competitors_df: List of dataframes that include as cols:
+#                             time_value, case_rise_point, indicator_rise_point
+# @param window: How many days ahead or behind to replicate the "rise points" out from the original rise point
+# OUTPUT
+# @ return A list of dataframes that have rise points marked at original rise points and "window" number of days ahead (for indicators)
+# or behind (for cases)
+set_time_window_rise_points = function(competitors_df, window) {
+  for (c in (1:length(competitors_df))) {
+    for (i in (1:length(competitors_df[[c]]$time_value))) {
+      if (competitors_df[[c]]$case_rise_point[[i]] == 1){
+        for(j in (1:(window-1))) {
+          if (i-j > 0) {
+            competitors_df[[c]]$case_rise_point[[i-j]] = 1
+          }
+        }
+      }
+    }
+    i = length(competitors_df[[c]]$time_value)
+    while(i > 0) {
+      if (competitors_df[[c]]$indicator_rise_point[[i]] == 1){
+        for(j in (1:(window-1))) {
+          if (i+j <= length(competitors_df[[c]]$time_value)) {
+            competitors_df[[c]]$indicator_rise_point[[i+j]] = 1
+          }
+        }
+      }
+      i = i-1
+    }
+  }
+  return (competitors_df)
+}
+
+
+
+######### HELPER FUNCIONS ###################
 
 # INPUT
 # @param y: A vector of numeric values
@@ -436,60 +463,32 @@ get_signal_first_derivative<-function(signal, bandwidth)
 }
 
 
-# Sets the "rise points" to be spread over a time window for the per time point recall and precision analysis
+
+######### UNUSED PRECISION AND RECALL FUNCTIONS ###################
+
+# Get recall strict
 # INPUT
-# @param competitors_df: List of dataframes that include as cols:
-#                             time_value, case_rise_point, indicator_rise_point
-# @param window: How many days ahead or behind to replicate the "rise points" out from the original rise point
+# @param case_indicator_list: List of dataframes that include as cols:
+#                             time_value, geo_value, case_value, ind_value, case_rise_point, indicator_rise_point
 # OUTPUT
-# @ return A list of dataframes that have rise points marked at original rise points and "window" number of days ahead (for indicators)
-# and behind (for cases)
-use_time_windows = function(competitors_df, window) {
-  for (c in (1:length(competitors_df))) {
-    for (i in (1:length(competitors_df[[c]]$time_value))) {
-      if (competitors_df[[c]]$case_rise_point[[i]] == 1){
-        for(j in (1:(window-1))) {
-          if (i-j > 0) {
-            competitors_df[[c]]$case_rise_point[[i-j]] = 1
-          }
-        }
-      }
-    }
-    i = length(competitors_df[[c]]$time_value)
-    while(i > 0) {
-      if (competitors_df[[c]]$indicator_rise_point[[i]] == 1){
-        for(j in (1:(window-1))) {
-          if (i+j <= length(competitors_df[[c]]$time_value)) {
-            competitors_df[[c]]$indicator_rise_point[[i+j]] = 1
-          }
-        }
-      }
-      i = i-1
-    }
-  }
-  return (competitors_df)
+# @return number of successful counties divided by number of total counties with at least one case rise point
+get_recall_strict <- function(case_indicator_list) {
+  success_examples = get_success_examples(case_indicator_list, 14, 3)
+  cases_with_rise = unlist(lapply(case_indicator_list, function(x){ any(x$case_rise_point == 1)}))
+  cases_with_rise = cases_with_rise[which(cases_with_rise == TRUE)]
+  return (length(success_examples) / length(cases_with_rise))
 }
 
-
-
-# TODO misc comments I didn't want to delete for now:
-#things that may need revision of get and prepare signals. It omits all the data on variance, sample size, which may be good to retain
-#even if we do not use it.
-
-# We are still having the interpolation issue - could be solved by just increasing "indicator_threshold" by a lot, allowing very very few days
-# where there is not a signal for the indicator. Could also try restricting the length of a stretch of time with no data that is allowed.
-
-# The dataframes that are output from get_increase_points should maybe include the smoothed values, and maybe the derivatives,
-# since that is what the rise points that are included are based on. Then we wouldn't do the smoothing twice, once to get the points,
-# and once to plot them in the plotting function (and risk passing in different bandwidths). 
-
-# I see this file as creating tools for a data flow where at each step, the data is added to or manipulated,
-# starting with preparing the data, and then smoothing it, calculating the derivatives, calculating the rise points,
-# then plotting all of this and doing analysis. In a notebook using this tools file it would look something like this:
-# Step 1: Preprocess and format data
-# Step 2: Pass that preprocessed and formatted data (in lists) to the "rise point" function that does all the math to get the rise points
-# and adds it on to these list(s) of dataframes
-# Step 3: Pass the annotated list of dataframes to
-    # A: the plotting functions: one plots the raw data, the other plots the smoothed data with rise points
-    # B: the analysis functions: recall and precision, best examples, etc (can also call the plotting functions here)
+# Get precision strict
+# INPUT
+# @param case_indicator_list: List of dataframes that include as cols:
+#                             time_value, geo_value, case_value, ind_value, case_rise_point, indicator_rise_point
+# OUTPUT
+# @return number of successful counties divided by number of total counties with at least one indicator rise point
+get_precision_strict <- function(case_indicator_list) {
+  success_examples = get_success_examples(case_indicator_list, 14, 3)
+  indicator_with_rise = unlist(lapply(case_indicator_list, function(x){ any(x$indicator_rise_point == 1)}))
+  indicator_with_rise = indicator_with_rise[which(indicator_with_rise == TRUE)]
+  return (length(success_examples) / length(indicator_with_rise))
+}
 
