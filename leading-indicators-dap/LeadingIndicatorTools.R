@@ -20,7 +20,7 @@
 # OUTPUT
 # @return A list including: cases = list of dataframes for cases by location, indicator = list of dataframes for indicator by location
 get_and_parse_signals <- function(start_day, end_day, indicator_source, indicator_signal,
-                                   case_threshold, indicator_threshold, case_source = "usa-facts", 
+                                   case_threshold = 600, indicator_threshold = 27, case_source = "usa-facts", 
                                    case_signal = "confirmed_7dav_incidence_num", geo_type = "county") {
   # Get cases and indicator
   cases = covidcast_signal(data_source = case_source, signal = case_signal,
@@ -239,10 +239,10 @@ get_success_examples <- function(case_indicator_list, success_window_max = 14, s
 
 #Gets the per-rise-point precision and recall for an indicator signal
 #INPUT
-# @param final_cases_indicator_list: A list of dataframes, where each element corresponds to a unique county. 
+# @param cases_indicator_list: A list of dataframes, where each element corresponds to a unique county. 
 #                                     Each dataframe has time_value, geo_value, case_value/death_value, ind_value, case_rise_point, indicator_rise_point as columns.
 # @min_window, max_window: Specify how far to look before a substantial case rise for indicator rise.                                   
-get_per_rise_point_precision_recall <- function(final_cases_indicator_list, min_window=3, max_window=14)
+get_per_rise_point_precision_recall <- function(cases_indicator_list, min_window=3, max_window=14)
 {
   #for each indicator rise point, do cases increase within the window
   get_indicator_preceding_cases<-function(indicator_rise_dates, case_increase_dates)
@@ -254,7 +254,7 @@ get_per_rise_point_precision_recall <- function(final_cases_indicator_list, min_
   }
   
   #traverse the list of dataframes, where each element corresponds to a unique county
-  precision_recall_list=lapply(final_cases_indicator_list, function(x){
+  precision_recall_list=lapply(cases_indicator_list, function(x){
     #for each indicator rise point, do cases increase within [3,14 days] (recall)
     indicator_rises_preceding_case_rises=get_indicator_preceding_cases(x$time_value[which(x$indicator_rise_point==1)], x$time_value[which(x$case_rise_point==1)])
     
@@ -292,8 +292,8 @@ get_per_rise_point_precision_recall <- function(final_cases_indicator_list, min_
 # 
 # Example of use (need to complete Steps 1 and 2 before getting recall and precision):
 # Step 1, Generate competitors: 
-#         competitors_drs_summer = generate_competitors_get_scores(drs_summer)
-# Step 2, Spread rise points over give time window: 
+#         competitors_drs_summer = generate_competitors_predictions(drs_summer)
+# Step 2, Spread case and indicator rise points over given time window: 
 #         competitors_drs_summer_windows = set_time_window_rise_points(competitors_drs_summer, window = 14)
 # Step 3, Get per time point recall and precision for a given guesser: 
 #         drs_summer_r_p = get_per_time_point_recall_and_precision(competitors_drs_summer_windows, "indicator_rise_point")
@@ -309,20 +309,20 @@ get_per_time_point_recall_and_precision = function(competitors, guesser) {
   false_positives = 0
   true_negatives = 0
   false_negatives = 0
-  for (c in (1:length(competitors))) {
-    for (i in (1:length(competitors[[c]]$time_value))) {
-      guesser_points = competitors[[c]][guesser]
+  for (county in (1:length(competitors))) {
+    for (i in (1:length(competitors[[county]]$time_value))) {
+      guesser_points = competitors[[county]][guesser]
       guesser_point = as.numeric(unlist(guesser_points))[[i]]
-      if (competitors[[c]]$case_rise_point[[i]] == 1 && guesser_point == 1) {
+      if (competitors[[county]]$case_rise_point[[i]] == 1 && guesser_point == 1) {
         true_positives = true_positives + 1
       }
-      if (competitors[[c]]$case_rise_point[[i]] == 1 && guesser_point == 0) {
+      if (competitors[[county]]$case_rise_point[[i]] == 1 && guesser_point == 0) {
         false_negatives = false_negatives + 1
       } 
-      if (competitors[[c]]$case_rise_point[[i]] == 0 && guesser_point == 0) {
+      if (competitors[[county]]$case_rise_point[[i]] == 0 && guesser_point == 0) {
         true_negatives = true_negatives + 1
       } 
-      if (competitors[[c]]$case_rise_point[[i]] == 0 && guesser_point == 1) {
+      if (competitors[[county]]$case_rise_point[[i]] == 0 && guesser_point == 1) {
         false_positives = false_positives + 1
       } 
     }
@@ -339,9 +339,9 @@ get_per_time_point_recall_and_precision = function(competitors, guesser) {
 #                             time_value, geo_value, case_value, ind_value, case_rise_point, indicator_rise_point
 # OUTPUT
 # @return list of dataframes with extra columns for the random guesser "rise points" and the first derivative guesser "rise points"
-generate_competitors_get_scores<-function(final_cases_indicator_list)
+generate_competitors_predictions<-function(cases_indicator_list)
 {
-  all_guessers=lapply(final_cases_indicator_list, function(x){
+  all_guessers=lapply(cases_indicator_list, function(x){
     random_guesser <- rbinom(nrow(x), 1, 0.5)
     case_first_deriv=get_signal_first_derivative(signal = x$case_value, bandwidth = 14)
     indicator_first_deriv=get_signal_first_derivative(signal = x$ind_value, bandwidth = 14)
@@ -354,37 +354,39 @@ generate_competitors_get_scores<-function(final_cases_indicator_list)
 }
 
 # Sets the "rise points" to be spread over a time window for the per time point recall and precision analysis
+# The first loop sets the spread of "rise points" for cases.
+# The second loop sets the spread of "rise points" for the indicator
 # INPUT
-# @param competitors_df: List of dataframes that include as cols:
+# @param cases_indicator_list: List of dataframes that include as cols:
 #                             time_value, case_rise_point, indicator_rise_point
 # @param window: How many days ahead or behind to replicate the "rise points" out from the original rise point
 # OUTPUT
 # @ return A list of dataframes that have rise points marked at original rise points and "window" number of days ahead (for indicators)
 # or behind (for cases)
-set_time_window_rise_points = function(competitors_df, window) {
-  for (c in (1:length(competitors_df))) {
-    for (i in (1:length(competitors_df[[c]]$time_value))) {
-      if (competitors_df[[c]]$case_rise_point[[i]] == 1){
+set_time_window_rise_points = function(cases_indicator_list, window) {
+  for (county in (1:length(cases_indicator_list))) {
+    for (i in (1:length(cases_indicator_list[[county]]$time_value))) {
+      if (cases_indicator_list[[county]]$case_rise_point[[i]] == 1){
         for(j in (1:(window-1))) {
           if (i-j > 0) {
-            competitors_df[[c]]$case_rise_point[[i-j]] = 1
+            cases_indicator_list[[county]]$case_rise_point[[i-j]] = 1
           }
         }
       }
     }
-    i = length(competitors_df[[c]]$time_value)
+    i = length(cases_indicator_list[[county]]$time_value)
     while(i > 0) {
-      if (competitors_df[[c]]$indicator_rise_point[[i]] == 1){
+      if (cases_indicator_list[[county]]$indicator_rise_point[[i]] == 1){
         for(j in (1:(window-1))) {
-          if (i+j <= length(competitors_df[[c]]$time_value)) {
-            competitors_df[[c]]$indicator_rise_point[[i+j]] = 1
+          if (i+j <= length(cases_indicator_list[[county]]$time_value)) {
+            cases_indicator_list[[county]]$indicator_rise_point[[i+j]] = 1
           }
         }
       }
       i = i-1
     }
   }
-  return (competitors_df)
+  return (cases_indicator_list)
 }
 
 

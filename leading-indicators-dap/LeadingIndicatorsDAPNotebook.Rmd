@@ -173,7 +173,7 @@ In our analysis, we look at this on a county by county basis, for specific time 
 <br>
 
 #### County Selection
- In our analysis, we include all counties that have greater than 2000 cases (a little over 20 cases a day for a 3 month window), 80 days of indicator data for a 3 month window, and do not have zero or negative values for either cases or the indicator. TODO is this still true?
+ In our analysis, we include all counties that have greater than 600 cases and 27 days of indicator data in a given month, and do not have zero or negative values for either cases or the indicator. TODO is this still true?
 <br>
 <br>
 
