@@ -294,9 +294,9 @@ get_per_rise_point_precision_recall <- function(cases_indicator_list, min_window
 # Step 1, Generate competitors: 
 #         competitors_drs_summer = generate_competitors_predictions(drs_summer)
 # Step 2, Spread case and indicator rise points over given time window: 
-#         competitors_drs_summer_windows = set_time_window_rise_points(competitors_drs_summer, window = 14)
+#         competitors_drs_summer_spread = set_rise_points_spread(competitors_drs_summer, window = 14)
 # Step 3, Get per time point recall and precision for a given guesser: 
-#         drs_summer_r_p = get_per_time_point_recall_and_precision(competitors_drs_summer_windows, "indicator_rise_point")
+#         drs_summer_r_p = get_per_time_point_recall_and_precision(competitors_drs_summer_spread, "indicator_rise_point")
 #
 # INPUT 
 # @param competitors: List of dataframes that include as cols:
@@ -363,7 +363,7 @@ generate_competitors_predictions<-function(cases_indicator_list)
 # OUTPUT
 # @ return A list of dataframes that have rise points marked at original rise points and "window" number of days ahead (for indicators)
 # or behind (for cases)
-set_time_window_rise_points = function(cases_indicator_list, window) {
+set_rise_points_spread = function(cases_indicator_list, window) {
   for (county in (1:length(cases_indicator_list))) {
     for (i in (1:length(cases_indicator_list[[county]]$time_value))) {
       if (cases_indicator_list[[county]]$case_rise_point[[i]] == 1){
