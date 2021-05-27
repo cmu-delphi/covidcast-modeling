@@ -13,14 +13,14 @@
 # @param end_day: Last day to get data
 # @param indicator_source: The source for the signal data
 # @param indicator_signal: The signal for the given source.
-# @param case_threshold: The minumum number of cases a location should have over the time period to be included
-# @param indicator_threshold: The minimun number of days on which a location should have indicator data to be included
+# @param case_threshold: The minumum average number of cases a day a location should have to be included
+# @param indicator_threshold: The percentage of days for which a location should have indicator data to be included
 # @param geo_type: What type of location to get data for. Deafault is "county".
 #
 # OUTPUT
 # @return A list including: cases = list of dataframes for cases by location, indicator = list of dataframes for indicator by location
 get_and_parse_signals <- function(start_day, end_day, indicator_source, indicator_signal,
-                                   case_threshold = 600, indicator_threshold = 27, case_source = "usa-facts", 
+                                   case_threshold = 20, indicator_threshold = .90, case_source = "usa-facts", 
                                    case_signal = "confirmed_7dav_incidence_num", geo_type = "county") {
   # Get cases and indicator
   cases = covidcast_signal(data_source = case_source, signal = case_signal,
@@ -48,8 +48,9 @@ get_and_parse_signals <- function(start_day, end_day, indicator_source, indicato
   # Retain only the geos that have more than "case_threshold" cases,
   # having greater than "indicator_threshold" days with indicator data,
   # and do not have any negative or zero values in either cases or indicators
-  large_case_geos = names(case_list)[which(sapply(case_list, function(a) a %>% summarize(sum(value))) > case_threshold)]
-  large_indicator_geos = names(indicator_list)[which(sapply(indicator_list, function(a) a %>% summarize(nrow(a))) > indicator_threshold)]
+  num_days = as.numeric((as.Date(end_day) - as.Date(start_day)), units="days") + 1
+  large_case_geos = names(case_list)[which(sapply(case_list, function(a) a %>% summarize(sum(value)) / num_days > case_threshold))]
+  large_indicator_geos = names(indicator_list)[which(sapply(indicator_list, function(a) a %>% summarize(nrow(a))  / num_days > indicator_threshold))]
   negative_cases = unlist(lapply(case_list, function(x){ 1*any(x$value < 0 | var(x$value) == 0) }))
   negative_indicator = unlist(lapply(indicator_list, function(x){ 1*any(x$value < 0 | var(x$value) == 0) }))
   large_case_geos = intersect(large_case_geos, names(negative_cases[which(negative_cases == 0)]))
@@ -299,30 +300,30 @@ get_per_rise_point_precision_recall <- function(cases_indicator_list, min_window
 #         drs_summer_r_p = get_per_time_point_recall_and_precision(competitors_drs_summer_spread, "indicator_rise_point")
 #
 # INPUT 
-# @param competitors: List of dataframes that include as cols:
-#                             time_value, case_rise_point, indicator_rise_point, <names of guessers>...
+# @param competitors_df: List of dataframes that include as cols:
+#                             time_value, case_rise_point, indicator_rise_point, guesser_1, guesser_2...
 # @param guesser: Which guesser to get scores for
 # OUTPUT
 # @return List of: guesser name, global recall score, global precision score
-get_per_time_point_recall_and_precision = function(competitors, guesser) {
+get_per_time_point_recall_and_precision = function(competitors_df, guesser) {
   true_positives = 0
   false_positives = 0
   true_negatives = 0
   false_negatives = 0
-  for (county in (1:length(competitors))) {
-    for (i in (1:length(competitors[[county]]$time_value))) {
-      guesser_points = competitors[[county]][guesser]
+  for (county in (1:length(competitors_df))) {
+    for (i in (1:length(competitors_df[[county]]$time_value))) {
+      guesser_points = competitors_df[[county]][guesser]
       guesser_point = as.numeric(unlist(guesser_points))[[i]]
-      if (competitors[[county]]$case_rise_point[[i]] == 1 && guesser_point == 1) {
+      if (competitors_df[[county]]$case_rise_point[[i]] == 1 && guesser_point == 1) {
         true_positives = true_positives + 1
       }
-      if (competitors[[county]]$case_rise_point[[i]] == 1 && guesser_point == 0) {
+      if (competitors_df[[county]]$case_rise_point[[i]] == 1 && guesser_point == 0) {
         false_negatives = false_negatives + 1
       } 
-      if (competitors[[county]]$case_rise_point[[i]] == 0 && guesser_point == 0) {
+      if (competitors_df[[county]]$case_rise_point[[i]] == 0 && guesser_point == 0) {
         true_negatives = true_negatives + 1
       } 
-      if (competitors[[county]]$case_rise_point[[i]] == 0 && guesser_point == 1) {
+      if (competitors_df[[county]]$case_rise_point[[i]] == 0 && guesser_point == 1) {
         false_positives = false_positives + 1
       } 
     }
@@ -428,7 +429,7 @@ trans <- function(x, from_range, to_range) {
 # INPUT
 # @param signal: A numeric vector of values corresponding to case counts or indicator counts for one location
 # @param bandwidth: Bandwidth for smoothing. Default is 10.
-# @param quantile_threshold: Deriv must be greater than quantile_threshold percent of other derivs. Default is 0.75.
+# @param quantile_threshold: Deriv must be greater than quantile_threshold percent of other derivs. Default is 0.00.
 # @param threshold: Min ratio of magnitude of increase from min point to max point. Default is 0.4.
 # @param period: Min length of increase in days. Default is 10.
 # OUTPUT

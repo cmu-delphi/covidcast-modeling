@@ -111,7 +111,7 @@ In our analysis, we look at this on a county by county basis for each month thro
 <br>
 
 ##### **County Selection**
- In our analysis, we include all counties that have greater than 600 cases and 27 days of indicator data in a given month, and do not have zero or negative values for either cases or the indicator.
+In our analysis, we include all counties that have greater than 20 cases a day on average and indicator data for 90% of days in a given time range, and do not have zero or negative values for either cases or the indicator on any day.
 
 <br>
 <br>
