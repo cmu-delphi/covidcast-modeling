@@ -14,7 +14,7 @@
 # @param indicator_source: The source for the signal data
 # @param indicator_signal: The signal for the given source.
 # @param case_threshold: The minumum average number of cases a day a location should have to be included
-# @param indicator_threshold: The percentage of days for which a location should have indicator data to be included
+# @param indicator_threshold: The ratio of days for which a location should have indicator data to be included
 # @param geo_type: What type of location to get data for. Deafault is "county".
 #
 # OUTPUT
@@ -59,7 +59,54 @@ get_and_parse_signals <- function(start_day, end_day, indicator_source, indicato
   return (list("cases" = case_list[large_geos], "indicator" = indicator_list[large_geos]))
 }
 
+# Same as get_and_parse_signals, but can pass in preloaded RDS files containing the data for the cases and indicator signals
+get_and_parse_pre_read_signals <- function(case_df, indicator_df, 
+                                  case_threshold = 20, indicator_threshold = .90, case_source = "usa-facts", 
+                                  case_signal = "confirmed_7dav_incidence_num", geo_type = "county") {
+  cases = cases_df
+  indicator = indicator_df
+  
+  # Get earliest and latest available indicator data within case data range to make sure they are matched on same time period
+  # Note: some counties might have data starting later than this period, but they will be filtered out if they don't meet the
+  # threshold for amount of indicator data avaialable in the next step
+  start_day = earliest_available_indicator_date=min(indicator_df$time_value[which(as.Date(indicator_df$time_value) %in% as.Date(case_df$time_value))])
+  end_day = latest_available_indicator_date=max(indicator_df$time_value[which(as.Date(indicator_df$time_value) %in% as.Date(case_df$time_value))])
+  if (earliest_available_indicator_date < as.Date("2020-03-01")) {
+    start_day = as.Date("2020-03-15")
+  }
+  cases = subset(cases, time_value >= start_day)
+  cases = subset(cases, time_value <= end_day)
+  indicator = subset(indicator, time_value >= start_day)
+  indicator = subset(indicator, time_value <= end_day)
 
+  # Split CASES into lists by geo
+  geos_case = cases %>%  group_keys(geo_value) %>% unlist()
+  case_list = cases %>% group_by(geo_value) %>% select(geo_value, time_value, value) %>%
+    arrange(time_value) %>% group_split() %>% setNames(geos_case)
+
+  # Split INDICATOR into lists by geo
+  indicator_list = indicator %>%
+    group_by(geo_value) %>%
+    select(geo_value, time_value, value) %>%
+    arrange(time_value) %>%
+    group_split()
+  geos_indicator = lapply(indicator_list, function(a) a %>%
+                            select(geo_value) %>% unlist() %>% unique()) %>% unlist()
+  indicator_list = indicator_list %>% setNames(geos_indicator)
+
+  # Retain only the geos that have more than "case_threshold" cases,
+  # having greater than "indicator_threshold" days with indicator data,
+  # and do not have any negative or zero values in either cases or indicators
+  num_days = as.numeric((as.Date(end_day) - as.Date(start_day)), units="days") + 1
+  large_case_geos = names(case_list)[which(sapply(case_list, function(a) a %>% summarize(sum(value)) / num_days > case_threshold))]
+  large_indicator_geos = names(indicator_list)[which(sapply(indicator_list, function(a) a %>% summarize(nrow(a))  / num_days > indicator_threshold))]
+  negative_cases = unlist(lapply(case_list, function(x){ 1*any(x$value < 0 | var(x$value) == 0) }))
+  negative_indicator = unlist(lapply(indicator_list, function(x){ 1*any(x$value < 0 | var(x$value) == 0) }))
+  large_case_geos = intersect(large_case_geos, names(negative_cases[which(negative_cases == 0)]))
+  large_indicator_geos = intersect(large_indicator_geos, names(negative_indicator[which(negative_indicator == 0)]))
+  large_geos = intersect(large_case_geos, large_indicator_geos)
+  return (list("cases" = case_list[large_geos], "indicator" = indicator_list[large_geos]))
+}
 
 ######### PROCESS DATA (SMOOTHING AND RISE POINTS) ###################
 
@@ -157,8 +204,9 @@ plot_signals <- function(case_indicator_list, county_fips, ylab2 = "",
     scale_y_continuous(name = ylab1, limits = range1,
                        sec.axis = sec_axis(trans = trans12,
                                            name = ylab2)) +
+    scale_x_date(date_labels = "%m-%Y") +
     labs(title = title, x = xlab) + theme_bw() + 
-    geom_point(data = increasing_points, col = increasing_points$point_color, size = 5) + 
+    geom_point(data = increasing_points, col = increasing_points$point_color, size = 3) + 
     theme(legend.pos = "bottom", legend.title = element_blank(), 
           axis.text = element_text(size = 12),
           legend.text = element_text(size = 11),
@@ -181,6 +229,20 @@ plot_signals <- function(case_indicator_list, county_fips, ylab2 = "",
 }
 
 
+
+# Narrows all dfs for counties in case_indicator_list to a subset of time
+#INPUT
+# @param case_indicator_list: List of dataframes that include as cols:
+#                             time_value, geo_value, case_value, ind_value, case_rise_point, indicator_rise_point
+# @param start_date
+# @param end_date
+get_subset_of_time = function(start_date, end_date, case_indicator_list) {
+  subset_list = lapply(case_indicator_list, function(x) subset(x, time_value >= as.Date(start_date)))
+  subset_list = lapply(subset_list, function(x) subset(x, time_value <= as.Date(end_date)))
+  return (subset_list)
+}
+
+
 # Get success examples
 #INPUT
 # @param case_indicator_list: List of dataframes that include as cols:
@@ -190,7 +252,7 @@ plot_signals <- function(case_indicator_list, county_fips, ylab2 = "",
 # OUTPUT
 # @return list of county fips codes where all indicator rise points precede a case rise point by success_window_max or fewer days, and more than success_window_min days
 #         and all case rise points are preceded by an indicator rise point by success_window_max or fewer days, and more than success_window_min days
-get_success_examples <- function(case_indicator_list, success_window_max = 14, success_window_min = 3) {
+get_success_examples <- function(case_indicator_list, success_window_max = 14, success_window_min = 2) {
   success_counties = vector("list", length(case_indicator_list)) 
 
   for (i in (1:length(case_indicator_list))) {
@@ -234,29 +296,98 @@ get_success_examples <- function(case_indicator_list, success_window_max = 14, s
   return (success_counties)
 }
 
+# Same as get_success_examples, but is more lenient. Not all case rise points need be preceeded by an indicator rise point
+# (and not all indicator rise points need to proceed a case rise point). As long as a majority of case rise points
+# preceed an indicator rise point and a majority of indicator rise points preceed a case rise point, a county is counted
+# as a success.
+get_success_examples_lenient <- function(case_indicator_list, success_window_max = 14, success_window_min = 2) {
+  success_counties = vector("list", length(case_indicator_list)) 
+  
+  for (i in (1:length(case_indicator_list))) {
+    case_points = 1 %in% case_indicator_list[[i]]$case_rise_point
+    indicator_points = 1 %in% case_indicator_list[[i]]$indicator_rise_point
+    # County has at least one case rise point and at least one indicator rise point
+    if(case_points && indicator_points) {
+      case_dates = case_indicator_list[[i]]$time_value[case_indicator_list[[i]]$case_rise_point==1]
+      indicator_dates = case_indicator_list[[i]]$time_value[case_indicator_list[[i]]$indicator_rise_point==1]
+      # Check if the majority of the case points are preceded by an indicator point
+      k = 1
+      num_success = 0
+      while(k <= length(case_dates)) {
+        for (j in (1:length(indicator_dates))) {
+          if(case_dates[k] - indicator_dates[j] <= success_window_max && case_dates[k] - indicator_dates[j] >= success_window_min) {
+            num_success = num_success + 1
+          }
+        }
+        k = k+1
+      }
+      if ((num_success / k) > .10) {
+        # Check if the majority of the indicator points precede a case point
+        k = 1
+        num_success = 0
+        while(k <= length(indicator_dates)) {
+          for (j in (1:length(case_dates))) {
+            if(case_dates[j] - indicator_dates[k] <= success_window_max && case_dates[j] - indicator_dates[k] > success_window_min) {
+              num_success = num_success+1
+            }
+          }
+          k = k+1
+        }
+        if ((num_success / k) > .10) {
+          success_counties[[i]]=case_indicator_list[[i]]$geo_value[1]
+        }
+      }
+    }
+  }
+  success_counties = success_counties[lengths(success_counties)!=0]
+  return (success_counties)
+}
 
+# TODO FUNCTION SIGNATURE
+plot_example_list = function(success_example_list, signal_data, indicator) {
+  plot_list = vector("list", length(success_example_list) )
+  for (i in 1:length(success_example_list)) {
+    plot_list[[i]] = plot_signals(signal_data, success_example_list[[i]], smooth_and_show_increase_point=TRUE, indicator)
+  }
+  layout <- rbind(c(1,1),
+                  c(1,1),
+                  c(1,1),
+                  c(1,1))
+  
+  marrangeGrob(grobs = plot_list, layout_matrix=layout)
+}
 
-######### ANALYZE DATA (RECALL AND PRECISION) ###################
+######### ANALYZE DATA: LEADINGNESS FREQUENCY ###################
+# Gets the number of days an indicator rise preceds a case rise for each time an indicator rise precedes 
+# a case rise by a period of min_window to max_window days
+# INPUT
+# @param case_indicator_list: List of dataframes that include as cols:
+#                             time_value, geo_value, case_value, ind_value, case_rise_point, indicator_rise_point
+# @param min_window
+# @param max_window
+get_leading_indicator_day_distribution = function(cases_indicator_list, min_window=2, max_window=14) {
+  unlist(lapply(cases_indicator_list, function(x){
+    case_rise_dates = x$time_value[which(x$case_rise_point==1)]
+    indicator_rise_dates = x$time_value[which(x$indicator_rise_point==1)]
+    sapply(indicator_rise_dates, function(date_indicator_rise) {
+      differences=as.integer(case_rise_dates-date_indicator_rise)
+      differences = differences[which(differences >= min_window & differences <= max_window)]
+    })
+  }))
+}
+
+######### ANALYZE DATA: RECALL AND PRECISION  ###################
 
 #Gets the per-rise-point precision and recall for an indicator signal
 #INPUT
 # @param cases_indicator_list: A list of dataframes, where each element corresponds to a unique county. 
 #                                     Each dataframe has time_value, geo_value, case_value/death_value, ind_value, case_rise_point, indicator_rise_point as columns.
 # @min_window, max_window: Specify how far to look before a substantial case rise for indicator rise.                                   
-get_per_rise_point_precision_recall <- function(cases_indicator_list, min_window=3, max_window=14)
+get_per_rise_point_precision_recall <- function(cases_indicator_list, min_window=2, max_window=14)
 {
-  #for each indicator rise point, do cases increase within the window
-  get_indicator_preceding_cases<-function(indicator_rise_dates, case_increase_dates)
-  {
-    sapply(indicator_rise_dates, function(date_indicator_rise) { 
-      differences=as.integer(case_increase_dates-date_indicator_rise)
-      1*(any(differences >= min_window & differences <= max_window))
-    })
-  }
-  
   #traverse the list of dataframes, where each element corresponds to a unique county
   precision_recall_list=lapply(cases_indicator_list, function(x){
-    #for each indicator rise point, do cases increase within [3,14 days] (recall)
+    #for each indicator rise point, do cases increase within window (recall)
     indicator_rises_preceding_case_rises=get_indicator_preceding_cases(x$time_value[which(x$indicator_rise_point==1)], x$time_value[which(x$case_rise_point==1)])
     
     #precision=tp/(tp+fp), recall=tp/(tp+fn);
@@ -364,7 +495,7 @@ generate_competitors_predictions<-function(cases_indicator_list)
 # OUTPUT
 # @ return A list of dataframes that have rise points marked at original rise points and "window" number of days ahead (for indicators)
 # or behind (for cases)
-set_rise_points_spread = function(cases_indicator_list, window) {
+set_rise_points_spread = function(cases_indicator_list, window = 14) {
   for (county in (1:length(cases_indicator_list))) {
     for (i in (1:length(cases_indicator_list[[county]]$time_value))) {
       if (cases_indicator_list[[county]]$case_rise_point[[i]] == 1){
@@ -463,6 +594,21 @@ get_signal_first_derivative<-function(signal, bandwidth)
   tt = 1:length(signal)
   first_deriv = stats::splinefun(tt, smoothed_signal)(tt, 1)
   return(first_deriv)
+}
+
+
+# Gets number of times a cases rise is within min_window to max_window period after an indicator rise
+# INPUT
+# @param indicator_rise_dates: Dates on which indicator rises occur
+# @param case_rise_dates: Dates on which case rises occur
+# @param min_window
+# @param max_window
+get_indicator_preceding_cases<-function(indicator_rise_dates, case_rise_dates, min_window=2, max_window=14)
+{
+  sapply(indicator_rise_dates, function(date_indicator_rise) { 
+    differences=as.integer(case_rise_dates-date_indicator_rise)
+    1*(any(differences >= min_window & differences <= max_window))
+  })
 }
 
 
