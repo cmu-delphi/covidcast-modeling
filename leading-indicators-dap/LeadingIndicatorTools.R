@@ -296,58 +296,17 @@ get_success_examples <- function(case_indicator_list, success_window_max = 14, s
   return (success_counties)
 }
 
-# Same as get_success_examples, but is more lenient. Not all case rise points need be preceeded by an indicator rise point
-# (and not all indicator rise points need to proceed a case rise point). As long as a majority of case rise points
-# preceed an indicator rise point and a majority of indicator rise points preceed a case rise point, a county is counted
-# as a success.
-get_success_examples_lenient <- function(case_indicator_list, success_window_max = 14, success_window_min = 2) {
-  success_counties = vector("list", length(case_indicator_list)) 
-  
-  for (i in (1:length(case_indicator_list))) {
-    case_points = 1 %in% case_indicator_list[[i]]$case_rise_point
-    indicator_points = 1 %in% case_indicator_list[[i]]$indicator_rise_point
-    # County has at least one case rise point and at least one indicator rise point
-    if(case_points && indicator_points) {
-      case_dates = case_indicator_list[[i]]$time_value[case_indicator_list[[i]]$case_rise_point==1]
-      indicator_dates = case_indicator_list[[i]]$time_value[case_indicator_list[[i]]$indicator_rise_point==1]
-      # Check if the majority of the case points are preceded by an indicator point
-      k = 1
-      num_success = 0
-      while(k <= length(case_dates)) {
-        for (j in (1:length(indicator_dates))) {
-          if(case_dates[k] - indicator_dates[j] <= success_window_max && case_dates[k] - indicator_dates[j] >= success_window_min) {
-            num_success = num_success + 1
-          }
-        }
-        k = k+1
-      }
-      if ((num_success / k) > .10) {
-        # Check if the majority of the indicator points precede a case point
-        k = 1
-        num_success = 0
-        while(k <= length(indicator_dates)) {
-          for (j in (1:length(case_dates))) {
-            if(case_dates[j] - indicator_dates[k] <= success_window_max && case_dates[j] - indicator_dates[k] > success_window_min) {
-              num_success = num_success+1
-            }
-          }
-          k = k+1
-        }
-        if ((num_success / k) > .10) {
-          success_counties[[i]]=case_indicator_list[[i]]$geo_value[1]
-        }
-      }
-    }
-  }
-  success_counties = success_counties[lengths(success_counties)!=0]
-  return (success_counties)
-}
 
-# TODO FUNCTION SIGNATURE
-plot_example_list = function(success_example_list, signal_data, indicator) {
-  plot_list = vector("list", length(success_example_list) )
-  for (i in 1:length(success_example_list)) {
-    plot_list[[i]] = plot_signals(signal_data, success_example_list[[i]], smooth_and_show_increase_point=TRUE, indicator)
+# Plots a given list of examples of counties
+# INPUT
+# @param example_list: List of county codes to plot
+# @param signal_data: List of dataframes that include as cols:
+#                             time_value, geo_value, case_value, ind_value, case_rise_point, indicator_rise_point
+# @param indicator: The name of the indicator being plotted to use as the labels for the plots
+plot_example_list = function(example_list, signal_data, indicator) {
+  plot_list = vector("list", length(example_list) )
+  for (i in 1:length(example_list)) {
+    plot_list[[i]] = plot_signals(signal_data, example_list[[i]], smooth_and_show_increase_point=TRUE, indicator)
   }
   layout <- rbind(c(1,1),
                   c(1,1),
@@ -612,8 +571,7 @@ get_indicator_preceding_cases<-function(indicator_rise_dates, case_rise_dates, m
 }
 
 
-
-######### UNUSED PRECISION AND RECALL FUNCTIONS ###################
+######### UNUSED PRECISION FUNCTIONS ###################
 
 # Get recall strict
 # INPUT
@@ -640,4 +598,52 @@ get_precision_strict <- function(case_indicator_list) {
   indicator_with_rise = indicator_with_rise[which(indicator_with_rise == TRUE)]
   return (length(success_examples) / length(indicator_with_rise))
 }
+
+# Same as get_success_examples, but is more lenient. Not all case rise points need be preceeded by an indicator rise point
+# (and not all indicator rise points need to proceed a case rise point). As long as a majority of case rise points
+# preceed an indicator rise point and a majority of indicator rise points preceed a case rise point, a county is counted
+# as a success.
+get_success_examples_lenient <- function(case_indicator_list, success_window_max = 14, success_window_min = 2) {
+  success_counties = vector("list", length(case_indicator_list)) 
+  
+  for (i in (1:length(case_indicator_list))) {
+    case_points = 1 %in% case_indicator_list[[i]]$case_rise_point
+    indicator_points = 1 %in% case_indicator_list[[i]]$indicator_rise_point
+    # County has at least one case rise point and at least one indicator rise point
+    if(case_points && indicator_points) {
+      case_dates = case_indicator_list[[i]]$time_value[case_indicator_list[[i]]$case_rise_point==1]
+      indicator_dates = case_indicator_list[[i]]$time_value[case_indicator_list[[i]]$indicator_rise_point==1]
+      # Check if the majority of the case points are preceded by an indicator point
+      k = 1
+      num_success = 0
+      while(k <= length(case_dates)) {
+        for (j in (1:length(indicator_dates))) {
+          if(case_dates[k] - indicator_dates[j] <= success_window_max && case_dates[k] - indicator_dates[j] >= success_window_min) {
+            num_success = num_success + 1
+          }
+        }
+        k = k+1
+      }
+      if ((num_success / k) > .10) {
+        # Check if the majority of the indicator points precede a case point
+        k = 1
+        num_success = 0
+        while(k <= length(indicator_dates)) {
+          for (j in (1:length(case_dates))) {
+            if(case_dates[j] - indicator_dates[k] <= success_window_max && case_dates[j] - indicator_dates[k] > success_window_min) {
+              num_success = num_success+1
+            }
+          }
+          k = k+1
+        }
+        if ((num_success / k) > .10) {
+          success_counties[[i]]=case_indicator_list[[i]]$geo_value[1]
+        }
+      }
+    }
+  }
+  success_counties = success_counties[lengths(success_counties)!=0]
+  return (success_counties)
+}
+
 
