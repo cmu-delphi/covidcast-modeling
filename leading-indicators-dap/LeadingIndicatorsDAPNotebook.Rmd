@@ -42,7 +42,7 @@ restaurants_df = readRDS("SavedSignals/safegraph_restaurants.rds")
 ## Motivation
 Throughout the COVID-19 pandemic, the U.S. has seen multiple “waves” of increases in case incidence numbers, occurring at different times in different areas of the country, and with even greater variation on the state and county level. It has been difficult not only for public health officials and other policy makers to anticipate when case incidences might rise in their area, but also for researchers who are forecasting the pandemic to accurately predict future case numbers. Part of the challenge in guiding decision making has been understanding how to leverage the combination of mobility, public health, and survey signals to capture the complex dynamics and transmission of COVID-19. 
 
-Our directive for this project specifically instructed us to analyze Delphi’s signals as potential leading indicators of significant rises in cases at the county level across multiple distinct periods of time. The goal is to provide greater insight into the value of Delphi’s signals in predicting future increases in cases. 
+To better assess the possibility of using DELPHI's signals to inform public health decision-making, we studied the potential of using these signals as leading indicators of significant rises in cases at the county level across multiple periods of time. In other words, the goal of this analysis is to provide greater insight into the value of Delphi’s signals in predicting future increases in cases. 
 
 ## Methodology
 
@@ -63,7 +63,7 @@ sharp upswings in cases, something significant within a county, and of particula
 </details>
 
 ### Identifying Rises in Signals
-In order to ascertain leading-ness of an indicator, we want to determine whether the indicator began to rise significantly before cases began to rise significantly.
+In order to ascertain leadingness of an indicator, we want to determine whether the indicator began to rise significantly before cases began to rise significantly.
 
 As a core component of this analysis, we need methodology to accurately identify significant rises, given a single time series of an indicator. This is non-trivial, since the data is quite noisy at the county level, and clean rise/drops are rare.
 
@@ -87,7 +87,7 @@ One option we tried was calculating a line of best fit for the signal for fixed 
 <br>
 
 **Estimated Derivative**<br>
-We then tried using multiple different derivative estimate methods to identify periods where the estimated derivative at each point is over a certain threshold.
+To identify periods of substantial increase in case or indicator signals, we estimated where signals had a positive first derivative. 
 
   - Where this worked well:
     - It can find smaller periods of continuous rise that are flexible in length.
@@ -125,7 +125,7 @@ In our final analysis, we look at this on a county by county basis over a contin
 <br>
 
 ##### **County Selection**
-In our analysis, we include all counties that have greater than 20 cases a day on average and indicator data for 90% of days in a given time range, and do not have zero or negative values for either cases or the indicator on any day.
+To ensure our analysis captures meaningful examples where indicators lead case/death signals, we include all counties that have greater than 20 cases a day on average and indicator data for 90% of days in a given time range, and do not have zero or negative values for either cases or the indicator on any day. These criteria were selected empirically, based on visually inspecting the detected examples of case and indicator rises from our methodology.
 
 <br>
 <br>
@@ -549,11 +549,10 @@ recall_precision_rise_point_df
 recall_precision_time_point_df
 ```
 
-## Conclusions and Limitations
+## Conclusions
 
-TODO
-Maybe include:
-interpolation issue where there are certain days that don't have case/signal data. could be solved by just increasing "indicator_threshold" by a lot, allowing very very few days where there is not a signal for the indicator.
+In this DAP analysis, we report a novel methodology for identifying substantial increases in cases and indicators and quantifying indicator success in anticipating case rises. Our methodology is simple and interpretable and provides several examples across various time periods, where indicator signals (e.g., doctors visits) can anticipate a case rise. Together, our results suggest that doctors visits and the quidel antigen signals perform best in anticipating a case rises and that  generally indicators most frequently lead case rises by over a week.
+
 
 
 
