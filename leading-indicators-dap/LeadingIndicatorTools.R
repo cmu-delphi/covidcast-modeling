@@ -308,10 +308,10 @@ plot_example_list = function(example_list, signal_data, indicator) {
   for (i in 1:length(example_list)) {
     plot_list[[i]] = plot_signals(signal_data, example_list[[i]], smooth_and_show_increase_point=TRUE, indicator)
   }
-  layout <- rbind(c(1,1),
-                  c(1,1),
-                  c(1,1),
-                  c(1,1))
+  layout <- rbind(c(1,2),
+                  c(1,2),
+                  c(1,2),
+                  c(1,2))
   
   marrangeGrob(grobs = plot_list, layout_matrix=layout)
 }

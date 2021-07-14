@@ -2,11 +2,11 @@
 title: "Leading Indicators DAP"
 author: "Kate Harwood, Vishnu Shankar, Ben Smith, Sangwon Hyun"
 output:
-  html_document:
-    df_print: paged
+  html_notebook:
     toc: yes
     toc_float: yes
-  html_notebook:
+  html_document:
+    df_print: paged
     toc: yes
     toc_float: yes
 ---
@@ -42,7 +42,7 @@ restaurants_df = readRDS("SavedSignals/safegraph_restaurants.rds")
 ## Motivation
 Throughout the COVID-19 pandemic, the U.S. has seen multiple “waves” of increases in case incidence numbers, occurring at different times in different areas of the country, and with even greater variation on the state and county level. It has been difficult not only for public health officials and other policy makers to anticipate when case incidences might rise in their area, but also for researchers who are forecasting the pandemic to accurately predict future case numbers. Part of the challenge in guiding decision making has been understanding how to leverage the combination of mobility, public health, and survey signals to capture the complex dynamics and transmission of COVID-19. 
 
-Our directive for this project specifically instructed us to analyze Delphi’s signals as potential leading indicators of significant rises in cases at the county level across multiple distinct periods of time. The goal is to provide greater insight into the value of Delphi’s signals in predicting future increases in cases. 
+To better assess the possibility of using DELPHI's signals to inform public health decision-making, we studied the potential of using these signals as leading indicators of significant rises in cases at the county level. In other words, the goal of this analysis is to provide greater insight into the value of Delphi’s signals in predicting future increases in cases.
 
 ## Methodology
 
@@ -59,11 +59,11 @@ We calculated the cross-correlation and the optimal lag in each county. An examp
 An example of this data over all observed counties for the Drs Visits indicator signal: ![cross_correlation_plot](cross_correlation_plot.png)
 
 This exploratory analysis hints at a predictive relationship; that indicators, observed in advance, can have high correlation with case counts. However, this is a more general analysis than our project's goal, which is dealing with **periods of increase** specifically, rather then the general relationship between two signals. The main analysis in the project aims for a more specific focus on
-sharp upswings in cases, something significant within a county, and of particular public health importance, as well as of practical importance for modeling and forecasting. We want to analyze the leading-ness of a **signficant indicator rise** in relation to a **significant case rise**. To do this, we need to define and find periods of significant rise in these signals.
+sharp upswings in cases, something significant within a county, and of particular public health importance, as well as of practical importance for modeling and forecasting. We want to analyze the leadingness of a **signficant indicator rise** in relation to a **significant case rise**. To do this, we need to define and find periods of significant rise in these signals.
 </details>
 
 ### Identifying Rises in Signals
-In order to ascertain leading-ness of an indicator, we want to determine whether the indicator began to rise significantly before cases began to rise significantly.
+In order to ascertain leadingness of an indicator, we want to determine whether the indicator began to rise significantly before cases began to rise significantly.
 
 As a core component of this analysis, we need methodology to accurately identify significant rises, given a single time series of an indicator. This is non-trivial, since the data is quite noisy at the county level, and clean rise/drops are rare.
 
@@ -99,7 +99,7 @@ We then tried using multiple different derivative estimate methods to identify p
 <details>
 <summary>*Example plot*</summary>
 
-Blue is using smoothing spline method, Red is using local linear regression (Purple is where both methods marked the same point)
+Blue is using smoothing spline method to estimate the derivative, Red is using local linear regression (Purple is where both methods marked the same point)
 ![estimated_deriv_plot](estimated_deriv.png)
 </details>
 <br>
@@ -125,7 +125,7 @@ In our final analysis, we look at this on a county by county basis over a contin
 <br>
 
 ##### **County Selection**
-In our analysis, we include all counties that have greater than 20 cases a day on average and indicator data for 90% of days in a given time range, and do not have zero or negative values for either cases or the indicator on any day.
+To ensure our analysis captures meaningful examples where indicators lead case/death signals, we include all counties that have greater than 20 cases a day on average and indicator data for 90% of days in a given time range, and do not have zero or negative values for either cases or the indicator on any day. These criteria were selected empirically, based on visually inspecting the detected examples of case and indicator rises from our methodology.
 
 <br>
 <br>
@@ -224,7 +224,7 @@ plot_signals(get_subset_of_time("2020-05-01", "2020-11-30", drs_visits_with_poin
 ### Doctor Visits % CLI
 #### {.tabset .tabset-fade .tabset-pills}
 ##### Examples
-We can plot some of the counties where rises in the doctor visits indicator consistently lead rises in cases.
+We can plot some of the counties where rises in the doctor visits indicator lead rises in cases.
 ```{r, echo=FALSE, warning = FALSE}
 # drs_visits_spring_2020 = get_subset_of_time("2020-03-01", "2020-05-31", drs_visits_with_points)
 drs_visits_fall = get_subset_of_time("2020-09-01", "2020-11-30", drs_visits_with_points)
@@ -245,7 +245,7 @@ plot_example_list(success_examples_drs_visits_spring, drs_visits_spring, "Doctor
 We can also look at the distribution of the frequency of the number of days by which Doctor Visits' rises lead case rises (when the case rise occurs between 2 to 14 days after the indicator rise)
 ```{r, echo=FALSE, warning = FALSE}
 drs_frequencies = get_leading_indicator_day_distribution(drs_visits_with_points)
-plot(as.factor(drs_frequencies), ylab="Occurances", xlab="Days", main="Frequencies of 'leadingness' in days")
+plot(as.factor(drs_frequencies), ylab="Occurrences", xlab="Days", main="Frequencies of 'leadingness' in days")
 ```
 
 ### Google Symptoms
@@ -254,7 +254,7 @@ plot(as.factor(drs_frequencies), ylab="Occurances", xlab="Days", main="Frequenci
 google_symptoms = get_and_parse_pre_read_signals(cases_df, google_symptoms_df)
 ```
 ##### Examples
-We can plot some of the counties where rises in one of the google symptoms signals (`sum_anosmia_ageusia_smoothed_search`) consistently lead rises in cases.
+We can plot some of the counties where rises in one of the google symptoms signals (`sum_anosmia_ageusia_smoothed_search`) lead rises in cases.
 ```{r results="hide", echo=FALSE, warning = FALSE}
 google_symptoms_with_points = get_increase_points(google_symptoms$cases, google_symptoms$indicator)
 # google_symptoms_spring_2020 = get_subset_of_time("2020-03-01", "2020-05-31", google_symptoms_with_points)
@@ -280,7 +280,7 @@ plot_example_list(success_examples_google_symptoms_spring, google_symptoms_sprin
 We can also look at the distribution of the frequency of the number of days by which the signal (`sum_anosmia_ageusia_smoothed_search`) rises lead case rises (when the case rise occurs between 2 to 14 days after the indicator rise)
 ```{r echo=FALSE, warning = FALSE}
 google_symptoms_frequencies = get_leading_indicator_day_distribution(google_symptoms_with_points)
-plot(as.factor(google_symptoms_frequencies), ylab="Occurances", xlab="Days", main="Frequencies of 'leadingness' in days")
+plot(as.factor(google_symptoms_frequencies), ylab="Occurrences", xlab="Days", main="Frequencies of 'leadingness' in days")
 ```
 
 ### Quidel
@@ -289,7 +289,7 @@ plot(as.factor(google_symptoms_frequencies), ylab="Occurances", xlab="Days", mai
 quidel = get_and_parse_pre_read_signals(cases_df, quidel_df)
 ```
 ##### Examples
-We can plot some of the counties where rises in the quidel indicator (`covid_ag_smoothed_pct_positive`) consistently lead rises in cases.
+We can plot some of the counties where rises in the quidel indicator (`covid_ag_smoothed_pct_positive`) lead rises in cases.
 ```{r results="hide", echo=FALSE, warning = FALSE}
 quidel_with_points = get_increase_points(quidel$cases, quidel$indicator)
 quidel_summer = get_subset_of_time("2020-06-01", "2020-08-31", quidel_with_points)
@@ -312,7 +312,7 @@ plot_example_list(success_examples_quidel_spring, quidel_spring, "Ind: Quidel Te
 We can also look at the distribution of the frequency of the number of days by which Quidel rises lead case rises (when the case rise occurs between 2 to 14 days after the indicator rise)
 ```{r echo=FALSE, warning = FALSE}
 quidel_frequencies = get_leading_indicator_day_distribution(quidel_with_points)
-plot(as.factor(quidel_frequencies), ylab="Occurances", xlab="Days", main="Frequencies of 'leadingness' in days")
+plot(as.factor(quidel_frequencies), ylab="Occurrences", xlab="Days", main="Frequencies of 'leadingness' in days")
 ```
 
 ### FB CLI
@@ -321,7 +321,7 @@ plot(as.factor(quidel_frequencies), ylab="Occurances", xlab="Days", main="Freque
 FB_CLI = get_and_parse_pre_read_signals(cases_df, CLI_df)
 ```
 ##### Examples
-We can plot some of the counties where rises in the FB CLI indicator (`smoothed_whh_cmnty_cli`) consistently lead rises in cases.
+We can plot some of the counties where rises in the FB CLI indicator (`smoothed_whh_cmnty_cli`) lead rises in cases.
 ```{r results="hide", echo=FALSE, warning = FALSE}
 fb_cli_with_points = get_increase_points(FB_CLI$cases, FB_CLI$indicator)
 fb_cli_summer = get_subset_of_time("2020-06-01", "2020-08-31", fb_cli_with_points)
@@ -343,7 +343,7 @@ plot_example_list(success_examples_fb_cli_spring, fb_cli_spring, "Ind: FB Survey
 We can also look at the distribution of the frequency of the number of days by which FB CLI rises lead case rises (when the case rise occurs between 2 to 14 days after the indicator rise)
 ```{r echo=FALSE, warning = FALSE}
 fb_cli_frequencies = get_leading_indicator_day_distribution(fb_cli_with_points)
-plot(as.factor(fb_cli_frequencies), ylab="Occurances", xlab="Days", main="Frequencies of 'leadingness' in days")
+plot(as.factor(fb_cli_frequencies), ylab="Occurrences", xlab="Days", main="Frequencies of 'leadingness' in days")
 ```
 
 
@@ -354,7 +354,7 @@ plot(as.factor(fb_cli_frequencies), ylab="Occurances", xlab="Days", main="Freque
 FB_public_transit = get_and_parse_pre_read_signals(cases_df, public_transit_df)
 ```
 ##### Examples
-We can plot some of the counties where rises in the FB public transit indicator (`smoothed_wpublic_transit_1d`) consistently lead rises in cases.
+We can plot some of the counties where rises in the FB public transit indicator (`smoothed_wpublic_transit_1d`) lead rises in cases.
 ```{r results="hide", echo=FALSE, warning = FALSE}
 fb_public_transit_with_points = get_increase_points(FB_public_transit$cases, FB_public_transit$indicator)
 # fb_transit_summer = get_subset_of_time("2020-06-01", "2020-08-31", fb_public_transit_with_points)
@@ -377,7 +377,7 @@ plot_example_list(success_examples_fb_public_transit_spring, fb_transit_spring, 
 We can also look at the distribution of the frequency of the number of days by which rises in the FB public transit signal (`smoothed_wpublic_transit_1d`) lead case rises (when the case rise occurs between 2 to 14 days after the indicator rise)
 ```{r echo=FALSE, warning = FALSE}
 fb_public_transit_frequencies = get_leading_indicator_day_distribution(fb_public_transit_with_points)
-plot(as.factor(fb_public_transit_frequencies), ylab="Occurances", xlab="Days", main="Frequencies of 'leadingness' in days")
+plot(as.factor(fb_public_transit_frequencies), ylab="Occurrences", xlab="Days", main="Frequencies of 'leadingness' in days")
 ```
 
 
@@ -388,7 +388,7 @@ plot(as.factor(fb_public_transit_frequencies), ylab="Occurances", xlab="Days", m
 away_from_home = get_and_parse_pre_read_signals(cases_df, away_from_home_df)
 ```
 ##### Examples
-We can plot some of the counties where rises in the SafeGraph away from home indicator (`full_time_work_prop_7dav`) consistently lead rises in cases.
+We can plot some of the counties where rises in the SafeGraph away from home indicator (`full_time_work_prop_7dav`) lead rises in cases.
 ```{r results="hide", echo=FALSE, warning = FALSE}
 away_from_home_with_points = get_increase_points(away_from_home$cases, away_from_home$indicator)
 # away_from_home_spring = get_subset_of_time("2020-03-01", "2020-05-31", away_from_home_with_points)
@@ -413,7 +413,7 @@ plot_example_list(success_examples_away_from_home_spring, away_from_home_spring,
 We can also look at the distribution of the frequency of the number of days by which rises in the away from home signal (`full_time_work_prop_7dav`) lead case rises (when the case rise occurs between 2 to 14 days after the indicator rise)
 ```{r echo=FALSE, warning = FALSE}
 away_from_home_frequencies = get_leading_indicator_day_distribution(away_from_home_with_points)
-plot(as.factor(away_from_home_frequencies), ylab="Occurances", xlab="Days", main="Frequencies of 'leadingness' in days")
+plot(as.factor(away_from_home_frequencies), ylab="Occurrences", xlab="Days", main="Frequencies of 'leadingness' in days")
 ```
 
 
@@ -423,7 +423,7 @@ plot(as.factor(away_from_home_frequencies), ylab="Occurances", xlab="Days", main
 bars = get_and_parse_pre_read_signals(cases_df, bars_df)
 ```
 ##### Examples
-We can plot some of the counties where rises in the SafeGraph bar visits indicator (`bars_visit_prop`) consistently lead rises in cases.
+We can plot some of the counties where rises in the SafeGraph bar visits indicator (`bars_visit_prop`) lead rises in cases.
 ```{r results="hide", echo=FALSE, warning = FALSE}
 bars_with_points = get_increase_points(bars$cases, bars$indicator)
 bars_summer = get_subset_of_time("2020-06-01", "2020-08-31", bars_with_points)
@@ -445,7 +445,7 @@ plot_example_list(success_examples_bars_spring, bars_spring, "Ind: SafeGraph Bar
 We can also look at the distribution of the frequency of the number of days by which rises in the bar visits signal (`bars_visit_prop`) lead case rises (when the case rise occurs between 2 to 14 days after the indicator rise)
 ```{r echo=FALSE, warning = FALSE}
 bar_visits_frequencies = get_leading_indicator_day_distribution(bars_with_points)
-plot(as.factor(bar_visits_frequencies), ylab="Occurances", xlab="Days", main="Frequencies of 'leadingness' in days")
+plot(as.factor(bar_visits_frequencies), ylab="Occurrences", xlab="Days", main="Frequencies of 'leadingness' in days")
 ```
 
 
@@ -455,7 +455,7 @@ plot(as.factor(bar_visits_frequencies), ylab="Occurances", xlab="Days", main="Fr
 restaurants = get_and_parse_pre_read_signals(cases_df, restaurants_df)
 ```
 ##### Examples
-We can plot some of the counties where rises in the SafeGraph restaurants visits indicator (`restaurants_visit_prop`) consistently lead rises in cases.
+We can plot some of the counties where rises in the SafeGraph restaurants visits indicator (`restaurants_visit_prop`) lead rises in cases.
 ```{r results="hide", echo=FALSE, warning = FALSE}
 restaurants_with_points = get_increase_points(restaurants$cases, restaurants$indicator)
 restaurants_summer = get_subset_of_time("2020-06-01", "2020-08-31", restaurants_with_points)
@@ -476,7 +476,7 @@ plot_example_list(success_examples_restaurants_winter, restaurants_winter, "Ind:
 We can also look at the distribution of the frequency of the number of days by which rises in the restaurants visits signal (`restaurants_visit_prop`) lead case rises (when the case rise occurs between 2 to 14 days after the indicator rise)
 ```{r echo=FALSE, warning = FALSE}
 restaraunt_visits_frequencies = get_leading_indicator_day_distribution(restaurants_with_points)
-plot(as.factor(restaraunt_visits_frequencies), ylab="Occurances", xlab="Days", main="Frequencies of 'leadingness' in days")
+plot(as.factor(restaraunt_visits_frequencies), ylab="Occurrences", xlab="Days", main="Frequencies of 'leadingness' in days")
 ```
 
 
@@ -545,16 +545,15 @@ recall_precision_time_point_df = data.frame("Indicator" = indicator_name_list_ti
 recall_precision_rise_point_df
 ```
 #### Recall and Precision Per Time Point
-```{r echo=FALSE, warning = FALSE}
+```{r echo=FALSE, warning = FALSE, rows.print = 15}
+# knitr::opts_chunk$set(echo = TRUE, rows.print=25)
 recall_precision_time_point_df
+
 ```
 
-## Conclusions and Limitations
+## Conclusion
 
-TODO
-Maybe include:
-interpolation issue where there are certain days that don't have case/signal data. could be solved by just increasing "indicator_threshold" by a lot, allowing very very few days where there is not a signal for the indicator.
-
+In this DAP analysis, we report a novel methodology for identifying substantial increases in cases and indicators and quantifying indicator success in anticipating case rises. Our methodology is simple and interpretable and provides several examples across various counties and time periods where indicator signals (e.g., doctors visits) can anticipate case rises. Together, our results suggest that doctors visits and the quidel antigen signals perform best in anticipating case rises, and that generally indicators most frequently lead case rises by over a week.
 
 
 
@@ -658,7 +657,7 @@ interpolation issue where there are certain days that don't have case/signal dat
 <!-- We can also look at the distribution of the frequency of the number of days by which rises in the FB test positivity signal (`smoothed_wtested_positive_14d`) lead case rises (when the case rise occurs between 2 to 14 days after the indicator rise) -->
 <!-- ```{r echo=FALSE} -->
 <!-- fb_test_positivity_frequencies = get_leading_indicator_day_distribution(fb_test_positivity_with_points) -->
-<!-- plot(as.factor(fb_test_positivity_frequencies), ylab="Occurances", xlab="Days", main="Frequencies of 'leadingness' in days") -->
+<!-- plot(as.factor(fb_test_positivity_frequencies), ylab="Occurrences", xlab="Days", main="Frequencies of 'leadingness' in days") -->
 <!-- ``` -->
 
 
@@ -679,6 +678,6 @@ interpolation issue where there are certain days that don't have case/signal dat
 <!-- We can also look at the distribution of the frequency of the number of days by which the FB masks signal rises lead case rises (when the case rise occurs between 2 to 14 days after the indicator rise) -->
 <!-- ```{r echo=FALSE} -->
 <!-- fb_mask_frequencies = get_leading_indicator_day_distribution(fb_masks_with_points) -->
-<!-- plot(as.factor(fb_mask_frequencies), ylab="Occurances", xlab="Days", main="Frequencies of 'leadingness' in days") -->
+<!-- plot(as.factor(fb_mask_frequencies), ylab="Occurrences", xlab="Days", main="Frequencies of 'leadingness' in days") -->
 <!-- ``` -->
 
