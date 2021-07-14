@@ -87,7 +87,7 @@ One option we tried was calculating a line of best fit for the signal for fixed 
 <br>
 
 **Estimated Derivative**<br>
-We then tried using multiple different derivative estimate methods to identify periods where the estimated derivative at each point is over a certain threshold.
+To identify periods of substantial increase in case or indicator signals, we estimated where signals had a positive first derivative. 
 
   - Where this worked well:
     - It can find smaller periods of continuous rise that are flexible in length.
@@ -549,9 +549,7 @@ recall_precision_rise_point_df
 # knitr::opts_chunk$set(echo = TRUE, rows.print=25)
 recall_precision_time_point_df
 
-```
-
-## Conclusion
+## Conclusions
 
 In this DAP analysis, we report a novel methodology for identifying substantial increases in cases and indicators and quantifying indicator success in anticipating case rises. Our methodology is simple and interpretable and provides several examples across various counties and time periods where indicator signals (e.g., doctors visits) can anticipate case rises. Together, our results suggest that doctors visits and the quidel antigen signals perform best in anticipating case rises, and that generally indicators most frequently lead case rises by over a week.
 
