@@ -2,11 +2,11 @@
 title: "Leading Indicators DAP"
 author: "Kate Harwood, Vishnu Shankar, Ben Smith, Sangwon Hyun"
 output:
-  html_notebook:
-    toc: yes
-    toc_float: yes
   html_document:
     df_print: paged
+    toc: yes
+    toc_float: yes
+  html_notebook:
     toc: yes
     toc_float: yes
 ---
@@ -42,7 +42,7 @@ restaurants_df = readRDS("SavedSignals/safegraph_restaurants.rds")
 ## Motivation
 Throughout the COVID-19 pandemic, the U.S. has seen multiple “waves” of increases in case incidence numbers, occurring at different times in different areas of the country, and with even greater variation on the state and county level. It has been difficult not only for public health officials and other policy makers to anticipate when case incidences might rise in their area, but also for researchers who are forecasting the pandemic to accurately predict future case numbers. Part of the challenge in guiding decision making has been understanding how to leverage the combination of mobility, public health, and survey signals to capture the complex dynamics and transmission of COVID-19. 
 
-To better assess the possibility of using DELPHI's signals to inform public health decision-making, we studied the potential of using these signals as leading indicators of significant rises in cases at the county level. In other words, the goal of this analysis is to provide greater insight into the value of Delphi’s signals in predicting future increases in cases.
+To better assess the possibility of using Delphi's signals to inform public health decision-making, we studied the potential of using these signals as leading indicators of significant rises in cases at the county level. In other words, the goal of this analysis is to provide greater insight into the value of Delphi’s signals in predicting future increases in cases.
 
 ## Methodology
 
@@ -54,7 +54,7 @@ Our first approach to this DAP looked at the relationship between the indicator 
 $$\max_{i} Corr(y_{i+1,\cdots, T}, x_{1, \cdots, T-i}),$$
 and measures the maximum Pearson correlation between the two as a result of lagging one by the amount of $i$.
 
-We calculated the cross-correlation and the optimal lag in each county. An example of this data over all observed counties for the Drs Visits indicator signal:
+We calculated the cross-correlation and the optimal lag in each county.
 
 An example of this data over all observed counties for the Drs Visits indicator signal: ![cross_correlation_plot](cross_correlation_plot.png)
 
@@ -65,13 +65,13 @@ sharp upswings in cases, something significant within a county, and of particula
 ### Identifying Rises in Signals
 In order to ascertain leadingness of an indicator, we want to determine whether the indicator began to rise significantly before cases began to rise significantly.
 
-As a core component of this analysis, we need methodology to accurately identify significant rises, given a single time series of an indicator. This is non-trivial, since the data is quite noisy at the county level, and clean rise/drops are rare.
+As a core component of this analysis, we need methodology to accurately identify significant rises, given a single time series of an indicator or cases. This is non-trivial, since the data is quite noisy at the county level, and clean rise/drops are rare.
 
 **Starting at the Peak**<br>
 At first we experimented with finding the peak of a signal in a given time period and identifying the closest local minimum that precedes the peak. However this is not always the point at which the signal actually begins to rise (could be caught in a shallow local minimum), and does not gaurantee the rise would be a lengthy or a steep one. This method also only picks one rise period for a signal for every county for the given time period, which isn't always reflective of the signal's actual behavior.
 
 **Best Fit Line**<br>
-One option we tried was calculating a line of best fit for the signal for fixed time periods within a larger time period. For example, calculating a line of best fit for every 21 day window within a 3 month window and choosing the period that has the highest slope as the most significant rise period in that county for that signal.
+Another option we tried was calculating a line of best fit for the signal for fixed time periods within a larger time period. For example, calculating a line of best fit for every 21 day window within a 3 month window and choosing the period that has the highest slope as the most significant rise period in that county for that signal.
 
   - Where this worked well:
     - This method finds periods of consistent rise, not allowing the signal to vary a lot between the beginning and ending points of the rise period.
@@ -111,11 +111,11 @@ Final criteria for rise periods: A period is a significant rise in a smoothed si
   
   1. First derivative at each point is > 0 - *this means the signal is in fact rising on every day*
   
-  2. Period is > a certain number of days (for this analysis we used TODO) - *this means the rise is not spurious*
-  
-  3. Each first derivative is > a certain % of other derivatives in time period (Note, for this analysis we set this to 0%, effectively not using this parameter) - *if not set to 0, it can mean the rise is a significant one for this county but also ties this decision to the specific time period we are looking at. The rise point identifications can change based on the time period if this is set greater than 0.*
+  2. Each first derivative is > a certain % of other derivatives in time period (Note, for this analysis we set this to 0%, effectively not using this parameter) - *if not set to 0, it can mean the rise is a significant one for this county but also ties this decision to the specific time period we are looking at. The rise point identifications can change based on the time period if this is set greater than 0.*
 
-  4. Magnitude of increase from start to end of period is > a certain threshold (for this analysis we used TODO) - *this is another way to make sure that the rise is significant, not just a slight uptick in cases*
+  3. Period is > a certain number of days - *this means the rise is not spurious*
+
+  4. Magnitude of increase from start to end of period is > a certain threshold (for these last two ponits, we used a thorough manual analysis to identify an ideal number of days and ideal threshold) - *this is another way to make sure that the rise is significant, not just a slight uptick in cases*
   
 
 **Finally**, we take the point at the beginning of each rise period as the best estimation of a point of inflection where a signal begins to rise significantly, so we can address the question: **Does the beginning of a rise in the indicator come before the beginning of a rise in cases?**
@@ -142,7 +142,7 @@ In a per time point evaluation approach, we quantified the performance of our me
 The random guesser marks each day as a **rise prediction** or not, randomly.
 
 *B. First Derivative Guesser*  
-The first derivative guesser predicts that cases will rise if the indicator first derivative is greater than 0. Each day that the indicator first derivative is greater than 0 is marked as a **rise prediction**. The same is done for a first derivative guesser on cases as well (predicting cases will rise if they are already rising)
+The first derivative guesser predicts that cases will rise if the indicator first derivative is greater than 0. Each day that the indicator first derivative is greater than 0 is marked as a **rise prediction**. The same is done for a first derivative guesser on cases as well (predicting cases will rise if they are already rising).
 
 *C. Our Guesser*  
 We designate our model’s **rise predictions** starting on the day of each indicator rise point, and for each day afterwards, for X number of days.
@@ -153,15 +153,12 @@ For our truth value, we mark a **future rise** starting on the day of each case 
 *D. Evaluation*  
 To calculate recall and precision for each guesser, for each county, every day that the guesser marks a **rise prediction** and the truth value shows a **future rise**, we count as a **true positive**. Each day that the guesser marks a rise prediction but the truth value does not have a future rise marked, we count as a **false positive**. Each day that the guesser did not mark a rise prediction, but the truth value does have a future rise marked, we count as a **false negative**.
 
-By aggregating true positives, false positives, and false negatives across the entire time horizon, we calculate recall and precision as follows:  
+After aggregating true positives, false positives, and false negatives across the entire time horizon, we calculate recall and precision as follows:  
 **Recall** is calculated by # true positives / (# true positives + # false negatives).  
 **Precision** is calculated by # true positives / (# true positives + # false positives)
 
 *E. Limitations*  
-While this method allows us to evaluate guessers to see how our model fares compared to a random guesser or a naive guesser, the recall and precision numbers do not necessarily accurately reflect the accuracy of the models. This method compares the performance of our leading indicator methodology with other guessers under particular assumptions of how leading  the indicator is generally compared to cases. In this method, we designate a number X as our ideal leadingness and score situations in which the indicator rise precedes the case rise by exactly X days as more successful than if the indicator rise precedes the case rise by a day more or less. In reality we want to count as a success a window of differing lengths of leadingness. We ideally want to count an indicator rise point preceding a case rise point by 7 days as just as successful as one preceding a case rise point by 8 days, for example. 
-
-*F. Note to Consider*  
-While most other predictive models are evaluated on unchanging ground truth,the ground truth in this method can change based on the parameters selected.
+While this method allows us to evaluate guessers to see how our model fares compared to a random guesser or a naive guesser, the recall and precision numbers do not necessarily reliably reflect the accuracy of the models. This method compares the performance of our leading indicator methodology with other guessers under particular assumptions of how leading  the indicator is generally compared to cases. In this method, we designate a number X as our ideal leadingness and inherently score situations in which the indicator rise precedes the case rise by exactly X days as more successful than if the indicator rise precedes the case rise by a day more or less. In reality we want to count as a success a window of differing lengths of leadingness. We ideally want to count an indicator rise point preceding a case rise point by 7 days as just as successful as one preceding a case rise point by 8 days, for example. Also, while most other predictive models are evaluated on unchanging ground truth, the ground truth in this method can change based on the value selected for X.
 
 <br>
 
@@ -169,7 +166,7 @@ While most other predictive models are evaluated on unchanging ground truth,the 
 We also evaluated our model’s performance using a per rise point approach. In contrast to the per time point approach where each day counts as an event in our model evaluation, the per rise point approach compares the recall and precision across the calculated rise points. This comparison, which allows for a flexible window of leadingness, likely enables a more meaningful interpretation of our model’s performance in the real world.   
 
 *A. Methodology and Evaluation*  
-We count all the indicator rise points and all the case rise points in all the counties. In each county, for each indicator rise point we add 1 to our **true positive** (or **success**) count if it is followed by a case rise point at least Y days and no more than Z days later. We sum the number of **successes** in each county.
+We count all the indicator rise points and all the case rise points in all the counties. In each county, for each indicator rise point, we add 1 to our **true positive** (or **success**) count if it is followed by a case rise point at least Y days and no more than Z days later. We sum the number of **successes** in each county. For this analysis, Y = 2 and Z = 14, as this is the established incubation period range for Covid-19.
 
 **Recall** is calculated by # of true positives / (# of true positives + # false negatives) = **#successes / #case rise points**  
 **Precision** is calculated by  # of true positives / (# of true positives + # false positives) = **#successes / #indicator rise points**
@@ -189,7 +186,7 @@ In this section, we describe our pipeline for processing, plotting and analyzing
 the data using the methodology described above.
 
 #### Step 1. Get and prepare county data
-As an example, we'll use our Dr Visits % CLI as our indicator. We use our LeadingIndicatorTools package for all our main functions.
+As an example, we'll use our Dr Visits % CLI as our indicator. We use our LeadingIndicatorTools package for all our main functions (available in the Git repo).
 ```{r, results='hide', message=FALSE, warning = FALSE}
 drs_visits = get_and_parse_pre_read_signals(cases_df, doctors_df)
 ```
@@ -202,21 +199,21 @@ drs_visits_with_points = get_increase_points(drs_visits$cases, drs_visits$indica
 
 
 ```{r}
-plot_signals(get_subset_of_time("2020-05-01", "2020-11-30", drs_visits_with_points), "01003", smooth_and_show_increase_point=FALSE, "Drs Visits")
+plot_signals(get_subset_of_time("2020-06-01", "2020-11-30", drs_visits_with_points), "40143", smooth_and_show_increase_point=FALSE, "Drs Visits")
 ```
 <br>
 
 #### Step 3. Mark the rise points (the points at the beginning of the rise periods) for the Drs Visits and Cases signal. 
-In the respective rise point columns, the day is marked with a 1 if it is found to be a rise point for that signal. We can see here that there is a rise point for Drs Vists on 5/22/2020 and for cases on 5/31/2020.
+In the respective rise point columns, the day is marked with a 1 if it is found to be a rise point for that signal. We can see here that there is a rise point for Drs Vists on 10/23/2020 and for cases on 10/27/2020.
 ```{r}
-head(drs_visits_with_points[[1]],500)
+head(drs_visits_with_points[[399]],500)
 ```
 <br>
 
 #### Step 4. Plot the smoothed signal with the beginning rise points. 
-We can see that Drs Visits begins to rise before cases rise. TODO I think we need to tweak our rise point method a bit so we don't have these "double counting" points on a rise.
+We can see where the Drs Visits signal begins to rise before cases rise. 
 ```{r}
-plot_signals(get_subset_of_time("2020-05-01", "2020-11-30", drs_visits_with_points), "01003", smooth_and_show_increase_point=TRUE, "Drs Visits")
+plot_signals(get_subset_of_time("2020-06-01", "2020-11-30", drs_visits_with_points), "40143", smooth_and_show_increase_point=TRUE, "Drs Visits")
 ```
 
 ## Analysis {.tabset .tabset-fade .tabset-pills}
@@ -486,7 +483,9 @@ On the example plots there might be marked points in the examples towards the en
 
 
 ## Performance
-```{r echo=FALSE, warning = FALSE, message=FALSE}
+Performance metrics over all counties over all time for each signal
+
+```{r, message = FALSE, include=FALSE, echo=FALSE, warning = FALSE}
 FB_test_positivity = get_and_parse_pre_read_signals(cases_df, test_positivity_df)
 fb_test_positivity_with_points = get_increase_points(FB_test_positivity$cases, FB_test_positivity$indicator)
 
@@ -500,9 +499,9 @@ get_r_p_rise_point_list = function(r_p_function) {
   away_from_home_r_p = r_p_function(away_from_home_with_points)
   bars_r_p = r_p_function(bars_with_points)
   restaurants_r_p = r_p_function(restaurants_with_points)
-  
+
   r_list = c(drs_r_p[[2]]$Recall_Leading_Indicator, quidel_r_p[[2]]$Recall_Leading_Indicator, google_symptoms_r_p[[2]]$Recall_Leading_Indicator, CLI_r_p[[2]]$Recall_Leading_Indicator, public_transit_r_p[[2]]$Recall_Leading_Indicator, test_positivity_r_p[[2]]$Recall_Leading_Indicator, away_from_home_r_p[[2]]$Recall_Leading_Indicator, bars_r_p[[2]]$Recall_Leading_Indicator, restaurants_r_p[[2]]$Recall_Leading_Indicator)
-  
+
   p_list = c(drs_r_p[[2]]$Precision_Leading_Indicator, quidel_r_p[[2]]$Precision_Leading_Indicator, google_symptoms_r_p[[2]]$Precision_Leading_Indicator, CLI_r_p[[2]]$Precision_Leading_Indicator, public_transit_r_p[[2]]$Precision_Leading_Indicator, test_positivity_r_p[[2]]$Precision_Leading_Indicator, away_from_home_r_p[[2]]$Precision_Leading_Indicator, bars_r_p[[2]]$Precision_Leading_Indicator, restaurants_r_p[[2]]$Precision_Leading_Indicator)
   return (list(r_list, p_list))
 }
@@ -517,14 +516,14 @@ get_r_p_time_point_list = function(r_p_function) {
   away_from_home_r_p = r_p_function(set_rise_points_spread(away_from_home_with_points), "indicator_rise_point")
   bars_r_p = r_p_function(set_rise_points_spread(bars_with_points), "indicator_rise_point")
   restaurants_r_p = r_p_function(set_rise_points_spread(restaurants_with_points), "indicator_rise_point")
-  
+
   competitors_df = generate_competitors_predictions(drs_visits_with_points)
   random_guesser_r_p = r_p_function(competitors_df, "random_guesser")
   case_first_deriv_guesser_r_p = r_p_function(competitors_df, "case_first_deriv_guesser")
   indicator_first_deriv_r_p = r_p_function(competitors_df, "indicator_first_deriv")
-  
+
   r_list = c(drs_r_p[2], quidel_r_p[2], google_symptoms_r_p[2], CLI_r_p[2], public_transit_r_p[2], test_positivity_r_p[2], away_from_home_r_p[2], bars_r_p[2], restaurants_r_p[2], random_guesser_r_p[2], case_first_deriv_guesser_r_p[2], indicator_first_deriv_r_p[2])
-  
+
   p_list = c(drs_r_p[3], quidel_r_p[3], google_symptoms_r_p[3], CLI_r_p[3], public_transit_r_p[3], test_positivity_r_p[3], away_from_home_r_p[3], bars_r_p[3], restaurants_r_p[3], random_guesser_r_p[3], case_first_deriv_guesser_r_p[3], indicator_first_deriv_r_p[3])
   return (list(r_list, p_list))
 }
@@ -535,9 +534,15 @@ r_p_list_time_point = get_r_p_time_point_list(get_per_time_point_recall_and_prec
 indicator_name_list_rise_point = c("Doctor Visits", "Quidel", "Google Symptoms", "FB CLI", "FB Public Transit", "FB Test Positivity", "SafeGraph Away From Home", "SafeGraph Bars", "SafeGraph Restaurants")
 indicator_name_list_time_point = c("Doctor Visits", "Quidel", "Google Symptoms", "FB CLI", "FB Public Transit", "FB Test Positivity", "SafeGraph Away From Home", "SafeGraph Bars", "SafeGraph Restaurants", "Random Guesser", "Cases First Deriv Guesser", "Indicator First Deriv Guesser")
 
+
 recall_precision_rise_point_df = data.frame("Indicator" = indicator_name_list_rise_point, "Per_Rise_Point_Recall" = r_p_list_rise_point[[1]], "Per_Rise_Point_Precision" = r_p_list_rise_point[[2]])
 
-recall_precision_time_point_df = data.frame("Indicator" = indicator_name_list_time_point, "Per_Time_Point_Recall" = r_p_list_time_point[[1]], "Per_Time_Point_Precision" = r_p_list_time_point[[2]])
+recall_precision_time_point_df = data.frame("Indicator" = indicator_name_list_time_point, "Per_Time_Point_Recall" = as.numeric(r_p_list_time_point[[1]]), "Per_Time_Point_Precision" = as.numeric(r_p_list_time_point[[2]]))
+
+
+recall_precision_rise_point_df['F1 Score'] = 2 * (recall_precision_rise_point_df$Per_Rise_Point_Recall * recall_precision_rise_point_df$Per_Rise_Point_Precision) / (recall_precision_rise_point_df$Per_Rise_Point_Recall + recall_precision_rise_point_df$Per_Rise_Point_Precision)
+
+recall_precision_time_point_df['F1 Score'] = 2 * (recall_precision_time_point_df$Per_Time_Point_Recall * recall_precision_time_point_df$Per_Time_Point_Precision) / (recall_precision_time_point_df$Per_Time_Point_Recall + recall_precision_time_point_df$Per_Time_Point_Precision)
 ```
 
 #### Recall and Precision Per Rise Point
@@ -546,8 +551,8 @@ recall_precision_rise_point_df
 ```
 #### Recall and Precision Per Time Point
 ```{r echo=FALSE, warning = FALSE, rows.print = 15}
-# knitr::opts_chunk$set(echo = TRUE, rows.print=25)
 recall_precision_time_point_df
+```
 
 ## Conclusions
 
