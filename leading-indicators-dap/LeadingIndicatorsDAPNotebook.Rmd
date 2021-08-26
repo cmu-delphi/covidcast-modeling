@@ -1,0 +1,686 @@
+---
+title: "Leading Indicators DAP"
+author: "Kate Harwood, Vishnu Shankar, Ben Smith, Sangwon Hyun"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: yes
+  html_notebook:
+    toc: yes
+    toc_float: yes
+---
+
+```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}	
+source("LeadingIndicatorTools.R")
+library(covidcast)
+library(magrittr)
+library(tidyverse)
+library(assertthat)
+library(lubridate)
+library(gridExtra)
+library(dplyr)
+library(cowplot)
+library(ggpubr)
+library(patchwork)
+
+cases_df = readRDS("SavedSignals/cases_df.rds")
+doctors_df = readRDS("SavedSignals/doctorsvisits.rds")
+quidel_df = readRDS("SavedSignals/Quidel_Test_Positivity_Rates.rds")
+google_symptoms_df = readRDS("SavedSignals/google_symptoms.rds")
+
+CLI_df = readRDS("SavedSignals/FB_DELPHI_Community_Survey_Responses.rds")
+masks_df = readRDS("SavedSignals/FB_DELPHI_Survey_Others_Wearing_Mask.rds")
+public_transit_df = readRDS("SavedSignals/FB_DELPHI_Survey_public_transit.rds")
+test_positivity_df = readRDS("SavedSignals/FB_DELPHI_Survey_Test_Positivity_Rates.rds")
+
+away_from_home_df = readRDS("SavedSignals/safegraph_away_from_home.rds")
+bars_df = readRDS("SavedSignals/safegraph_bars.rds")
+restaurants_df = readRDS("SavedSignals/safegraph_restaurants.rds")
+```
+
+## Motivation
+Throughout the COVID-19 pandemic, the U.S. has seen multiple “waves” of increases in case incidence numbers, occurring at different times in different areas of the country, and with even greater variation on the state and county level. It has been difficult not only for public health officials and other policy makers to anticipate when case incidences might rise in their area, but also for researchers who are forecasting the pandemic to accurately predict future case numbers. Part of the challenge in guiding decision making has been understanding how to leverage the combination of mobility, public health, and survey signals to capture the complex dynamics and transmission of COVID-19. 
+
+To better assess the possibility of using Delphi's signals to inform public health decision-making, we studied the potential of using these signals as leading indicators of significant rises in cases at the county level. In other words, the goal of this analysis is to provide greater insight into the value of Delphi’s signals in predicting future increases in cases.
+
+## Methodology
+
+<details>
+<summary>**Initial exploration: Cross Correlation**</summary>
+
+Our first approach to this DAP looked at the relationship between the indicator and the signal more generally. We first used cross correlation analysis on the time series to identify the relationship between indicators and cases across a time period. For two time series $y, x \in \mathbb{R}^T$, cross-correlation is defined as: 
+
+$$\max_{i} Corr(y_{i+1,\cdots, T}, x_{1, \cdots, T-i}),$$
+and measures the maximum Pearson correlation between the two as a result of lagging one by the amount of $i$.
+
+We calculated the cross-correlation and the optimal lag in each county.
+
+An example of this data over all observed counties for the Drs Visits indicator signal: ![cross_correlation_plot](cross_correlation_plot.png)
+
+This exploratory analysis hints at a predictive relationship; that indicators, observed in advance, can have high correlation with case counts. However, this is a more general analysis than our project's goal, which is dealing with **periods of increase** specifically, rather then the general relationship between two signals. The main analysis in the project aims for a more specific focus on
+sharp upswings in cases, something significant within a county, and of particular public health importance, as well as of practical importance for modeling and forecasting. We want to analyze the leadingness of a **signficant indicator rise** in relation to a **significant case rise**. To do this, we need to define and find periods of significant rise in these signals.
+</details>
+
+### Identifying Rises in Signals
+In order to ascertain leadingness of an indicator, we want to determine whether the indicator began to rise significantly before cases began to rise significantly.
+
+As a core component of this analysis, we need methodology to accurately identify significant rises, given a single time series of an indicator or cases. This is non-trivial, since the data is quite noisy at the county level, and clean rise/drops are rare.
+
+**Starting at the Peak**<br>
+At first we experimented with finding the peak of a signal in a given time period and identifying the closest local minimum that precedes the peak. However this is not always the point at which the signal actually begins to rise (could be caught in a shallow local minimum), and does not gaurantee the rise would be a lengthy or a steep one. This method also only picks one rise period for a signal for every county for the given time period, which isn't always reflective of the signal's actual behavior.
+
+**Best Fit Line**<br>
+Another option we tried was calculating a line of best fit for the signal for fixed time periods within a larger time period. For example, calculating a line of best fit for every 21 day window within a 3 month window and choosing the period that has the highest slope as the most significant rise period in that county for that signal.
+
+  - Where this worked well:
+    - This method finds periods of consistent rise, not allowing the signal to vary a lot between the beginning and ending points of the rise period.
+  - Where this had drawbacks: 
+    - Many times this method only selects the larger end of a rise, since the window is a fixed size, and leaves out where the rise starts.
+    - This method also only allows for one rise per time period/county.
+    
+<details>
+<summary>*Example plot*</summary>
+
+![best_fit_plot](best_fit.png)
+</details>
+<br>
+
+**Estimated Derivative**<br>
+To identify periods of substantial increase in case or indicator signals, we estimated where signals had a positive first derivative. 
+
+  - Where this worked well:
+    - It can find smaller periods of continuous rise that are flexible in length.
+    - It allows for multiple periods of rise per time period.
+  - Where this had drawbacks: 
+     - Using a large fixed window size (14 or 21 days) in the derivative estimation function means that many identified points are actually within a decreasing period after a rise.
+     - It can label rises too liberally, identifying very small bumps in the signal as rises.
+
+<details>
+<summary>*Example plot*</summary>
+
+Blue is using smoothing spline method to estimate the derivative, Red is using local linear regression (Purple is where both methods marked the same point)
+![estimated_deriv_plot](estimated_deriv.png)
+</details>
+<br>
+
+##### **Final Method** 
+We saw that smoothing the signal first using smoothing splines (in addition to the 7-day average smoothing already applied to the data, e.g. 7-day average CLI) and using the derivative method produced the best results. Twekaing this method with some other decision rules gave us our best outcome for finding periods of significant rise.
+
+Final criteria for rise periods: A period is a significant rise in a smoothed signal if
+  
+  1. First derivative at each point is > 0 - *this means the signal is in fact rising on every day*
+  
+  2. Each first derivative is > a certain % of other derivatives in time period (Note, for this analysis we set this to 0%, effectively not using this parameter) - *if not set to 0, it can mean the rise is a significant one for this county but also ties this decision to the specific time period we are looking at. The rise point identifications can change based on the time period if this is set greater than 0.*
+
+  3. Period is > a certain number of days - *this means the rise is not spurious*
+
+  4. Magnitude of increase from start to end of period is > a certain threshold (for these last two ponits, we used a thorough manual analysis to identify an ideal number of days and ideal threshold) - *this is another way to make sure that the rise is significant, not just a slight uptick in cases*
+  
+
+**Finally**, we take the point at the beginning of each rise period as the best estimation of a point of inflection where a signal begins to rise significantly, so we can address the question: **Does the beginning of a rise in the indicator come before the beginning of a rise in cases?**
+
+In our final analysis, we look at this on a county by county basis over a continuous time period from 3/15/20 to 5/21/21.
+
+<br>
+
+##### **County Selection**
+To ensure our analysis captures meaningful examples where indicators lead case/death signals, we include all counties that have greater than 20 cases a day on average and indicator data for 90% of days in a given time range, and do not have zero or negative values for either cases or the indicator on any day. These criteria were selected empirically, based on visually inspecting the detected examples of case and indicator rises from our methodology.
+
+<br>
+<br>
+
+### Recall and Precision Methods
+To assess the performance of our methodology, we used two different approaches to evaluate recall and precision: a per time point and per rise point analysis. Both approaches are described below.
+
+<br>
+
+#### Recall and Precision Per Time Point
+In a per time point evaluation approach, we quantified the performance of our methodology in comparison to two baseline guessers: a random guesser and a first derivative guesser. In this approach, each day counts as a prediction event. 
+
+*A. Random Guesser*  
+The random guesser marks each day as a **rise prediction** or not, randomly.
+
+*B. First Derivative Guesser*  
+The first derivative guesser predicts that cases will rise if the indicator first derivative is greater than 0. Each day that the indicator first derivative is greater than 0 is marked as a **rise prediction**. The same is done for a first derivative guesser on cases as well (predicting cases will rise if they are already rising).
+
+*C. Our Guesser*  
+We designate our model’s **rise predictions** starting on the day of each indicator rise point, and for each day afterwards, for X number of days.
+
+For our truth value, we mark a **future rise** starting on the day of each case rise point, and for each day before that, for X number of days.
+
+
+*D. Evaluation*  
+To calculate recall and precision for each guesser, for each county, every day that the guesser marks a **rise prediction** and the truth value shows a **future rise**, we count as a **true positive**. Each day that the guesser marks a rise prediction but the truth value does not have a future rise marked, we count as a **false positive**. Each day that the guesser did not mark a rise prediction, but the truth value does have a future rise marked, we count as a **false negative**.
+
+After aggregating true positives, false positives, and false negatives across the entire time horizon, we calculate recall and precision as follows:  
+**Recall** is calculated by # true positives / (# true positives + # false negatives).  
+**Precision** is calculated by # true positives / (# true positives + # false positives)
+
+*E. Limitations*  
+While this method allows us to evaluate guessers to see how our model fares compared to a random guesser or a naive guesser, the recall and precision numbers do not necessarily reliably reflect the accuracy of the models. This method compares the performance of our leading indicator methodology with other guessers under particular assumptions of how leading  the indicator is generally compared to cases. In this method, we designate a number X as our ideal leadingness and inherently score situations in which the indicator rise precedes the case rise by exactly X days as more successful than if the indicator rise precedes the case rise by a day more or less. In reality we want to count as a success a window of differing lengths of leadingness. We ideally want to count an indicator rise point preceding a case rise point by 7 days as just as successful as one preceding a case rise point by 8 days, for example. Also, while most other predictive models are evaluated on unchanging ground truth, the ground truth in this method can change based on the value selected for X.
+
+<br>
+
+#### Recall and Precision Per Rise Point
+We also evaluated our model’s performance using a per rise point approach. In contrast to the per time point approach where each day counts as an event in our model evaluation, the per rise point approach compares the recall and precision across the calculated rise points. This comparison, which allows for a flexible window of leadingness, likely enables a more meaningful interpretation of our model’s performance in the real world.   
+
+*A. Methodology and Evaluation*  
+We count all the indicator rise points and all the case rise points in all the counties. In each county, for each indicator rise point, we add 1 to our **true positive** (or **success**) count if it is followed by a case rise point at least Y days and no more than Z days later. We sum the number of **successes** in each county. For this analysis, Y = 2 and Z = 14, as this is the established incubation period range for Covid-19.
+
+**Recall** is calculated by # of true positives / (# of true positives + # false negatives) = **#successes / #case rise points**  
+**Precision** is calculated by  # of true positives / (# of true positives + # false positives) = **#successes / #indicator rise points**
+
+*B. Limitations*  
+One caveat on this method is that if there are multiple indicator rise points close together, those may be double counted when calculating the number of successes. For example, one indicator rise point could precede a case rise point by 7 days, and another indicator rise point, occurring 2 days after the first, could precede the same case rise point by 5 days. We would count 2 successes. Since the two consecutive indicator rise points would almost certainly not mark two real separate rises in the indicator, counting two successes in this case is a limitation of how we calculate the rise points. 
+
+Using this method of calculating recall and precision, we cannot easily compare our method with the same strawman guessers as the per time point approach. One reason for this difficulty is that the number of rise prediction points is drastically different between guessers, where strawman guessers have many positive predictions.  As this methodology for calculating recall and precision also rewards these spurious predictions, there is no easy method of comparison between approaches. 
+
+
+<br>
+
+
+### Walkthrough
+
+In this section, we describe our pipeline for processing, plotting and analyzing
+the data using the methodology described above.
+
+#### Step 1. Get and prepare county data
+As an example, we'll use our Dr Visits % CLI as our indicator. We use our LeadingIndicatorTools package for all our main functions (available in the Git repo).
+```{r, results='hide', message=FALSE, warning = FALSE}
+drs_visits = get_and_parse_pre_read_signals(cases_df, doctors_df)
+```
+<br>
+
+#### Step 2. Plot the Drs Visits and the case signal together for an example county last summer.
+```{r, results='hide'}
+drs_visits_with_points = get_increase_points(drs_visits$cases, drs_visits$indicator)
+```
+
+
+```{r}
+plot_signals(get_subset_of_time("2020-06-01", "2020-11-30", drs_visits_with_points), "40143", smooth_and_show_increase_point=FALSE, "Drs Visits")
+```
+<br>
+
+#### Step 3. Mark the rise points (the points at the beginning of the rise periods) for the Drs Visits and Cases signal. 
+In the respective rise point columns, the day is marked with a 1 if it is found to be a rise point for that signal. We can see here that there is a rise point for Drs Vists on 10/23/2020 and for cases on 10/27/2020.
+```{r}
+head(drs_visits_with_points[[399]],500)
+```
+<br>
+
+#### Step 4. Plot the smoothed signal with the beginning rise points. 
+We can see where the Drs Visits signal begins to rise before cases rise. 
+```{r}
+plot_signals(get_subset_of_time("2020-06-01", "2020-11-30", drs_visits_with_points), "40143", smooth_and_show_increase_point=TRUE, "Drs Visits")
+```
+
+## Analysis {.tabset .tabset-fade .tabset-pills}
+
+### Doctor Visits % CLI
+#### {.tabset .tabset-fade .tabset-pills}
+##### Examples
+We can plot some of the counties where rises in the doctor visits indicator lead rises in cases.
+```{r, echo=FALSE, warning = FALSE}
+# drs_visits_spring_2020 = get_subset_of_time("2020-03-01", "2020-05-31", drs_visits_with_points)
+drs_visits_fall = get_subset_of_time("2020-09-01", "2020-11-30", drs_visits_with_points)
+drs_visits_winter = get_subset_of_time("2020-12-01", "2021-02-28", drs_visits_with_points)
+drs_visits_spring = get_subset_of_time("2021-03-01", "2021-05-31", drs_visits_with_points)
+# success_examples_drs_visits_spring_2020 = get_success_examples(drs_visits_spring_2020, success_window_max = 14, success_window_min = 2)
+success_examples_drs_visits_fall = get_success_examples(drs_visits_fall, success_window_max = 14, success_window_min = 2)
+success_examples_drs_visits_winter = get_success_examples(drs_visits_winter, success_window_max = 14, success_window_min = 2)
+success_examples_drs_visits_spring = get_success_examples(drs_visits_spring, success_window_max = 14, success_window_min = 2)
+# plot_example_list(success_examples_drs_visits_spring_2020, drs_visits_spring_2020, "Doctor Visits CLI")
+plot_example_list(success_examples_drs_visits_fall, drs_visits_fall, "Doctor Visits CLI")
+plot_example_list(success_examples_drs_visits_winter, drs_visits_winter, "Doctor Visits CLI")
+plot_example_list(success_examples_drs_visits_spring, drs_visits_spring, "Doctor Visits CLI")
+
+```
+
+##### Leadingness Frequencies
+We can also look at the distribution of the frequency of the number of days by which Doctor Visits' rises lead case rises (when the case rise occurs between 2 to 14 days after the indicator rise)
+```{r, echo=FALSE, warning = FALSE}
+drs_frequencies = get_leading_indicator_day_distribution(drs_visits_with_points)
+plot(as.factor(drs_frequencies), ylab="Occurrences", xlab="Days", main="Frequencies of 'leadingness' in days")
+```
+
+### Google Symptoms
+#### {.tabset .tabset-fade .tabset-pills}
+```{r, results='hide', echo=FALSE, message=FALSE, warning = FALSE}
+google_symptoms = get_and_parse_pre_read_signals(cases_df, google_symptoms_df)
+```
+##### Examples
+We can plot some of the counties where rises in one of the google symptoms signals (`sum_anosmia_ageusia_smoothed_search`) lead rises in cases.
+```{r results="hide", echo=FALSE, warning = FALSE}
+google_symptoms_with_points = get_increase_points(google_symptoms$cases, google_symptoms$indicator)
+# google_symptoms_spring_2020 = get_subset_of_time("2020-03-01", "2020-05-31", google_symptoms_with_points)
+google_symptoms_summer = get_subset_of_time("2020-06-01", "2020-08-31", google_symptoms_with_points)
+google_symptoms_fall = get_subset_of_time("2020-09-01", "2020-11-30", google_symptoms_with_points)
+google_symptoms_winter = get_subset_of_time("2020-12-01", "2021-02-28", google_symptoms_with_points)
+google_symptoms_spring = get_subset_of_time("2021-03-01", "2021-05-31", google_symptoms_with_points)
+# success_examples_google_symptoms_spring_2020 = get_success_examples(google_symptoms_spring_2020, success_window_max = 14, success_window_min = 2)
+success_examples_google_symptoms_summer = get_success_examples(google_symptoms_summer, success_window_max = 14, success_window_min = 2)
+success_examples_google_symptoms_fall = get_success_examples(google_symptoms_fall, success_window_max = 14, success_window_min = 2)
+success_examples_google_symptoms_winter = get_success_examples(google_symptoms_winter, success_window_max = 14, success_window_min = 2)
+success_examples_google_symptoms_spring = get_success_examples(google_symptoms_spring, success_window_max = 14, success_window_min = 2)
+
+# plot_example_list(success_examples_google_symptoms_spring_2020, google_symptoms_spring_2020, "Ind: Anosmia and Ageusia Google Symptoms")
+plot_example_list(success_examples_google_symptoms_summer, google_symptoms_summer, "Ind: Anosmia and Ageusia Google Symptoms")
+plot_example_list(success_examples_google_symptoms_fall, google_symptoms_fall, "Ind: Anosmia and Ageusia Google Symptoms")
+plot_example_list(success_examples_google_symptoms_winter, google_symptoms_winter, "Ind: Anosmia and Ageusia Google Symptoms")
+plot_example_list(success_examples_google_symptoms_spring, google_symptoms_spring, "Ind: Anosmia and Ageusia Google Symptoms")
+
+```
+
+##### Leadingness Frequencies
+We can also look at the distribution of the frequency of the number of days by which the signal (`sum_anosmia_ageusia_smoothed_search`) rises lead case rises (when the case rise occurs between 2 to 14 days after the indicator rise)
+```{r echo=FALSE, warning = FALSE}
+google_symptoms_frequencies = get_leading_indicator_day_distribution(google_symptoms_with_points)
+plot(as.factor(google_symptoms_frequencies), ylab="Occurrences", xlab="Days", main="Frequencies of 'leadingness' in days")
+```
+
+### Quidel
+#### {.tabset .tabset-fade .tabset-pills}
+```{r, results='hide', echo=FALSE, message=FALSE, warning = FALSE}
+quidel = get_and_parse_pre_read_signals(cases_df, quidel_df)
+```
+##### Examples
+We can plot some of the counties where rises in the quidel indicator (`covid_ag_smoothed_pct_positive`) lead rises in cases.
+```{r results="hide", echo=FALSE, warning = FALSE}
+quidel_with_points = get_increase_points(quidel$cases, quidel$indicator)
+quidel_summer = get_subset_of_time("2020-06-01", "2020-08-31", quidel_with_points)
+quidel_fall = get_subset_of_time("2020-09-01", "2020-11-30", quidel_with_points)
+quidel_winter = get_subset_of_time("2020-12-01", "2021-02-28", quidel_with_points)
+quidel_spring = get_subset_of_time("2021-03-01", "2021-05-31", quidel_with_points)
+success_examples_quidel_summer = get_success_examples(quidel_summer, success_window_max = 14, success_window_min = 2)
+success_examples_quidel_fall = get_success_examples(quidel_fall, success_window_max = 14, success_window_min = 2)
+success_examples_quidel_winter = get_success_examples(quidel_winter, success_window_max = 14, success_window_min = 2)
+success_examples_quidel_spring = get_success_examples(quidel_spring, success_window_max = 14, success_window_min = 2)
+
+plot_example_list(success_examples_quidel_summer, quidel_summer, "Ind: Quidel Test Positivity Rate")
+plot_example_list(success_examples_quidel_fall, quidel_fall, "Ind: Quidel Test Positivity Rate")
+plot_example_list(success_examples_quidel_winter, quidel_winter, "Ind: Quidel Test Positivity Rate")
+plot_example_list(success_examples_quidel_spring, quidel_spring, "Ind: Quidel Test Positivity Rate")
+
+```
+
+##### Leadingness Frequencies
+We can also look at the distribution of the frequency of the number of days by which Quidel rises lead case rises (when the case rise occurs between 2 to 14 days after the indicator rise)
+```{r echo=FALSE, warning = FALSE}
+quidel_frequencies = get_leading_indicator_day_distribution(quidel_with_points)
+plot(as.factor(quidel_frequencies), ylab="Occurrences", xlab="Days", main="Frequencies of 'leadingness' in days")
+```
+
+### FB CLI
+#### {.tabset .tabset-fade .tabset-pills}
+```{r, results='hide', echo=FALSE, message=FALSE, warning = FALSE}
+FB_CLI = get_and_parse_pre_read_signals(cases_df, CLI_df)
+```
+##### Examples
+We can plot some of the counties where rises in the FB CLI indicator (`smoothed_whh_cmnty_cli`) lead rises in cases.
+```{r results="hide", echo=FALSE, warning = FALSE}
+fb_cli_with_points = get_increase_points(FB_CLI$cases, FB_CLI$indicator)
+fb_cli_summer = get_subset_of_time("2020-06-01", "2020-08-31", fb_cli_with_points)
+fb_cli_fall = get_subset_of_time("2020-09-01", "2020-11-30", fb_cli_with_points)
+fb_cli_winter = get_subset_of_time("2020-12-01", "2021-02-28", fb_cli_with_points)
+fb_cli_spring = get_subset_of_time("2021-03-01", "2021-05-31", fb_cli_with_points)
+success_examples_fb_cli_summer = get_success_examples(fb_cli_summer, success_window_max = 14, success_window_min = 2)
+success_examples_fb_cli_fall = get_success_examples(fb_cli_fall, success_window_max = 14, success_window_min = 2)
+success_examples_fb_cli_winter = get_success_examples(fb_cli_winter, success_window_max = 14, success_window_min = 2)
+success_examples_fb_cli_spring = get_success_examples(fb_cli_spring, success_window_max = 14, success_window_min = 2)
+
+plot_example_list(success_examples_fb_cli_summer, fb_cli_summer, "Ind: FB Survey CLI")
+plot_example_list(success_examples_fb_cli_fall, fb_cli_fall, "Ind: FB Survey CLI")
+plot_example_list(success_examples_fb_cli_winter, fb_cli_winter, "Ind: FB Survey CLI")
+plot_example_list(success_examples_fb_cli_spring, fb_cli_spring, "Ind: FB Survey CLI")
+```
+
+##### Leadingness Frequencies
+We can also look at the distribution of the frequency of the number of days by which FB CLI rises lead case rises (when the case rise occurs between 2 to 14 days after the indicator rise)
+```{r echo=FALSE, warning = FALSE}
+fb_cli_frequencies = get_leading_indicator_day_distribution(fb_cli_with_points)
+plot(as.factor(fb_cli_frequencies), ylab="Occurrences", xlab="Days", main="Frequencies of 'leadingness' in days")
+```
+
+
+
+### FB Public Transit
+#### {.tabset .tabset-fade .tabset-pills}
+```{r, results='hide', echo=FALSE, message=FALSE, warning = FALSE}
+FB_public_transit = get_and_parse_pre_read_signals(cases_df, public_transit_df)
+```
+##### Examples
+We can plot some of the counties where rises in the FB public transit indicator (`smoothed_wpublic_transit_1d`) lead rises in cases.
+```{r results="hide", echo=FALSE, warning = FALSE}
+fb_public_transit_with_points = get_increase_points(FB_public_transit$cases, FB_public_transit$indicator)
+# fb_transit_summer = get_subset_of_time("2020-06-01", "2020-08-31", fb_public_transit_with_points)
+fb_transit_fall = get_subset_of_time("2020-09-01", "2020-11-30", fb_public_transit_with_points)
+# fb_transit_winter = get_subset_of_time("2020-12-01", "2021-02-28", fb_public_transit_with_points)
+fb_transit_spring = get_subset_of_time("2021-03-01", "2021-05-31", fb_public_transit_with_points)
+# success_examples_fb_public_transit_summer = get_success_examples(fb_transit_summer, success_window_max = 14, success_window_min = 2)
+success_examples_fb_public_transit_fall = get_success_examples(fb_transit_fall, success_window_max = 14, success_window_min = 2)
+# success_examples_fb_public_transit_winter = get_success_examples(fb_transit_winter, success_window_max = 14, success_window_min = 2)
+success_examples_fb_public_transit_spring = get_success_examples(fb_transit_spring, success_window_max = 14, success_window_min = 2)
+
+# plot_example_list(success_examples_fb_public_transit_summer, fb_transit_summer, "Ind: FB Survey Public Transit")
+plot_example_list(success_examples_fb_public_transit_fall, fb_transit_fall, "Ind: FB Survey Public Transit")
+# plot_example_list(success_examples_fb_public_transit_winter, fb_transit_winter, "Ind: FB Survey Public Transit")
+plot_example_list(success_examples_fb_public_transit_spring, fb_transit_spring, "Ind: FB Survey Public Transit")
+
+```
+
+##### Leadingness Frequencies
+We can also look at the distribution of the frequency of the number of days by which rises in the FB public transit signal (`smoothed_wpublic_transit_1d`) lead case rises (when the case rise occurs between 2 to 14 days after the indicator rise)
+```{r echo=FALSE, warning = FALSE}
+fb_public_transit_frequencies = get_leading_indicator_day_distribution(fb_public_transit_with_points)
+plot(as.factor(fb_public_transit_frequencies), ylab="Occurrences", xlab="Days", main="Frequencies of 'leadingness' in days")
+```
+
+
+
+### SafeGraph Away From Home
+#### {.tabset .tabset-fade .tabset-pills}
+```{r, results='hide', echo=FALSE, message=FALSE, warning = FALSE}
+away_from_home = get_and_parse_pre_read_signals(cases_df, away_from_home_df)
+```
+##### Examples
+We can plot some of the counties where rises in the SafeGraph away from home indicator (`full_time_work_prop_7dav`) lead rises in cases.
+```{r results="hide", echo=FALSE, warning = FALSE}
+away_from_home_with_points = get_increase_points(away_from_home$cases, away_from_home$indicator)
+# away_from_home_spring = get_subset_of_time("2020-03-01", "2020-05-31", away_from_home_with_points)
+away_from_home_summer = get_subset_of_time("2020-06-01", "2020-08-30", away_from_home_with_points)
+away_from_home_fall = get_subset_of_time("2020-09-01", "2020-11-30", away_from_home_with_points)
+# away_from_home_winter = get_subset_of_time("2020-12-01", "2021-02-28", away_from_home_with_points)
+away_from_home_spring = get_subset_of_time("2021-03-01", "2021-05-31", away_from_home_with_points)
+# success_examples_away_from_home_spring = get_success_examples(away_from_home_spring, success_window_max = 14, success_window_min = 2)
+success_examples_away_from_home_summer = get_success_examples(away_from_home_summer, success_window_max = 14, success_window_min = 2)
+success_examples_away_from_home_fall = get_success_examples(away_from_home_fall, success_window_max = 14, success_window_min = 2)
+# success_examples_away_from_home_winter = get_success_examples(away_from_home_winter, success_window_max = 14, success_window_min = 2)
+success_examples_away_from_home_spring = get_success_examples(away_from_home_spring, success_window_max = 14, success_window_min = 2)
+
+plot_example_list(success_examples_away_from_home_summer, away_from_home_summer, "Ind: SafeGraph Away from Home")
+plot_example_list(success_examples_away_from_home_fall, away_from_home_fall, "Ind: SafeGraph Away from Home")
+# plot_example_list(success_examples_away_from_home_winter, away_from_home_winter, "Ind: SafeGraph Away from Home")
+plot_example_list(success_examples_away_from_home_spring, away_from_home_spring, "Ind: SafeGraph Away from Home")
+
+```
+
+##### Leadingness Frequencies
+We can also look at the distribution of the frequency of the number of days by which rises in the away from home signal (`full_time_work_prop_7dav`) lead case rises (when the case rise occurs between 2 to 14 days after the indicator rise)
+```{r echo=FALSE, warning = FALSE}
+away_from_home_frequencies = get_leading_indicator_day_distribution(away_from_home_with_points)
+plot(as.factor(away_from_home_frequencies), ylab="Occurrences", xlab="Days", main="Frequencies of 'leadingness' in days")
+```
+
+
+### SafeGraph Bar Visits
+#### {.tabset .tabset-fade .tabset-pills}
+```{r, results='hide', echo=FALSE, message=FALSE, warning = FALSE}
+bars = get_and_parse_pre_read_signals(cases_df, bars_df)
+```
+##### Examples
+We can plot some of the counties where rises in the SafeGraph bar visits indicator (`bars_visit_prop`) lead rises in cases.
+```{r results="hide", echo=FALSE, warning = FALSE}
+bars_with_points = get_increase_points(bars$cases, bars$indicator)
+bars_summer = get_subset_of_time("2020-06-01", "2020-08-31", bars_with_points)
+bars_fall = get_subset_of_time("2020-09-01", "2020-11-30", bars_with_points)
+bars_winter = get_subset_of_time("2020-12-01", "2021-02-28", bars_with_points)
+bars_spring = get_subset_of_time("2021-03-01", "2021-05-31", bars_with_points)
+success_examples_bars_summer = get_success_examples(bars_summer, success_window_max = 14, success_window_min = 2)
+success_examples_bars_fall = get_success_examples(bars_fall, success_window_max = 14, success_window_min = 2)
+success_examples_bars_winter = get_success_examples(bars_winter, success_window_max = 14, success_window_min = 2)
+success_examples_bars_spring = get_success_examples(bars_spring, success_window_max = 14, success_window_min = 2)
+plot_example_list(success_examples_bars_summer, bars_summer, "Ind: SafeGraph Bar Visits")
+plot_example_list(success_examples_bars_fall, bars_fall, "Ind: SafeGraph Bar Visits")
+plot_example_list(success_examples_bars_winter, bars_winter, "Ind: SafeGraph Bar Visits")
+plot_example_list(success_examples_bars_spring, bars_spring, "Ind: SafeGraph Bar Visits")
+
+```
+
+##### Leadingness Frequencies
+We can also look at the distribution of the frequency of the number of days by which rises in the bar visits signal (`bars_visit_prop`) lead case rises (when the case rise occurs between 2 to 14 days after the indicator rise)
+```{r echo=FALSE, warning = FALSE}
+bar_visits_frequencies = get_leading_indicator_day_distribution(bars_with_points)
+plot(as.factor(bar_visits_frequencies), ylab="Occurrences", xlab="Days", main="Frequencies of 'leadingness' in days")
+```
+
+
+### SafeGraph Restaurant Visits
+#### {.tabset .tabset-fade .tabset-pills}
+```{r, results='hide', echo=FALSE, message=FALSE, warning = FALSE}
+restaurants = get_and_parse_pre_read_signals(cases_df, restaurants_df)
+```
+##### Examples
+We can plot some of the counties where rises in the SafeGraph restaurants visits indicator (`restaurants_visit_prop`) lead rises in cases.
+```{r results="hide", echo=FALSE, warning = FALSE}
+restaurants_with_points = get_increase_points(restaurants$cases, restaurants$indicator)
+restaurants_summer = get_subset_of_time("2020-06-01", "2020-08-31", restaurants_with_points)
+restaurants_fall = get_subset_of_time("2020-09-01", "2020-11-30", restaurants_with_points)
+restaurants_winter = get_subset_of_time("2020-12-01", "2021-02-28", restaurants_with_points)
+# restaurants_spring = get_subset_of_time("2021-03-01", "2021-05-31", restaurants_with_points)
+success_examples_restaurants_summer = get_success_examples(restaurants_summer, success_window_max = 14, success_window_min = 2)
+success_examples_restaurants_fall = get_success_examples(restaurants_fall, success_window_max = 14, success_window_min = 2)
+success_examples_restaurants_winter = get_success_examples(restaurants_winter, success_window_max = 14, success_window_min = 2)
+# success_examples_restaurants_spring = get_success_examples(restaurants_spring, success_window_max = 14, success_window_min = 2)
+plot_example_list(success_examples_restaurants_summer, restaurants_summer, "Ind: SafeGraph Restaurant Visits")
+plot_example_list(success_examples_restaurants_fall, restaurants_fall, "Ind: SafeGraph Restaurant Visits")
+plot_example_list(success_examples_restaurants_winter, restaurants_winter, "Ind: SafeGraph Restaurant Visits")
+# plot_example_list(success_examples_restaurants_spring, restaurants_spring, "Ind: SafeGraph Restaurant Visits")
+```
+
+##### Leadingness Frequencies
+We can also look at the distribution of the frequency of the number of days by which rises in the restaurants visits signal (`restaurants_visit_prop`) lead case rises (when the case rise occurs between 2 to 14 days after the indicator rise)
+```{r echo=FALSE, warning = FALSE}
+restaraunt_visits_frequencies = get_leading_indicator_day_distribution(restaurants_with_points)
+plot(as.factor(restaraunt_visits_frequencies), ylab="Occurrences", xlab="Days", main="Frequencies of 'leadingness' in days")
+```
+
+
+
+### Note
+On the example plots there might be marked points in the examples towards the end of the time period plotted that look like they are preceeding drops in cases or indicators, but since the plots are spaced out in subsets of time periods, the subsequent rise is likely a part of the next time period. Likewise there might be an indicator rise point whose matching case rise point is outside the time period, or vice versa.
+
+
+## Performance
+Performance metrics over all counties over all time for each signal
+
+```{r, message = FALSE, include=FALSE, echo=FALSE, warning = FALSE}
+FB_test_positivity = get_and_parse_pre_read_signals(cases_df, test_positivity_df)
+fb_test_positivity_with_points = get_increase_points(FB_test_positivity$cases, FB_test_positivity$indicator)
+
+get_r_p_rise_point_list = function(r_p_function) {
+  drs_r_p = r_p_function(drs_visits_with_points)
+  quidel_r_p = r_p_function(quidel_with_points)
+  google_symptoms_r_p = r_p_function(google_symptoms_with_points)
+  CLI_r_p = r_p_function(fb_cli_with_points)
+  public_transit_r_p = r_p_function(fb_public_transit_with_points)
+  test_positivity_r_p = r_p_function(fb_test_positivity_with_points)
+  away_from_home_r_p = r_p_function(away_from_home_with_points)
+  bars_r_p = r_p_function(bars_with_points)
+  restaurants_r_p = r_p_function(restaurants_with_points)
+
+  r_list = c(drs_r_p[[2]]$Recall_Leading_Indicator, quidel_r_p[[2]]$Recall_Leading_Indicator, google_symptoms_r_p[[2]]$Recall_Leading_Indicator, CLI_r_p[[2]]$Recall_Leading_Indicator, public_transit_r_p[[2]]$Recall_Leading_Indicator, test_positivity_r_p[[2]]$Recall_Leading_Indicator, away_from_home_r_p[[2]]$Recall_Leading_Indicator, bars_r_p[[2]]$Recall_Leading_Indicator, restaurants_r_p[[2]]$Recall_Leading_Indicator)
+
+  p_list = c(drs_r_p[[2]]$Precision_Leading_Indicator, quidel_r_p[[2]]$Precision_Leading_Indicator, google_symptoms_r_p[[2]]$Precision_Leading_Indicator, CLI_r_p[[2]]$Precision_Leading_Indicator, public_transit_r_p[[2]]$Precision_Leading_Indicator, test_positivity_r_p[[2]]$Precision_Leading_Indicator, away_from_home_r_p[[2]]$Precision_Leading_Indicator, bars_r_p[[2]]$Precision_Leading_Indicator, restaurants_r_p[[2]]$Precision_Leading_Indicator)
+  return (list(r_list, p_list))
+}
+
+get_r_p_time_point_list = function(r_p_function) {
+  drs_r_p = r_p_function(set_rise_points_spread(drs_visits_with_points), "indicator_rise_point")
+  quidel_r_p = r_p_function(set_rise_points_spread(quidel_with_points), "indicator_rise_point")
+  google_symptoms_r_p = r_p_function(set_rise_points_spread(google_symptoms_with_points), "indicator_rise_point")
+  CLI_r_p = r_p_function(set_rise_points_spread(fb_cli_with_points), "indicator_rise_point")
+  public_transit_r_p = r_p_function(set_rise_points_spread(fb_public_transit_with_points), "indicator_rise_point")
+  test_positivity_r_p = r_p_function(set_rise_points_spread(fb_test_positivity_with_points), "indicator_rise_point")
+  away_from_home_r_p = r_p_function(set_rise_points_spread(away_from_home_with_points), "indicator_rise_point")
+  bars_r_p = r_p_function(set_rise_points_spread(bars_with_points), "indicator_rise_point")
+  restaurants_r_p = r_p_function(set_rise_points_spread(restaurants_with_points), "indicator_rise_point")
+
+  competitors_df = generate_competitors_predictions(drs_visits_with_points)
+  random_guesser_r_p = r_p_function(competitors_df, "random_guesser")
+  case_first_deriv_guesser_r_p = r_p_function(competitors_df, "case_first_deriv_guesser")
+  indicator_first_deriv_r_p = r_p_function(competitors_df, "indicator_first_deriv")
+
+  r_list = c(drs_r_p[2], quidel_r_p[2], google_symptoms_r_p[2], CLI_r_p[2], public_transit_r_p[2], test_positivity_r_p[2], away_from_home_r_p[2], bars_r_p[2], restaurants_r_p[2], random_guesser_r_p[2], case_first_deriv_guesser_r_p[2], indicator_first_deriv_r_p[2])
+
+  p_list = c(drs_r_p[3], quidel_r_p[3], google_symptoms_r_p[3], CLI_r_p[3], public_transit_r_p[3], test_positivity_r_p[3], away_from_home_r_p[3], bars_r_p[3], restaurants_r_p[3], random_guesser_r_p[3], case_first_deriv_guesser_r_p[3], indicator_first_deriv_r_p[3])
+  return (list(r_list, p_list))
+}
+
+r_p_list_rise_point = get_r_p_rise_point_list(get_per_rise_point_precision_recall)
+r_p_list_time_point = get_r_p_time_point_list(get_per_time_point_recall_and_precision)
+
+indicator_name_list_rise_point = c("Doctor Visits", "Quidel", "Google Symptoms", "FB CLI", "FB Public Transit", "FB Test Positivity", "SafeGraph Away From Home", "SafeGraph Bars", "SafeGraph Restaurants")
+indicator_name_list_time_point = c("Doctor Visits", "Quidel", "Google Symptoms", "FB CLI", "FB Public Transit", "FB Test Positivity", "SafeGraph Away From Home", "SafeGraph Bars", "SafeGraph Restaurants", "Random Guesser", "Cases First Deriv Guesser", "Indicator First Deriv Guesser")
+
+
+recall_precision_rise_point_df = data.frame("Indicator" = indicator_name_list_rise_point, "Per_Rise_Point_Recall" = r_p_list_rise_point[[1]], "Per_Rise_Point_Precision" = r_p_list_rise_point[[2]])
+
+recall_precision_time_point_df = data.frame("Indicator" = indicator_name_list_time_point, "Per_Time_Point_Recall" = as.numeric(r_p_list_time_point[[1]]), "Per_Time_Point_Precision" = as.numeric(r_p_list_time_point[[2]]))
+
+
+recall_precision_rise_point_df['F1 Score'] = 2 * (recall_precision_rise_point_df$Per_Rise_Point_Recall * recall_precision_rise_point_df$Per_Rise_Point_Precision) / (recall_precision_rise_point_df$Per_Rise_Point_Recall + recall_precision_rise_point_df$Per_Rise_Point_Precision)
+
+recall_precision_time_point_df['F1 Score'] = 2 * (recall_precision_time_point_df$Per_Time_Point_Recall * recall_precision_time_point_df$Per_Time_Point_Precision) / (recall_precision_time_point_df$Per_Time_Point_Recall + recall_precision_time_point_df$Per_Time_Point_Precision)
+```
+
+#### Recall and Precision Per Rise Point
+```{r echo=FALSE, warning = FALSE}
+recall_precision_rise_point_df
+```
+#### Recall and Precision Per Time Point
+```{r echo=FALSE, warning = FALSE, rows.print = 15}
+recall_precision_time_point_df
+```
+
+## Conclusions
+
+In this DAP analysis, we report a novel methodology for identifying substantial increases in cases and indicators and quantifying indicator success in anticipating case rises. Our methodology is simple and interpretable and provides several examples across various counties and time periods where indicator signals (e.g., doctors visits) can anticipate case rises. Together, our results suggest that doctors visits and the quidel antigen signals perform best in anticipating case rises, and that generally indicators most frequently lead case rises by over a week.
+
+
+
+
+
+
+
+<!-- ``` -->
+<!-- {r results="hide", echo=FALSE, warning = FALSE} -->
+<!-- # HELPER FUNCTIONS -->
+<!-- # plot_example_list = function(success_example_list, signal_data, indicator) { -->
+<!-- #   plot_list = vector("list", length(success_example_list) ) -->
+<!-- #   for (i in 1:length(success_example_list)) { -->
+<!-- #     plot_list[[i]] = plot_signals(signal_data, success_example_list[[i]], smooth_and_show_increase_point=TRUE, indicator) -->
+<!-- #   } -->
+<!-- #   layout <- rbind(c(1,1), -->
+<!-- #                       c(1,1), -->
+<!-- #                       c(1,1), -->
+<!-- #                       c(1,1)) -->
+<!-- #  -->
+<!-- #   marrangeGrob(grobs = plot_list, layout_matrix=layout) -->
+<!-- # } -->
+
+<!-- #  -->
+<!-- # plot_example_intersects = function(success_example_list1, success_example_list2, signal_data1, signal_data2, indicator) { -->
+<!-- #   drs_success_intersect = intersect(success_example_list1, success_example_list2) -->
+<!-- #   plot_list = vector("list", length(drs_success_intersect)*2) -->
+<!-- #   i = 1 -->
+<!-- #   j = 1 -->
+<!-- #   while (i <= length(drs_success_intersect)*2 && j <= length(drs_success_intersect)) { -->
+<!-- #     plot_list[[i]] = plot_signals(signal_data1, drs_success_intersect[[j]], smooth_and_show_increase_point=TRUE, indicator) -->
+<!-- #     plot_list[[i+1]] = plot_signals(signal_data2, drs_success_intersect[[j]], smooth_and_show_increase_point=TRUE, indicator) -->
+<!-- #     i = i+2 -->
+<!-- #     j = j+1 -->
+<!-- #    -->
+<!-- #   } -->
+<!-- #   layout <- rbind(c(1,2), -->
+<!-- #                       c(1,2), -->
+<!-- #                       c(1,2), -->
+<!-- #                       c(1,2)) -->
+<!-- #   marrangeGrob(grobs = plot_list, layout_matrix=layout) -->
+<!-- # } -->
+<!-- #  -->
+<!-- #  -->
+<!-- #  -->
+<!-- #  -->
+<!-- #  -->
+<!-- # plot_distribution_freq = function(examples, signal_data) { -->
+<!-- #   aheads = get_leading_indicator_day_distribution(examples, signal_data) -->
+<!-- #   distribution = data.frame(leadingness=integer(), freq=integer()) -->
+<!-- #   for (i in 1:length(aheads)) { -->
+<!-- #     for (j in 1:length(aheads[[i]])) { -->
+<!-- #       if (aheads[[i]][[j]] %in% distribution$leadingness) { -->
+<!-- #         distribution$freq[distribution$leadingness == aheads[[i]][[j]]] <- distribution$freq[distribution$leadingness == aheads[[i]][[j]]] + 1 -->
+<!-- #       } else { -->
+<!-- #         distribution[nrow(distribution) + 1,] = c(aheads[[i]][[j]], 1) -->
+<!-- #       } -->
+<!-- #     } -->
+<!-- #   } -->
+<!-- #   ggplot(distribution, aes(leadingness, freq)) + -->
+<!-- #     geom_bar(aes(fill =leadingness), stat = 'identity') + -->
+<!-- #     scale_x_continuous(breaks = c(2,3,4,5,6,7,8,9,10,11,12,13,14,15)) -->
+<!-- # } -->
+
+
+<!-- ``` -->
+
+
+
+<!-- ### FB Test Positivity -->
+<!-- #### {.tabset .tabset-fade .tabset-pills} -->
+<!-- ```{r, results='hide', echo=FALSE, message=FALSE} -->
+<!-- FB_test_positivity = get_and_parse_pre_read_signals(cases_df, test_positivity_df) -->
+<!-- ``` -->
+<!-- ##### Examples -->
+<!-- We can plot some of the counties where rises in the FB test positivity rate indicator (`smoothed_wtested_positive_14d`) consistently lead rises in cases. -->
+<!-- ```{r results="hide", echo=FALSE} -->
+<!-- fb_test_positivity_with_points = get_increase_points(FB_test_positivity$cases, FB_test_positivity$indicator) -->
+<!-- success_examples_fb_test_positivity = get_success_examples_lenient(fb_test_positivity_with_points, success_window_max = 14, success_window_min = 2) -->
+
+
+<!-- # fb_test_positivity_fall = get_subset_of_time("2020-09-01", "2020-11-30", fb_test_positivity_with_points) -->
+<!-- # fb_test_positivity_winter = get_subset_of_time("2020-12-01", "2021-02-28", fb_test_positivity_with_points) -->
+<!-- # fb_test_positivity_spring = get_subset_of_time("2021-03-01", "2021-05-31", fb_test_positivity_with_points) -->
+
+
+<!-- # fb_test_positivity_spring -->
+<!-- # fb_test_positivity_winter -->
+<!-- # fb_test_positivity_fall -->
+<!-- success_examples_fb_test_positivity_fall = get_success_examples(get_subset_of_time("2020-09-01", "2020-11-30", fb_test_positivity_with_points), success_window_max = 14, success_window_min = 2) -->
+<!-- success_examples_fb_test_positivity_winter = get_success_examples(get_subset_of_time("2020-12-01", "2021-02-28", fb_test_positivity_with_points), success_window_max = 14, success_window_min = 2) -->
+<!-- success_examples_fb_test_positivity_spring = get_success_examples(get_subset_of_time("2021-03-01", "2021-05-31", fb_test_positivity_with_points), success_window_max = 14, success_window_min = 2) -->
+
+<!-- plot_example_list(success_examples_fb_test_positivity_fall, fb_test_positivity_with_points, "Ind: FB Survey Test Positivity Fall") -->
+<!-- plot_example_list(success_examples_fb_test_positivity_winter, fb_test_positivity_with_points, "Ind: FB Survey Test Positivity Winter") -->
+<!-- plot_example_list(success_examples_fb_test_positivity_spring, fb_test_positivity_with_points, "Ind: FB Survey Test Positivity Spring") -->
+
+<!-- ``` -->
+
+<!-- ##### Leadingness Frequencies -->
+<!-- We can also look at the distribution of the frequency of the number of days by which rises in the FB test positivity signal (`smoothed_wtested_positive_14d`) lead case rises (when the case rise occurs between 2 to 14 days after the indicator rise) -->
+<!-- ```{r echo=FALSE} -->
+<!-- fb_test_positivity_frequencies = get_leading_indicator_day_distribution(fb_test_positivity_with_points) -->
+<!-- plot(as.factor(fb_test_positivity_frequencies), ylab="Occurrences", xlab="Days", main="Frequencies of 'leadingness' in days") -->
+<!-- ``` -->
+
+
+<!-- ### FB Others Wearing Masks -->
+<!-- #### {.tabset .tabset-fade .tabset-pills} -->
+<!-- ```{r, results='hide', echo=FALSE, message=FALSE} -->
+<!-- FB_masks = get_and_parse_pre_read_signals(cases_df, masks_df) -->
+<!-- ``` -->
+<!-- ##### Examples -->
+<!-- We can plot some of the counties where rises in the FB masks indicator (`smoothed_wothers_masked`) consistently lead rises in cases. -->
+<!-- ```{r results="hide", echo=FALSE} -->
+<!-- fb_masks_with_points = get_increase_points(FB_masks$cases, FB_masks$indicator) -->
+<!-- success_examples_fb_masks = get_success_examples_lenient(fb_masks_with_points, success_window_max = 14, success_window_min = 2) -->
+<!-- plot_example_list(success_examples_fb_masks, fb_masks_with_points, "FB Survey Others Wearing Masks") -->
+<!-- ``` -->
+
+<!-- ##### Leadingness Frequencies -->
+<!-- We can also look at the distribution of the frequency of the number of days by which the FB masks signal rises lead case rises (when the case rise occurs between 2 to 14 days after the indicator rise) -->
+<!-- ```{r echo=FALSE} -->
+<!-- fb_mask_frequencies = get_leading_indicator_day_distribution(fb_masks_with_points) -->
+<!-- plot(as.factor(fb_mask_frequencies), ylab="Occurrences", xlab="Days", main="Frequencies of 'leadingness' in days") -->
+<!-- ``` -->
+
