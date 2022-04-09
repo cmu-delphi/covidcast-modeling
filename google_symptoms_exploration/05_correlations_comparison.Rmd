@@ -1,0 +1,305 @@
+---
+title: "Correlation analyses for Google-Symptoms"
+author: "Jingjing"
+date: "11/10/2020"
+output:
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, cache=TRUE)
+```
+
+### County Level
+
+#### Getting data from API
+
+```{r, echo = FALSE, message = FALSE, cache=TRUE}
+library(covidcast)
+library(dplyr)
+library(ggplot2)
+
+# Fetch the following sources and signals from the API 
+sources = c("doctor-visits", "fb-survey", "fb-survey", "hospital-admissions")
+signals = c("smoothed_adj_cli", "smoothed_cli", "smoothed_hh_cmnty_cli", 
+            "smoothed_adj_covid19")
+names = c("Doctor visits", "Facebook CLI", "Facebook CLI-in-community", 
+          "Hospitalizations")
+
+start_day = "2020-04-15"
+end_day = NULL
+
+df_signals = vector("list", length(signals))
+for (i in 1:length(signals)) {
+  df_signals[[i]] = covidcast_signal(sources[i], signals[i], start_day, end_day)
+}
+
+# Fetch USAFacts confirmed case incidence proportion (smoothed with 7-day 
+# trailing average)
+df_cases = covidcast_signal("usa-facts", "confirmed_7dav_incidence_prop",
+                            start_day, end_day)
+n = length(signals) + 3
+```
+
+#### Get GS data
+Read the smoothed search signals from Google-Symptoms: anosmia, ageusia, combined_symptoms
+
+```{r, message=FALSE, warning=FALSE}
+library(stringr)
+dir = "../test_files/google-symptoms/"
+df_signals[[n-2]] = read.csv(paste(dir,"county_ageusia_smoothed_search.csv", sep = ""),
+                                             colClasses=c("geo_value"="character", "time_value"="Date"))  %>%
+                                    filter(time_value >= as.Date(start_day))
+df_signals[[n-2]]$geo_value = str_pad(df_signals[[n-2]]$geo_value, width=5, side="left", pad="0")
+sources[n-2] = "google-symptoms"
+signals[n-2] = "ageusia_smoothed_search"
+names[n-2] = "GS Ageusia Smoothed Search"
+
+df_signals[[n-1]] = read.csv(paste(dir,"county_anosmia_smoothed_search.csv", sep = ""),
+                                             colClasses=c("geo_value"="character", "time_value"="Date")) %>%
+                                    filter(time_value >= as.Date(start_day))
+df_signals[[n-1]]$geo_value = str_pad(df_signals[[n-1]]$geo_value, width=5, side="left", pad="0")
+sources[n-1] = "google-symptoms"
+signals[n-1] = "anosmia_smoothed_search"
+names[n-1] = "GS Anosmia Smoothed Search"
+
+df_signals[[n]] = read.csv(paste(dir,"county_combined_symptoms_smoothed_search.csv", sep = ""),
+                                             colClasses=c("geo_value"="character", "time_value"="Date"))  %>%
+                                    filter(time_value >= as.Date(start_day))
+df_signals[[n]]$geo_value = str_pad(df_signals[[n]]$geo_value, width=5, side="left", pad="0")
+sources[n] = "google-symptoms"
+signals[n] = "combined_symptoms_smoothed_search"
+names[n] = "GS A+A Smoothed Search"
+
+```
+
+```{r}
+# Consider only counties with at least 500 cumulative cases
+case_num = 500
+geo_values = covidcast_signal("usa-facts", "confirmed_cumulative_num",
+                              max(df_cases$time_value), 
+                              max(df_cases$time_value)) %>%
+  filter(value >= case_num) %>% pull(geo_value)
+```
+
+#### Correlations sliced by time (Geo-wise correlation)
+
+Correlations sliced by time
+Here we look at Spearman (rank) correlations between our signals and COVID-19 case incidence rates, sliced by time. That is, for each day, we compute the correlation between each signal and COVID-19 case incidence rates, over all
+counties (with at least 500 cumulative cases).
+
+```{r, message=FALSE, warning=FALSE, eval=FALSE}
+df_cor = vector("list", n)
+for (i in 1:n) {
+  df_cor[[i]] = covidcast_cor(df_signals[[i]] %>% 
+                                filter(geo_value %in% geo_values), 
+                              df_cases %>% 
+                                filter(geo_value %in% geo_values), 
+                              by = "time_value", method = "spearman")
+  df_cor[[i]]$signal = names[i]
+}
+df = do.call(rbind, df_cor)
+
+ggplot(df, aes(x = time_value, y = value)) +
+  geom_line(aes(color = signal)) +
+  guides(color = guide_legend(nrow = 2)) +
+  labs(title = "Correlation between signals and case rates",
+       subtitle = sprintf("Over all counties with at least %i cumulative cases",
+                          case_num), x = "Date", y = "Correlation") +
+  theme(legend.position = "bottom", legend.title = element_blank())
+
+
+#The google-symptoms signals obtain relatively high county-level geo-wise correlation compared with other signals. There is no big different among the 3 signals of google-symptoms. This shows that though only ~100 counties are available, the estimates are of high quality within those areas. There are two sudden drops in June and August which worth further exploration.
+```
+
+Note that the search volume is normalized by population and is scaled by the maximum popularity across a specific time range within certain geographic regions, the values are not comparable between regions. So, it is meaningless to consider the geo-wise correlation.
+
+
+#### Correlations sliced by county (Time-series correlation)
+Now we look at Spearman (rank) correlations between our signals and COVID-19 case incidence rates, sliced by county. That is, for each county (with at least 500 cumulative cases), we compute the correlation between each signal and COVID-19 case incidence rates, over all time.
+
+```{r, message=FALSE, warning=FALSE}
+df_cor = vector("list", length(signals))
+for (i in 1:length(signals)) {
+  df_cor[[i]] = covidcast_cor(df_signals[[i]] %>% 
+                                filter(geo_value %in% geo_values), 
+                              df_cases %>% 
+                                filter(geo_value %in% geo_values), 
+                              by = "geo_value", method = "spearman")
+  df_cor[[i]]$signal = names[i]
+}
+df = do.call(rbind, df_cor)
+
+ggplot(df, aes(value)) +
+  geom_density(aes(color = signal, fill = signal), alpha = 0.4) +
+  guides(color = guide_legend(nrow = 2)) +
+  labs(title = "Correlation between signals and case rates",
+       subtitle = sprintf("Over all counties with at least %i cumulative cases",
+                          case_num), x = "Correlation", y = "density") +
+  theme(legend.position = "bottom", legend.title = element_blank())
+```
+
+According to the pdf of correlations for different signals, the GS related Smoothed Search signal obtains large time-series correlation with for a large proportion of regions with available estimates. The curves of GS A+A smoothed search and GS ageusia smoothed search are even more left-skewed compared with Facebook CLI-in-community.
+
+
+```{r}
+num_county_ageusia = length(unique(df_signals[[5]][!is.na(df_signals[[5]]$value),]$geo_value))
+num_county_anosmia = length(unique(df_signals[[6]][!is.na(df_signals[[6]]$value),]$geo_value))
+```
+
+Only 91 counties available for ageusia-related searches and 109 counties available for anosmia-related searches and the A+A search signal. For most of the available counties, they achieve good time-series correlation case data.
+
+We can also look at choropleth maps to get a geographic sense of the correlation distribution for each signal.
+
+```{r, message=FALSE, warning=FALSE}
+for (i in 5:length(signals)) {
+  df_cor[[i]]$time_value = start_day
+  df_cor[[i]]$issue = start_day
+  attributes(df_cor[[i]])$metadata$geo_type = "county"
+  class(df_cor[[i]]) = c("covidcast_signal", "data.frame")
+  
+  print(plot(df_cor[[i]], range = c(-1, 1), choro_col = cm.colors(10),
+            title = sprintf("Correlations for %s", names[i])))
+}
+```
+
+
+### Metro area analysis
+
+#### Getting data from API 
+We fetch various signals from our API, from April 15 through to the current day.
+
+```{r, message=FALSE, warning=FALSE, cache=TRUE}
+# Fetch the following sources and signals from the API 
+sources = c("doctor-visits", "fb-survey", "fb-survey", "ght",
+            "hospital-admissions", "indicator-combination")
+signals = c("smoothed_adj_cli", "smoothed_cli", "smoothed_hh_cmnty_cli", 
+            "smoothed_search", "smoothed_adj_covid19", 
+            "nmf_day_doc_fbc_fbs_ght")
+names = c("Doctor visits", "Facebook CLI", "Facebook CLI-in-community", 
+          "Google trends", "Hospitalizations", "Combo indicator")
+
+start_day = "2020-04-15"
+end_day = NULL
+
+df_signals = vector("list", length(signals))
+for (i in 1:length(signals)) {
+  df_signals[[i]] = covidcast_signal(sources[i], signals[i], start_day, end_day,
+                                     geo_type = "msa")
+}
+
+# Fetch USAFacts confirmed case incidence proportion (smoothed with 7-day
+# trailing average)
+df_cases = covidcast_signal("usa-facts", "confirmed_7dav_incidence_prop",
+                            start_day, end_day, geo_type = "msa")
+n = length(signals) + 3
+```
+
+#### Get GS data
+
+```{r, message=FALSE, warning=FALSE}
+library(stringr)
+dir = "../test_files/google-symptoms/"
+df_signals[[n-2]] = read.csv(paste(dir,"msa_ageusia_smoothed_search.csv", sep = ""),
+                                             colClasses=c("geo_value"="character", "time_value"="Date"))  %>%
+                                    filter(time_value >= as.Date("2020-04-15"))
+df_signals[[n-2]]$geo_value = str_pad(df_signals[[n-2]]$geo_value, width=5, side="left", pad="0")
+sources[n-2] = "google-symptoms"
+signals[n-2] = "ageusia_smoothed_search"
+names[n-2] = "GS Ageusia Smoothed Search"
+
+df_signals[[n-1]] = read.csv(paste(dir,"msa_anosmia_smoothed_search.csv", sep = ""),
+                                             colClasses=c("geo_value"="character", "time_value"="Date")) %>%
+                                    filter(time_value >= as.Date("2020-04-15"))
+df_signals[[n-1]]$geo_value = str_pad(df_signals[[n-1]]$geo_value, width=5, side="left", pad="0")
+sources[n-1] = "google-symptoms"
+signals[n-1] = "anosmia_smoothed_search"
+names[n-1] = "GS Anosmia Smoothed Search"
+
+df_signals[[n]] = read.csv(paste(dir,"msa_combined_symptoms_smoothed_search.csv", sep = ""),
+                                             colClasses=c("geo_value"="character", "time_value"="Date"))  %>%
+                                    filter(time_value >= as.Date("2020-04-15"))
+df_signals[[n]]$geo_value = str_pad(df_signals[[n]]$geo_value, width=5, side="left", pad="0")
+sources[n] = "google-symptoms"
+signals[n] = "combined_symptoms_smoothed_search"
+names[n] = "GS A+A Smoothed Search"
+```
+
+```{r, message=FALSE, warning=FALSE}
+# Consider only metro areas with at least 500 cumulative cases
+case_num = 500
+geo_values = covidcast_signal("usa-facts", "confirmed_cumulative_num",
+                              max(df_cases$time_value), 
+                              max(df_cases$time_value), 
+                              geo_type = "msa") %>%
+  filter(value >= case_num) %>% pull(geo_value)
+
+```
+
+#### Correlations sliced by time (Geo-wise correlation)
+Here we look at Spearman (rank) correlations between our signals and COVID-19 case incidence rates, sliced by time. That is, for each day, we compute the correlation between each signal and COVID-19 case incidence rates, over all metro areas (with at least 500 cumulative cases).
+
+```{r, message=FALSE, warning=FALSE, eval=FALSE}
+
+df_cor = vector("list", length(signals))
+for (i in 1:length(signals)) {
+  df_cor[[i]] = covidcast_cor(df_signals[[i]] %>% 
+                                filter(geo_value %in% geo_values), 
+                              df_cases %>% 
+                                filter(geo_value %in% geo_values), 
+                              by = "time_value", method = "spearman")
+  df_cor[[i]]$signal = names[i]
+}
+df = do.call(rbind, df_cor)
+
+ggplot(df, aes(x = time_value, y = value)) +
+  geom_line(aes(color = signal)) +
+  guides(color = guide_legend(nrow = 3)) +
+  labs(title = "Correlation between signals and case rates",
+       subtitle = sprintf("Over metro areas with at least %i cumulative cases",
+                          case_num), x = "Date", y = "Correlation") +
+  theme(legend.position = "bottom", legend.title = element_blank())
+
+#The google-symptoms signals do not obtain very competitive geo-wise correlation at MSA level which is intuitive since there is only ~100 counties available for ~60 MSAs. Remember that we aggregate the county level search volume by population-weighted average. The counties that fail to meet the privacy or quality thresholds will have value 0 instead of NAN during the aggregation from county level to MSA level. Thus, our MSA level estimates are not the `actual` ones but having bias to some extent due to a large proportion of counties with missing values within certain MSAs. 
+```
+
+
+Note that the search volume is normalized by population and is scaled by the maximum popularity across a specific time range within certain geographic regions, the values are not comparable between regions. So, it is meaningless to consider the geo-wise correlation.
+
+
+#### Correlations sliced by metro area
+Now we look at Spearman (rank) correlations between our signals and COVID-19 case incidence rates, sliced by metro area That is, for each metro area (with at least 500 cumulative cases), we compute the correlation between each signal and COVID-19 case incidence rates, over all time.
+
+```{r, message=FALSE, warning=FALSE}
+df_cor = vector("list", length(signals))
+for (i in 1:length(signals)) {
+  df_cor[[i]] = covidcast_cor(df_signals[[i]] %>% 
+                                filter(geo_value %in% geo_values), 
+                              df_cases %>% 
+                                filter(geo_value %in% geo_values), 
+                              by = "geo_value", method = "spearman")
+  df_cor[[i]]$signal = names[i]
+}
+df = do.call(rbind, df_cor)
+
+ggplot(df, aes(value)) +
+  geom_density(aes(color = signal, fill = signal), alpha = 0.4) +
+  guides(color = guide_legend(nrow = 3)) +
+  labs(title = "Correlation between signals and case rates",
+       subtitle = sprintf("Over metro areas with at least %i cumulative cases",
+                          case_num), x = "Correlation", y = "density") +
+  theme(legend.position = "bottom", legend.title = element_blank())
+```
+
+The time-series correlation at MSA level are not as good as what we see at county level. But in general, the GS related signals still obtain high correlation with a large proportion of MSA with available estimates. And the pdf curves for GS related signals are still highly left-skewed.
+
+
+Now look at choropleth maps to get a geographic sense of the correlation distribution for each signal.
+
+```{r, message=FALSE, warning=FALSE}
+num_msa_ageusia = length(unique(df_signals[[7]][!is.na(df_signals[[7]]$value),]$geo_value))
+num_msa_anosmia = length(unique(df_signals[[8]][!is.na(df_signals[[8]]$value),]$geo_value))
+```
+
+GS anosmia smoothed search has 64 MSAs available while GS ageusia smoothed search has 54 MSAs available.
